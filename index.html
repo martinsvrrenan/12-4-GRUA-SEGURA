@@ -439,25 +439,42 @@ $("#rx").onclick = () => {
 };
 
 $("#rp").onclick = () => {
-  const { a, d } = repData();
+  const { a, d } = repData(), s = stats(d), ew = evo(d, "w"), em = evo(d, "m");
   const w = window.open("", "_blank");
   if (!w) return alert("Permita pop-ups para este site e tente de novo.");
-  const tbl = (h, r) => `<table><thead><tr>${h.map(x => `<th>${esc(x)}</th>`).join("")}</tr></thead><tbody>${r.map(l => `<tr>${l.map(x => `<td>${esc(x)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
-  const mt = matrix(d, "tipo_projeto"), pd = pendList(d), ew = evo(d, "w"), em = evo(d, "m");
-  w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatório – Grua Segura</title>
-<style>body{font:12px Arial,sans-serif;margin:24px;color:#1b2430}h1{color:#1f3864;font-size:20px;margin:10px 0 2px}h2{font-size:14px;margin:18px 0 6px;color:#1f3864}
-table{border-collapse:collapse;width:100%;margin-bottom:8px}th,td{border:1px solid #c9d0dc;padding:4px 6px;text-align:left}th{background:#eef1f7}tr{page-break-inside:avoid}
-button{padding:8px 14px;font-size:14px}@media print{button{display:none}}</style></head><body>
-<button onclick="print()">Imprimir / Salvar como PDF</button>
-<h1>Adequação de Pontos de Grua Segura</h1><p>Relatório de acompanhamento · ${today()} · ${esc(a || "Todas as áreas")}</p>
-<h2>Resumo por área</h2>${tbl(RH, resumoRows(a, d))}
-<h2>Evolução semanal (últimas 12 semanas)</h2>${tbl(EH, evoLines(ew))}
-<h2>Evolução mensal (últimos 6 meses)</h2>${tbl(EH, evoLines(em))}
-<h2>Por tipo de projeto e status</h2>${tbl(["Tipo de projeto", ...ST], mt.keys.map((k, i) => [k, ...mt.m[i]]))}
-<h2>Pendências (${pd.length})</h2>${pd.length ? tbl(["Área", "Equipamento", "Tipo de projeto", "Pendência"], pd.map(([r, t]) => [r.area, r.equipamento, r.tipo_projeto, t])) : "Nenhuma pendência."}
-<h2>Todos os registros</h2>${tbl(["Área", "Equipamento", "Tipo de projeto", "Qtd", "Levantamento", "Status do projeto", "file_name", "Sphera"], d.map(r => [r.area, r.equipamento, r.tipo_projeto, r.qtd ?? "", r.status_levantamento, r.status_projeto, r.file_name || "", r.sphera || ""]))}
-</body></html>`);
-  w.document.close(); setTimeout(() => w.print(), 500);
+  const esc2 = x => esc(String(x ?? ""));
+  const kpis = [["Linhas de projeto", s.n], ["Levantados", pc(s.lev, s.n)], ["Com desenho", pc(s.des, s.n)], ["No Sphera", pc(s.sph, s.n)], ["Comprados", pc(s.comp, s.n)]];
+  const chartSvg = (e, title) => {
+    const W=520,H=172,L=34,R=12,T=24,B=34, pw=W-L-R, ph=H-T-B;
+    const keys=[["Levantados","lev","#f2a93b"],["Com desenho","des","#3b82c4"],["No Sphera","sph","#7a5cc7"],["Comprados","comp","#2e9e5b"]];
+    const max=Math.max(1,...e.rows.flatMap(r=>keys.map(k=>r[k[1]])));
+    const x=i=>L+(e.rows.length<2?pw/2:i*pw/(e.rows.length-1));
+    const y=v=>T+ph-(v/max)*ph;
+    let g=`<text x="${L}" y="14" font-size="12" font-weight="700" fill="#1f3864">${title}</text>`;
+    for(let j=0;j<=3;j++){let val=Math.round(max*j/3), yy=y(val);g+=`<line x1="${L}" y1="${yy}" x2="${W-R}" y2="${yy}" stroke="#e1e6ee"/><text x="${L-7}" y="${yy+3}" text-anchor="end" font-size="9" fill="#657084">${val}</text>`;}
+    keys.forEach(([name,key,color])=>{
+      const pts=e.rows.map((r,i)=>`${x(i)},${y(r[key])}`).join(" ");
+      g+=`<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+      e.rows.forEach((r,i)=>{g+=`<circle cx="${x(i)}" cy="${y(r[key])}" r="2.3" fill="${color}"/>`;});
+    });
+    const step=Math.max(1,Math.ceil(e.labels.length/6));
+    e.labels.forEach((lab,i)=>{if(i%step===0||i===e.labels.length-1)g+=`<text x="${x(i)}" y="${H-18}" text-anchor="middle" font-size="9" fill="#657084">${esc2(lab)}</text>`;});
+    let lx=L; keys.forEach(([name,key,color])=>{g+=`<line x1="${lx}" y1="${H-5}" x2="${lx+12}" y2="${H-5}" stroke="${color}" stroke-width="3"/><text x="${lx+16}" y="${H-2}" font-size="9" fill="#4d596b">${name}</text>`;lx += name.length*5.1+34;});
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${title}" xmlns="http://www.w3.org/2000/svg">${g}</svg>`;
+  };
+  const resumo = `No período apresentado, o sistema reúne ${s.n} linhas de projeto. Foram registrados ${s.lev} levantamentos, ${s.des} itens com desenho, ${s.sph} cadastros no Sphera e ${s.comp} itens comprados. A evolução considera o histórico disponível no aplicativo; períodos sem registros não representam necessariamente ausência de atividade.`;
+  w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Relatório executivo – Grua Segura</title>
+<style>
+@page{size:A4 landscape;margin:7mm}*{box-sizing:border-box}html,body{margin:0;padding:0;color:#1b2430;font:9px Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}.sheet{width:100%;height:195mm;overflow:hidden;padding:2mm 1mm}.head{display:flex;align-items:center;gap:10px;background:#1f3864;color:#fff;padding:9px 12px;border-radius:7px}.head img{width:42px;height:42px;object-fit:contain;border-radius:7px;background:#fff}.head h1{font-size:18px;margin:0 0 3px}.sub{font-size:9px;color:#e2e8f0}.date{margin-left:auto;text-align:right;font-size:9px}.intro{display:grid;grid-template-columns:1.05fr 1fr;gap:10px;margin:9px 0}.panel{border:1px solid #dce2eb;border-radius:6px;padding:8px;background:#fff}.panel h2{font-size:11px;color:#1f3864;margin:0 0 5px}.panel p{margin:0;line-height:1.4;font-size:9px}.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin:0 0 9px}.kpi{border:1px solid #dce2eb;border-top:3px solid #f2b705;border-radius:6px;padding:7px;text-align:center;background:#f8faff}.kpi strong{display:block;color:#1f3864;font-size:20px;margin-bottom:2px}.kpi span{font-size:8px;color:#5b6677}.charts{display:grid;grid-template-columns:1fr 1fr;gap:9px}.chart{border:1px solid #dce2eb;border-radius:6px;padding:5px 7px;min-width:0}.chart svg{width:100%;height:auto;display:block}.foot{display:flex;justify-content:space-between;margin-top:7px;padding-top:5px;border-top:1px solid #dce2eb;color:#657084;font-size:8px}.note{margin-top:7px;padding:7px 9px;background:#eef3fb;border-left:3px solid #f2b705;border-radius:4px;line-height:1.35}@media screen{body{background:#e8edf5;padding:12px}.sheet{max-width:1100px;height:auto;min-height:180mm;margin:auto;background:#fff;box-shadow:0 2px 12px #0002}.printbtn{display:block;margin:0 auto 10px;padding:9px 16px;background:#1f3864;color:white;border:0;border-radius:5px;font-size:14px}}@media print{.printbtn{display:none}.sheet{height:195mm;page-break-after:avoid}}
+</style></head><body><button class="printbtn" onclick="window.print()">Imprimir / Salvar como PDF</button><main class="sheet">
+<header class="head"><img src="${location.origin}/icon-192.png" alt="Ícone Grua Segura"><div><h1>Adequação de Pontos de Grua Segura</h1><div class="sub">Acompanhamento de adequações de segurança em pontes rolantes</div></div><div class="date"><b>RELATÓRIO EXECUTIVO</b><br>Emitido em ${today()}<br>${esc2(a || "Todas as áreas")}</div></header>
+<section class="intro"><div class="panel"><h2>Objetivo do projeto</h2><p>Acompanhar o levantamento, a definição e a implementação das adequações dos pontos de segurança das pontes rolantes, organizando o avanço dos desenhos, cadastros no Sphera e compras para apoiar o planejamento e a tomada de decisão.</p></div><div class="panel"><h2>Evolução no período</h2><p>${esc2(resumo)}</p></div></section>
+<section class="kpis">${kpis.map(([l,v])=>`<div class="kpi"><strong>${esc2(v)}</strong><span>${esc2(l)}</span></div>`).join("")}</section>
+<section class="charts"><div class="chart">${chartSvg(ew,"Evolução semanal · últimas 12 semanas")}</div><div class="chart">${chartSvg(em,"Evolução mensal · últimos 6 meses")}</div></section>
+<div class="note"><b>Leitura dos gráficos:</b> as linhas mostram a quantidade acumulada de itens em cada etapa, conforme o histórico registrado no aplicativo. O histórico é registrado a partir da ativação desta função; datas anteriores podem aparecer sem movimento.</div>
+<footer class="foot"><span>Grua Segura · Acompanhamento de pontos de segurança</span><span>Dados conforme registros disponíveis no aplicativo · ${today()}</span></footer>
+</main></body></html>`);
+  w.document.close();
 };
 
 $("#rpp").onclick = () => {
