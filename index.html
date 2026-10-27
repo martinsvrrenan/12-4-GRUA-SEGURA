@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grua Segura – Acompanhamento</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;font:14px Arial,sans-serif;background:#f3f5f9;color:#1b2430}
+header{background:#1f3864;color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+header h1{font-size:16px;margin:0}nav{display:flex;gap:6px;padding:8px 14px;background:#fff;border-bottom:1px solid #d9dee8;overflow-x:auto}
+nav button{border:0;background:#e8ecf4;padding:8px 14px;border-radius:6px;cursor:pointer;white-space:nowrap}nav button.on{background:#1f3864;color:#fff}
+main{padding:14px;max-width:1200px;margin:auto}.card{background:#fff;border-radius:8px;padding:12px;box-shadow:0 1px 3px #0001;margin-bottom:12px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
+.kpi b{display:block;font-size:22px;color:#1f3864}.kpi span{font-size:12px;color:#5b6677}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}.ch{height:300px;position:relative}
+input,select,textarea,button{font:inherit;padding:8px;border:1px solid #c5ccd8;border-radius:6px;max-width:100%}
+button.p{background:#1f3864;color:#fff;border:0;cursor:pointer}button.d{background:#b3261e;color:#fff;border:0;cursor:pointer}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:760px}th,td{padding:7px 8px;border-bottom:1px solid #e3e7ef;text-align:left;vertical-align:top}
+th{background:#eef1f7;position:sticky;top:0}tr.r{cursor:pointer}tr.r:hover{background:#f0f4fb}
+.tag{padding:2px 8px;border-radius:10px;font-size:12px;background:#e8ecf4;white-space:nowrap}
+dialog{border:0;border-radius:10px;padding:16px;width:min(560px,94vw)}dialog::backdrop{background:#0006}
+label{display:block;font-size:12px;color:#5b6677;margin-top:8px}label input,label select,label textarea{width:100%}
+#login{max-width:340px;margin:12vh auto}#login input{width:100%;margin-bottom:8px}.err{color:#b3261e}.hide{display:none!important}
+</style>
+</head>
+<body>
+<div id="login" class="card hide">
+  <h2>Grua Segura</h2>
+  <input id="em" type="email" placeholder="E-mail" autocomplete="username">
+  <input id="pw" type="password" placeholder="Senha" autocomplete="current-password">
+  <button class="p" id="go" style="width:100%">Entrar</button>
+  <p class="err" id="lerr"></p>
+</div>
+
+<div id="app" class="hide">
+<header><h1>Adequação de Pontos de Grua Segura</h1><button id="out">Sair</button></header>
+<nav><button data-t="t1" class="on">Dashboard</button><button data-t="t2">Cadastro</button><button data-t="t3">Importar / Exportar</button></nav>
+<main>
+ <section id="t1">
+  <div class="bar"><select id="dA"><option value="">Todas as áreas</option></select></div>
+  <div class="cards" id="kpis"></div>
+  <div class="grid">
+   <div class="card"><b>Por área e status</b><div class="ch"><canvas id="c1"></canvas></div></div>
+   <div class="card"><b>Funil do projeto</b><div class="ch"><canvas id="c2"></canvas></div></div>
+   <div class="card" style="grid-column:1/-1"><b>Por tipo de projeto e status</b><div class="ch" style="height:380px"><canvas id="c3"></canvas></div></div>
+  </div>
+  <div class="card"><b>Pendências</b><div class="tw" id="pend"></div></div>
+ </section>
+
+ <section id="t2" class="hide">
+  <div class="bar">
+   <select id="fA"><option value="">Área</option></select>
+   <select id="fS"><option value="">Status do projeto</option></select>
+   <input id="fQ" placeholder="Buscar equipamento, tipo, file name…">
+   <button class="p" id="novo">+ Novo ponto</button>
+  </div>
+  <div class="card tw"><table><thead><tr><th>Área</th><th>Equipamento</th><th>Tipo de projeto</th><th>Qtd</th><th>Levant.</th><th>Status</th><th>file_name</th><th>Sphera</th></tr></thead><tbody id="tb"></tbody></table></div>
+  <small id="cnt"></small>
+ </section>
+
+ <section id="t3" class="hide">
+  <div class="card">
+   <b>Importar planilha (.xlsx)</b>
+   <p>Use o arquivo <i>pontos_grua_segura_importacao.xlsx</i> (aba “Pontos”).</p>
+   <input type="file" id="fi" accept=".xlsx,.xls,.csv">
+   <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="rep" style="width:auto"> Substituir todos os dados existentes</label>
+   <p id="pv"></p><button class="p hide" id="imp">Importar</button>
+  </div>
+  <div class="card"><b>Exportar</b><p>Baixa todos os pontos cadastrados em Excel.</p><button class="p" id="exp">Exportar para Excel</button></div>
+ </section>
+</main>
+</div>
+
+<dialog id="dlg"><form id="f">
+ <h3 id="dt">Ponto</h3><input type="hidden" name="id">
+ <label>Área<select name="area" id="fArea" required></select></label>
+ <label>Equipamento (tag)<input name="equipamento" required></label>
+ <label>Tipo de equipamento<input name="tipo_equipamento"></label>
+ <label>Tipo de projeto<input name="tipo_projeto" list="tps" required></label><datalist id="tps"></datalist>
+ <label>Quantidade<input name="qtd" type="number" step="any"></label>
+ <label>Detalhe / local<textarea name="detalhe" rows="2"></textarea></label>
+ <label>Status do levantamento<select name="status_levantamento"><option>Pendente</option><option>Levantado</option></select></label>
+ <label>Status do projeto<select name="status_projeto" id="fSt"></select></label>
+ <label>file_name (nome do desenho)<input name="file_name"></label>
+ <label>Nº requisição Sphera<input name="sphera"></label>
+ <label>Responsável<input name="responsavel"></label>
+ <label>Observações<textarea name="observacoes" rows="2"></textarea></label>
+ <div class="bar" style="margin-top:14px"><button class="p">Salvar</button><button type="button" id="cx">Cancelar</button><button type="button" class="d hide" id="del">Excluir</button></div>
+</form></dialog>
+
+<script>
+// ====== CONFIGURE AQUI (Supabase > Project Settings > API) ======
+const SUPABASE_URL = "https://zfuywlkhshrmrqwhfrwc.supabase.co";
+const SUPABASE_KEY = "sb_publishable_2fuc9-7Jn0oRM6LznlSGYw_4gGqWf_Y";
+// ================================================================
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const AREAS = ["Aciaria","Oficina Central","Porto"];
+const ST = ["A projetar","Em projeto","Desenho concluído","Cadastrado no Sphera","Comprado"];
+const COL = ["#b0b7c3","#f2a93b","#3b82c4","#7a5cc7","#2e9e5b"];
+const TIPOS = ["Proteção NR12 (partes girantes)","Sistema antiqueda","Linha de vida","Plataforma de acesso","Portão para escada de acesso à viga de rolamento","Grade de piso (garagem de manutenção)"];
+const MAP = {"Área":"area","Equipamento":"equipamento","Tipo de equipamento":"tipo_equipamento","Tipo de projeto":"tipo_projeto","Qtd. no escopo":"qtd","Detalhe do escopo":"detalhe","Status do levantamento":"status_levantamento","Status do projeto":"status_projeto","file_name (desenho)":"file_name","Nº requisição Sphera":"sphera","Responsável":"responsavel","Observações":"observacoes"};
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let rows = [], charts = {}, pending = [];
+const si = r => Math.max(0, ST.indexOf(r.status_projeto));
+
+function fillSelect(el, items, first) {
+  el.innerHTML = (first ? `<option value="">${first}</option>` : "") + items.map(i => `<option>${i}</option>`).join("");
+}
+fillSelect($("#dA"), AREAS, "Todas as áreas"); fillSelect($("#fA"), AREAS, "Área");
+fillSelect($("#fS"), ST, "Status do projeto"); fillSelect($("#fArea"), AREAS); fillSelect($("#fSt"), ST);
+
+// ---------- Login ----------
+async function boot() {
+  const { data } = await sb.auth.getSession();
+  showApp(!!data.session);
+}
+function showApp(ok) {
+  $("#login").classList.toggle("hide", ok); $("#app").classList.toggle("hide", !ok);
+  if (ok) load();
+}
+$("#go").onclick = async () => {
+  $("#lerr").textContent = "";
+  const { error } = await sb.auth.signInWithPassword({ email: $("#em").value.trim(), password: $("#pw").value });
+  if (error) $("#lerr").textContent = "Não foi possível entrar: " + error.message; else showApp(true);
+};
+$("#out").onclick = async () => { await sb.auth.signOut(); showApp(false); };
+
+// ---------- Dados ----------
+async function load() {
+  const { data, error } = await sb.from("pontos").select("*").order("area").order("equipamento").limit(5000);
+  if (error) return alert("Erro ao carregar: " + error.message);
+  rows = data;
+  const tps = [...new Set([...TIPOS, ...rows.map(r => r.tipo_projeto)])];
+  $("#tps").innerHTML = tps.map(t => `<option value="${esc(t)}">`).join("");
+  dash(); table();
+}
+
+// ---------- Abas ----------
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
+  ["t1","t2","t3"].forEach(t => $("#" + t).classList.toggle("hide", t !== b.dataset.t));
+});
+
+// ---------- Dashboard ----------
+const pct = (x, n) => `${Math.round(100 * x / n)}%`;
+function stack(id, field, d, horiz) {
+  const keys = [...new Set(d.map(r => r[field] || "—"))].sort();
+  const ds = ST.map((s, i) => ({ label: s, backgroundColor: COL[i], data: keys.map(k => d.filter(r => (r[field] || "—") === k && si(r) === i).length) }));
+  charts[id]?.destroy();
+  charts[id] = new Chart($("#" + id), { type: "bar", data: { labels: keys, datasets: ds },
+    options: { indexAxis: horiz ? "y" : "x", responsive: true, maintainAspectRatio: false,
+      scales: { x: { stacked: true, beginAtZero: true }, y: { stacked: true, beginAtZero: true } }, plugins: { legend: { position: "bottom" } } } });
+}
+function dash() {
+  const a = $("#dA").value, d = a ? rows.filter(r => r.area === a) : rows, n = d.length || 1;
+  const lev = d.filter(r => r.status_levantamento === "Levantado").length;
+  const c = k => d.filter(r => si(r) >= k).length;
+  const k = [["Linhas de projeto", d.length], ["Levantados", pct(lev, n)], ["Com desenho", pct(c(2), n)], ["Cadastrados no Sphera", pct(c(3), n)], ["Comprados", pct(c(4), n)]];
+  $("#kpis").innerHTML = k.map(([l, v]) => `<div class="card kpi" style="margin:0"><b>${v}</b><span>${l}</span></div>`).join("");
+  stack("c1", "area", d); stack("c3", "tipo_projeto", d, true);
+  charts.c2?.destroy();
+  charts.c2 = new Chart($("#c2"), { type: "bar", data: { labels: ["Total", "Levantados", "Desenho concluído+", "No Sphera+", "Comprados"],
+    datasets: [{ data: [d.length, lev, c(2), c(3), c(4)], backgroundColor: ["#b0b7c3", "#f2a93b", "#3b82c4", "#7a5cc7", "#2e9e5b"] }] },
+    options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+  const p1 = d.filter(r => r.status_levantamento === "Levantado" && si(r) < 2).map(r => [r, "Levantado, sem desenho"]);
+  const p2 = d.filter(r => si(r) === 2).map(r => [r, "Desenho pronto, falta Sphera"]);
+  const p = [...p1, ...p2];
+  $("#pend").innerHTML = p.length ? `<table style="min-width:520px"><tr><th>Área</th><th>Equipamento</th><th>Tipo</th><th>Pendência</th></tr>${p.slice(0, 80).map(([r, t]) =>
+    `<tr><td>${esc(r.area)}</td><td>${esc(r.equipamento)}</td><td>${esc(r.tipo_projeto)}</td><td>${t}</td></tr>`).join("")}</table>` + (p.length > 80 ? `<small>+${p.length - 80} itens</small>` : "") : "Nenhuma pendência.";
+}
+$("#dA").onchange = dash;
+
+// ---------- Cadastro ----------
+function table() {
+  const a = $("#fA").value, s = $("#fS").value, q = $("#fQ").value.toLowerCase();
+  const d = rows.filter(r => (!a || r.area === a) && (!s || ST[si(r)] === s) &&
+    (!q || [r.equipamento, r.tipo_projeto, r.file_name, r.sphera, r.responsavel].join(" ").toLowerCase().includes(q)));
+  $("#tb").innerHTML = d.map(r => `<tr class="r" data-id="${r.id}"><td>${esc(r.area)}</td><td>${esc(r.equipamento)}</td><td>${esc(r.tipo_projeto)}</td><td>${r.qtd ?? ""}</td><td>${esc(r.status_levantamento)}</td><td><span class="tag">${esc(r.status_projeto)}</span></td><td>${esc(r.file_name)}</td><td>${esc(r.sphera)}</td></tr>`).join("");
+  $("#cnt").textContent = `${d.length} de ${rows.length} linhas`;
+  document.querySelectorAll("tr.r").forEach(tr => tr.onclick = () => edit(rows.find(r => r.id == tr.dataset.id)));
+}
+["fA", "fS"].forEach(i => $("#" + i).onchange = table); $("#fQ").oninput = table;
+function edit(r) {
+  const f = $("#f"); f.reset();
+  $("#dt").textContent = r ? "Editar ponto" : "Novo ponto"; $("#del").classList.toggle("hide", !r);
+  f.elements.id.value = r?.id ?? "";
+  if (r) for (const k in MAP) { const n = MAP[k]; if (f[n]) f[n].value = r[n] ?? ""; }
+  $("#dlg").showModal();
+}
+$("#novo").onclick = () => edit(null); $("#cx").onclick = () => $("#dlg").close();
+$("#f").onsubmit = async e => {
+  e.preventDefault();
+  const o = Object.fromEntries(new FormData(e.target));
+  o.qtd = o.qtd === "" ? null : Number(o.qtd);
+  for (const k in o) if (o[k] === "") o[k] = null;
+  if (ST.indexOf(o.status_projeto) >= 2 && !o.file_name) return alert("Informe o file_name do desenho para este status.");
+  const id = o.id; delete o.id;
+  const { error } = await (id ? sb.from("pontos").update(o).eq("id", id) : sb.from("pontos").insert(o));
+  if (error) return alert("Erro ao salvar: " + error.message);
+  $("#dlg").close(); load();
+};
+$("#del").onclick = async () => {
+  if (!confirm("Excluir este ponto?")) return;
+  const { error } = await sb.from("pontos").delete().eq("id", $("#f").elements.id.value);
+  if (error) return alert(error.message);
+  $("#dlg").close(); load();
+};
+
+// ---------- Importar / Exportar ----------
+$("#fi").onchange = async e => {
+  const file = e.target.files[0]; if (!file) return;
+  const wb = XLSX.read(await file.arrayBuffer());
+  const ws = wb.Sheets["Pontos"] || wb.Sheets[wb.SheetNames[0]];
+  const js = XLSX.utils.sheet_to_json(ws, { defval: null });
+  const errs = []; pending = [];
+  js.forEach((row, i) => {
+    const o = {};
+    for (const k in MAP) { const v = row[k]; o[MAP[k]] = (v === null || v === "") ? null : v; }
+    if (o.qtd !== null) o.qtd = Number(o.qtd) || null;
+    if (o.sphera !== null) o.sphera = String(o.sphera);
+    if (!AREAS.includes(o.area)) errs.push(`Linha ${i + 2}: área inválida (${o.area})`);
+    else if (!o.equipamento || !o.tipo_projeto) errs.push(`Linha ${i + 2}: falta equipamento ou tipo de projeto`);
+    else {
+      if (!["Pendente", "Levantado"].includes(o.status_levantamento)) o.status_levantamento = "Pendente";
+      if (!ST.includes(o.status_projeto)) o.status_projeto = "A projetar";
+      pending.push(o);
+    }
+  });
+  $("#pv").innerHTML = `<b>${pending.length}</b> linhas válidas.` + (errs.length ? `<br><span class="err">${errs.length} com erro:<br>${errs.slice(0, 10).map(esc).join("<br>")}</span>` : "");
+  $("#imp").classList.toggle("hide", !pending.length);
+};
+$("#imp").onclick = async () => {
+  if ($("#rep").checked && !confirm("Isso APAGA todos os pontos atuais antes de importar. Continuar?")) return;
+  if ($("#rep").checked) { const { error } = await sb.from("pontos").delete().gt("id", 0); if (error) return alert(error.message); }
+  for (let i = 0; i < pending.length; i += 200) {
+    const { error } = await sb.from("pontos").insert(pending.slice(i, i + 200));
+    if (error) return alert("Erro na importação: " + error.message);
+  }
+  alert(pending.length + " linhas importadas."); $("#fi").value = ""; $("#pv").textContent = ""; $("#imp").classList.add("hide"); load();
+};
+$("#exp").onclick = () => {
+  const out = rows.map(r => { const o = {}; for (const k in MAP) o[k] = r[MAP[k]]; return o; });
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(out), "Pontos");
+  XLSX.writeFile(wb, "pontos_grua_segura.xlsx");
+};
+
+boot();
+</script>
+</body>
+</html>
