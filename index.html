@@ -44,6 +44,11 @@ main{padding:22px;max-width:1400px;margin-left:var(--sb)}
 .kpi small{display:block;margin-top:6px;font-size:11.5px;line-height:1.35;color:var(--mut);font-weight:600}.kpi small em{font-style:normal;color:#2e9e5b;font-weight:700}.kpi small i{font-style:normal;color:#d9822b;font-weight:700}
 .kpi .pb{height:5px;border-radius:3px;background:#e9edf4;margin-top:8px;overflow:hidden}.kpi .pb u{display:block;height:100%;background:#2e9e5b;border-radius:3px}
 .seg{display:flex;gap:4px;margin-top:8px;background:#eef1f7;border-radius:9px;padding:3px}.seg button{flex:1;min-height:0;padding:5px 6px;font-size:11.5px;border:0;background:transparent;color:var(--mut);border-radius:7px}.seg button.on{background:var(--navy);color:#fff}
+details.dt>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:11px 14px;border:1px solid #cdd4e1;border-radius:10px;font-weight:700;color:var(--navy);background:#f7f8fb}
+details.dt>summary::-webkit-details-marker{display:none}details.dt>summary small{margin-left:auto;font-weight:500}details.dt>summary::after{content:"▾";transition:transform .15s}details.dt[open]>summary::after{transform:rotate(180deg)}details.dt[open]>summary{margin-bottom:12px}
+.cnt{background:var(--navy);color:#fff;border-radius:20px;padding:1px 10px;font-size:12px;margin-left:8px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#b0b7c3;margin-right:6px}.dot.on{background:#2e9e5b;box-shadow:0 0 0 3px #2e9e5b33}
+.uf{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:10px 0;padding:14px;border:1px dashed #cdd4e1;border-radius:12px;background:#fafbfd}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:14px}
 .ch{height:300px;position:relative}.ch.tall{height:380px}
 input,select,textarea,button{font:inherit;padding:9px 12px;border:1px solid #cdd4e1;border-radius:10px;max-width:100%;background:#fff;color:var(--txt);transition:border-color .15s,box-shadow .15s,background .15s}
@@ -127,13 +132,13 @@ a{color:var(--blue);font-weight:600}small{color:var(--mut)}.err{color:#c0362c}.h
   </div>
   <div class="card">
    <div class="bar" style="justify-content:space-between;align-items:center"><b>Evolução e andamento</b>
-    <select id="evP"><option value="w">Semanal (12 semanas)</option><option value="m">Mensal (6 meses)</option></select></div>
+    <div class="bar" style="margin:0"><select id="evS" title="Etapa acompanhada no cronograma"><option value="lev">Levantados</option><option value="des">Com desenho</option><option value="sph">No Sphera</option><option value="sap">No SAP</option><option value="comp" selected>Comprados</option></select><select id="evP"><option value="p">Cronograma do projeto (01/07/2026 – 30/06/2027)</option><option value="w">Semanal (12 semanas)</option><option value="m">Mensal (6 meses)</option></select></div></div>
    <div class="cards" id="evk"></div>
    <div class="ch"><canvas id="c4"></canvas></div>
-   <div class="tw" id="evt" style="margin-top:10px"></div>
-   <small>O histórico é registrado a partir da instalação desta função; datas anteriores aparecem sem movimento.</small>
+   <small id="evn"></small>
+   <details class="dt" id="evd" style="margin-top:12px"><summary id="evs">Ver histórico</summary><div class="tw" id="evt"></div></details>
   </div>
-  <div class="card"><b>Pendências</b><div class="tw" id="pend"></div></div>
+  <div class="card"><details class="dt" id="pdd"><summary><span>Pendências<span class="cnt" id="pdn">0</span></span><small>clique para ver a lista</small></summary><div class="tw" id="pend"></div></details></div>
  </section>
 
  <section id="t2" class="hide">
@@ -173,9 +178,21 @@ a{color:var(--blue);font-weight:600}small{color:var(--mut)}.err{color:#c0362c}.h
  </section>
 
  <section id="t4" class="hide">
-  <div class="card tw"><b>Usuários</b>
-   <p>Contas novas entram como “Pendente” e só veem os dados depois que você liberar.</p>
-   <table class="st" style="min-width:480px"><thead><tr><th>E-mail</th><th>Acesso</th><th>Criada em</th></tr></thead><tbody id="ub"></tbody></table>
+  <div class="card">
+   <div class="bar" style="justify-content:space-between;margin-bottom:4px"><b>Usuários</b><button class="p" id="uNew">+ Criar conta</button></div>
+   <p>Contas novas entram como “Pendente” e só veem os dados depois que você liberar. Online = usou o app nos últimos 2 minutos.</p>
+   <div class="uf hide" id="uForm">
+    <input id="uEm" type="email" placeholder="E-mail do usuário" autocomplete="off">
+    <input id="uPw" type="text" placeholder="Senha (mín. 6 caracteres)" autocomplete="off">
+    <select id="uPap"></select>
+    <div class="bar" style="margin:0"><button class="p" id="uOk">Criar</button><button id="uNo">Cancelar</button></div>
+    <small id="uMsg" style="grid-column:1/-1"></small>
+   </div>
+   <div class="tw"><table class="st" style="min-width:980px"><thead><tr><th>E-mail</th><th>Status</th><th>Acesso</th><th>Último login</th><th>Última ação</th><th>Criada em</th><th></th></tr></thead><tbody id="ub"></tbody></table></div>
+  </div>
+  <div class="card">
+   <div class="bar" style="justify-content:space-between"><b>Log de ações</b><div class="bar" style="margin:0"><select id="lgU"><option value="">Todos os usuários</option></select><button class="p" id="lgX">Exportar histórico (Excel)</button></div></div>
+   <details class="dt" id="lgd"><summary>Ver últimas ações<small>até 200 registros</small></summary><div class="tw" id="lgt"></div></details>
   </div>
  </section>
 </main>
@@ -236,7 +253,7 @@ fillSelect($("#dA"), AREAS, "Todas as áreas"); fillSelect($("#rA"), AREAS, "Tod
 fillSelect($("#fS"), ST, "Status do projeto"); fillSelect($("#fArea"), AREAS); fillSelect($("#fSt"), ST);
 
 // ---------- Login e acesso ----------
-let papel = null, canEdit = false, canDelete = false, canImport = false, signup = false, me = null;
+let papel = null, canEdit = false, canDelete = false, canImport = false, signup = false, me = null, myEmail = "", hb = null;
 const PAPEIS = [["pendente","Pendente (sem acesso)"],["visualizador","Visualizador"],["colaborador","Colaborador"],["editor","Editor"],["admin","Administrador"]];
 async function boot() {
   const { data } = await sb.auth.getSession();
@@ -245,7 +262,7 @@ async function boot() {
 async function enter(session) {
   ["login", "app", "wait"].forEach(i => $("#" + i).classList.add("hide"));
   if (!session) return $("#login").classList.remove("hide");
-  me = session.user.id;
+  me = session.user.id; myEmail = session.user.email || "";
   const { data } = await sb.from("perfis").select("papel").eq("id", me).maybeSingle();
   papel = data?.papel || "pendente";
   if (papel === "pendente") return $("#wait").classList.remove("hide");
@@ -257,6 +274,7 @@ async function enter(session) {
   document.querySelector('nav button[data-t="t3"]').classList.toggle("hide", !canImport);
   $("#navU").classList.toggle("hide", papel !== "admin");
   $("#app").classList.remove("hide"); load();
+  clearInterval(hb); presenca(false); hb = setInterval(() => { if (!document.hidden) presenca(false); }, 60000);
 }
 $("#tg").onclick = e => {
   e.preventDefault(); signup = !signup;
@@ -278,19 +296,83 @@ $("#go").onclick = async () => {
   }
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   if (error) { err.textContent = "Não foi possível entrar: " + error.message; return; }
-  enter(data.session);
+  await enter(data.session); presenca(true); logAcao("Login");
 };
-$("#out").onclick = $("#wout").onclick = async () => { await sb.auth.signOut(); enter(null); };
+$("#out").onclick = $("#wout").onclick = async () => { clearInterval(hb); await logAcao("Logout"); await sb.rpc("registrar_presenca", { p_login: false, p_online: false }); await sb.auth.signOut(); enter(null); };
+// Registro de ações e presença (funções criadas pelo arquivo usuarios_logs.sql)
+async function logAcao(acao, detalhe = "") { try { await sb.rpc("registrar_acao", { p_acao: acao, p_detalhe: detalhe }); } catch (e) {} }
+async function presenca(login) { try { await sb.rpc("registrar_presenca", { p_login: !!login, p_online: true }); } catch (e) {} }
 
+const dtf = (x, seg) => x ? new Date(x).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: seg ? "medium" : "short" }) : "—";
+const SQLU = "Execute o arquivo usuarios_logs.sql no SQL Editor do Supabase e tente novamente.";
+fillSelect($("#uPap"), PAPEIS.map(p => p[0]));
+document.querySelectorAll("#uPap option").forEach((o, i) => { o.textContent = PAPEIS[i][1]; }); $("#uPap").value = "visualizador";
 async function users() {
-  const { data, error } = await sb.from("perfis").select("*").order("created_at");
-  if (error) return;
-  $("#ub").innerHTML = data.map(u => `<tr ${u.papel === "pendente" ? 'style="background:#fff7e0"' : ""}><td class="h"><b>${esc(u.email)}</b></td><td data-l="Acesso"><div class="v"><select data-id="${u.id}" ${u.id === me ? "disabled" : ""}>${PAPEIS.map(p => `<option value="${p[0]}" ${p[0] === u.papel ? "selected" : ""}>${p[1]}</option>`).join("")}</select></div></td><td data-l="Criada em"><div class="v">${new Date(u.created_at).toLocaleDateString("pt-BR")}</div></td></tr>`).join("");
+  const [pr, lg] = await Promise.all([sb.from("perfis").select("*").order("created_at"),
+    sb.from("logs_acao").select("user_id,acao,detalhe,created_at").order("created_at", { ascending: false }).limit(1500)]);
+  if (pr.error) return;
+  const last = {}; (lg.data || []).forEach(l => { if (l.user_id && !last[l.user_id]) last[l.user_id] = l; });
+  const now = Date.now();
+  $("#ub").innerHTML = pr.data.map(u => {
+    const on = u.id === me || (u.online_ate && new Date(u.online_ate).getTime() > now), l = last[u.id];
+    return `<tr ${u.papel === "pendente" ? 'style="background:#fff7e0"' : ""}><td class="h"><b>${esc(u.email)}</b>${u.id === me ? " <small>(você)</small>" : ""}</td>
+    <td data-l="Status"><div class="v"><span class="dot ${on ? "on" : ""}"></span>${on ? "Online" : "Offline"}</div></td>
+    <td data-l="Acesso"><div class="v"><select data-id="${u.id}" data-em="${esc(u.email)}" ${u.id === me ? "disabled" : ""}>${PAPEIS.map(p => `<option value="${p[0]}" ${p[0] === u.papel ? "selected" : ""}>${p[1]}</option>`).join("")}</select></div></td>
+    <td data-l="Último login"><div class="v">${dtf(u.ultimo_login)}</div></td>
+    <td data-l="Última ação"><div class="v">${l ? `${esc(l.acao)}${l.detalhe ? " · " + esc(l.detalhe) : ""}<br><small>${dtf(l.created_at)}</small>` : "—"}</div></td>
+    <td data-l="Criada em"><div class="v">${new Date(u.created_at).toLocaleDateString("pt-BR")}</div></td>
+    <td><div class="v"><button class="d" data-del="${u.id}" data-em="${esc(u.email)}" ${u.id === me ? "disabled" : ""}>Excluir</button></div></td></tr>`;
+  }).join("");
   document.querySelectorAll("#ub select").forEach(sel => sel.onchange = async () => {
     const { error } = await sb.from("perfis").update({ papel: sel.value }).eq("id", sel.dataset.id);
-    if (error) alert(error.message);
+    if (error) return alert(error.message);
+    logAcao("Alterou acesso", `${sel.dataset.em} → ${sel.value}`);
   });
+  document.querySelectorAll("#ub button[data-del]").forEach(bt => bt.onclick = async () => {
+    if (!confirm(`Excluir a conta ${bt.dataset.em}?\nEssa ação não pode ser desfeita e o usuário perde o acesso.`)) return;
+    const { error } = await sb.rpc("admin_excluir_usuario", { p_id: bt.dataset.del });
+    if (error) return alert("Não foi possível excluir: " + error.message + (/function|schema cache/i.test(error.message) ? "\n\n" + SQLU : ""));
+    logAcao("Excluiu conta", bt.dataset.em); users();
+  });
+  const cur = $("#lgU").value;
+  $("#lgU").innerHTML = '<option value="">Todos os usuários</option>' + pr.data.map(u => `<option value="${u.id}">${esc(u.email)}</option>`).join("");
+  $("#lgU").value = cur; lgLoad();
 }
+async function lgLoad() {
+  const uid = $("#lgU").value;
+  let q = sb.from("logs_acao").select("*").order("created_at", { ascending: false }).limit(200); if (uid) q = q.eq("user_id", uid);
+  const { data, error } = await q;
+  $("#lgt").innerHTML = error ? `<small>Log indisponível. ${SQLU}</small>` : !data.length ? "Nenhuma ação registrada." :
+    `<table class="st" style="min-width:620px"><thead><tr><th>Data/hora</th><th>Usuário</th><th>Ação</th><th>Detalhe</th></tr></thead><tbody>${data.map(l =>
+    `<tr><td class="h"><b>${dtf(l.created_at, true)}</b></td><td data-l="Usuário"><div class="v">${esc(l.email || "—")}</div></td><td data-l="Ação"><div class="v">${esc(l.acao)}</div></td><td data-l="Detalhe"><div class="v">${esc(l.detalhe || "")}</div></td></tr>`).join("")}</tbody></table>`;
+}
+$("#lgU").onchange = lgLoad;
+$("#lgX").onclick = async () => {
+  const uid = $("#lgU").value, all = (await fetchAll("logs_acao")).filter(l => !uid || l.user_id === uid).reverse();
+  if (!all.length) return alert("Não há ações registradas para exportar.");
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(all.map(l => ({ "Data/hora": dtf(l.created_at, true), "Usuário": l.email || "", "Ação": l.acao, "Detalhe": l.detalhe || "" }))), "Log de ações");
+  XLSX.writeFile(wb, `log_acoes_grua_segura_${stamp()}.xlsx`);
+  logAcao("Exportou log de ações", `${all.length} registros`);
+};
+$("#uNew").onclick = () => { $("#uForm").classList.toggle("hide"); $("#uMsg").textContent = ""; };
+$("#uNo").onclick = () => { $("#uForm").classList.add("hide"); };
+$("#uOk").onclick = async () => {
+  const email = $("#uEm").value.trim(), pw = $("#uPw").value, pap = $("#uPap").value, msg = $("#uMsg");
+  if (!/^\S+@\S+\.\S+$/.test(email)) return msg.textContent = "Informe um e-mail válido.";
+  if (pw.length < 6) return msg.textContent = "A senha precisa ter pelo menos 6 caracteres.";
+  msg.textContent = "Criando…";
+  // cliente temporário: não troca a sessão do administrador
+  const tmp = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: "gs-novo-usuario" } });
+  const { data, error } = await tmp.auth.signUp({ email, password: pw });
+  if (error) return msg.textContent = "Não foi possível criar: " + error.message;
+  if (!data.user || (data.user.identities && !data.user.identities.length)) return msg.textContent = "Este e-mail já tem conta.";
+  if (pap !== "pendente") { await new Promise(r => setTimeout(r, 600)); const u = await sb.from("perfis").update({ papel: pap }).eq("id", data.user.id); if (u.error) return msg.textContent = "Conta criada, mas não foi possível definir o acesso: " + u.error.message; }
+  logAcao("Criou conta", `${email} (${pap})`);
+  msg.textContent = data.session ? "Conta criada e liberada." : "Conta criada. O usuário precisa confirmar o e-mail recebido antes de entrar.";
+  $("#uEm").value = ""; $("#uPw").value = ""; users();
+};
+setInterval(() => { if (papel === "admin" && !$("#t4").classList.contains("hide") && !document.hidden) users(); }, 30000);
 
 // ---------- Dados ----------
 async function load() {
@@ -307,6 +389,7 @@ async function load() {
 document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
   document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
   ["t1","t2","t3","t4","t5"].forEach(t => $("#" + t).classList.toggle("hide", t !== b.dataset.t));
+  if (b.dataset.t === "t4" && papel === "admin") users();
 });
 
 // ---------- Dashboard ----------
@@ -342,6 +425,7 @@ function dash() {
   const p2 = d.filter(r => si(r) === 2).map(r => [r, "Desenho pronto, falta Sphera"]);
   const p3 = d.filter(r => si(r) === 3).map(r => [r, "No Sphera, falta SAP"]);
   const p = [...p1, ...p2, ...p3];
+  $("#pdn").textContent = p.length;
   $("#pend").innerHTML = p.length ? `<table class="st" style="min-width:520px"><thead><tr><th>Área</th><th>Equipamento</th><th>Tipo</th><th>Pendência</th></tr></thead><tbody>${p.slice(0, 80).map(([r, t]) =>
     `<tr><td data-l="Área"><div class="v">${esc(r.area)}</div></td><td class="h"><b>${esc(r.equipamento)}</b></td><td data-l="Tipo"><div class="v">${esc(r.tipo_projeto)}</div></td><td data-l="Pendência"><div class="v">${t}</div></td></tr>`).join("")}</tbody></table>` + (p.length > 80 ? `<small>+${p.length - 80} itens</small>` : "") : "Nenhuma pendência.";
 }
@@ -383,7 +467,55 @@ function evo(d, mode) {
 }
 const EH = ["Período", "Levantados", "Com desenho", "No Sphera", "No SAP", "Comprados", "Movimentações"];
 const evoLines = e => e.rows.map((x, i) => [(e.mode === "w" ? "Semana de " : "") + e.labels[i], x.lev, x.des, x.sph, x.sap, x.comp, x.mov]).reverse();
+const PROJ = { ini: new Date(2026, 6, 1), fim: new Date(2027, 5, 30, 23, 59, 59, 999) }; // 01/07/2026 → 30/06/2027
+const STG = [["Levantados", "lev", "#f2a93b"], ["Com desenho", "des", "#3b82c4"], ["No Sphera", "sph", "#7a5cc7"], ["No SAP", "sap", "#0e9aa7"], ["Comprados", "comp", "#2e9e5b"]];
+const MES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+function evoProj(d, key, pts) {
+  const wf = r => pts ? (Number(r.qtd) > 0 ? Number(r.qtd) : 1) : 1, now = new Date(), tn = now.getTime(), DAY = 864e5, T0 = PROJ.ini.getTime(), T1 = PROJ.fim.getTime(), r1 = x => Math.round(x * 10) / 10;
+  const lvl = { des: 2, sph: 3, sap: 4, comp: 5 }[key], ok = (l, st) => key === "lev" ? l === "Levantado" : st >= lvl;
+  const ids = new Map(d.map(r => [r.id, r])), by = {};
+  hist.forEach(h => { if (ids.has(h.ponto_id)) (by[h.ponto_id] = by[h.ponto_id] || []).push({ t: new Date(h.created_at).getTime(), l: h.status_levantamento, s: ST.indexOf(h.status_projeto) }); });
+  const at = t => { let n = 0; ids.forEach((r, id) => { let l = "Pendente", st = 0; for (const e of (by[id] || [])) { if (e.t <= t) { l = e.l; st = Math.max(0, e.s); } else break; } if (ok(l, st)) n += wf(r); }); return n; };
+  const cur = d.filter(r => ok(r.status_levantamento, si(r))).reduce((t, r) => t + wf(r), 0), tot = d.reduce((t, r) => t + wf(r), 0);
+  const rate = tn <= T0 ? 0 : cur / Math.max(1, (Math.min(tn, T1) - T0) / DAY); // ritmo médio por dia desde o início do projeto
+  const labels = ["Início"], real = [0], proj = [null], plan = [0];
+  for (let m = 0; m < 12; m++) {
+    const end = new Date(2026, 7 + m, 0, 23, 59, 59, 999), st = new Date(2026, 6 + m, 1).getTime(), et = end.getTime();
+    labels.push(`${MES[end.getMonth()]}/${String(end.getFullYear()).slice(2)}`);
+    plan.push(r1(tot * Math.min(1, (et - T0) / (T1 - T0))));
+    if (et <= tn) { real.push(r1(at(et))); proj.push(null); }
+    else if (st <= tn) { real.push(r1(cur)); proj.push(r1(cur)); }
+    else { real.push(null); proj.push(r1(Math.min(tot, cur + rate * (et - tn) / DAY))); }
+  }
+  const pending = tot - cur, finish = rate > 0 && pending > 0 ? new Date(tn + pending / rate * DAY) : null;
+  return { labels, real, proj, plan, cur, tot, rate, finish, planNow: tot * Math.min(1, Math.max(0, (tn - T0) / (T1 - T0))), daysLeft: Math.ceil((T1 - tn) / DAY) };
+}
+const projKpis = (pr, u, nome) => { const f1 = x => fmt(Math.round(x * 10) / 10), diff = pr.cur - pr.planNow;
+  return [[String(Math.max(0, pr.daysLeft)), "dias até 30/06/2027"], [f1(pr.cur), `${nome} hoje · de ${f1(pr.tot)} ${u}`], [f1(pr.planNow), "Meta linear para hoje"],
+    [(diff >= 0 ? "+" : "") + f1(diff), diff >= 0 ? "À frente da meta linear" : "Atrás da meta linear"],
+    [pr.tot - pr.cur <= 0 ? "Concluído" : pr.finish ? pr.finish.toLocaleDateString("pt-BR") : "—", "Término previsto no ritmo atual"]]; };
+function evoDashProj(d) {
+  const key = $("#evS").value, nm = STG.find(x => x[1] === key), pr = evoProj(d, key, unit === "p"), u = unit === "p" ? "pontos" : "linhas";
+  $("#evk").innerHTML = projKpis(pr, u, nm[0]).map(([v, l]) => `<div class="card kpi" style="margin:0"><b>${v}</b><span>${l}</span></div>`).join("");
+  charts.c4?.destroy();
+  charts.c4 = new Chart($("#c4"), { type: "line", data: { labels: pr.labels, datasets: [
+    { label: `${nm[0]} (realizado)`, data: pr.real, borderColor: nm[2], backgroundColor: nm[2], tension: .2 },
+    { label: "Projeção no ritmo atual", data: pr.proj, borderColor: nm[2], backgroundColor: nm[2], borderDash: [7, 5], pointStyle: "rectRot", tension: 0 },
+    { label: "Meta linear do cronograma", data: pr.plan, borderColor: "#8892a6", backgroundColor: "#8892a6", borderDash: [2, 4], pointRadius: 0, tension: 0 }] },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, suggestedMax: pr.tot } }, plugins: { legend: { position: "bottom" } } } });
+  $("#evs").textContent = "Ver tabela do cronograma";
+  $("#evt").innerHTML = `<table class="st" style="min-width:480px"><thead><tr><th>Período</th><th>Realizado</th><th>Projeção</th><th>Meta linear</th></tr></thead><tbody>${pr.labels.map((l, i) =>
+    `<tr><td class="h"><b>${l}</b></td><td data-l="Realizado"><div class="v">${pr.real[i] ?? "—"}</div></td><td data-l="Projeção"><div class="v">${pr.proj[i] ?? "—"}</div></td><td data-l="Meta linear"><div class="v">${pr.plan[i]}</div></td></tr>`).join("")}</tbody></table>`;
+  $("#evn").textContent = "Cronograma de 01/07/2026 a 30/06/2027. Projeção: ritmo médio desde o início do projeto mantido até o prazo (limitado ao total). Meta linear: avanço constante do início ao fim. O realizado dos meses anteriores depende do histórico registrado no app.";
+}
 function evoDash(d) {
+  const m0 = $("#evP").value; $("#evS").classList.toggle("hide", m0 !== "p");
+  if (m0 === "p") return evoDashProj(d);
+  evoDashHist(d);
+  $("#evs").textContent = m0 === "w" ? "Ver histórico semanal (12 semanas)" : "Ver histórico mensal (6 meses)";
+  $("#evn").textContent = "O histórico é registrado a partir da instalação desta função; datas anteriores aparecem sem movimento.";
+}
+function evoDashHist(d) {
   const mode = $("#evP").value, e = evo(d, mode), R = e.rows, last = R[R.length - 1], prev = R[R.length - 2] || { lev: 0, des: 0, sph: 0, sap: 0, comp: 0 };
   const dl = (a, b) => (a >= b ? "+" : "") + (a - b), per = mode === "w" ? "Nesta semana" : "Neste mês";
   $("#evk").innerHTML = [["Levantados", dl(last.lev, prev.lev)], ["Com desenho", dl(last.des, prev.des)], ["No Sphera", dl(last.sph, prev.sph)], ["No SAP", dl(last.sap, prev.sap)], ["Comprados", dl(last.comp, prev.comp)], ["Movimentações", String(last.mov)]]
@@ -395,7 +527,7 @@ function evoDash(d) {
   $("#evt").innerHTML = `<table class="st" style="min-width:560px"><thead><tr>${EH.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${evoLines(e).map(l =>
     `<tr><td class="h"><b>${l[0]}</b></td>${l.slice(1).map((v, i) => `<td data-l="${EH[i + 1]}"><div class="v">${v}</div></td>`).join("")}</tr>`).join("")}</tbody></table>`;
 }
-$("#evP").onchange = dash;
+$("#evP").onchange = dash; $("#evS").onchange = dash;
 $("#dA").onchange = dash;
 
 // ---------- Cadastro ----------
@@ -457,13 +589,16 @@ $("#f").onsubmit = async e => {
   const id = o.id; delete o.id;
   const { error } = await (id ? sb.from("pontos").update(o).eq("id", id) : sb.from("pontos").insert(o));
   if (error) return alert("Erro ao salvar: " + error.message + (/folhas/.test(error.message) ? "\n\n" + SQLF : /codigo_sap/.test(error.message) ? "\n\n" + SQLS : ""));
+  logAcao(id ? "Editou ponto" : "Criou ponto", `${o.area} · ${o.equipamento} · ${o.tipo_projeto}`);
   $("#dlg").close(); load();
 };
 $("#del").onclick = async () => {
   if (!canDelete) return alert("Seu perfil não tem permissão para excluir registros.");
   if (!confirm("Excluir este ponto?")) return;
+  const nmDel = `${$("#f").elements.area.value} · ${$("#f").elements.equipamento.value} · ${$("#f").elements.tipo_projeto.value}`;
   const { error } = await sb.from("pontos").delete().eq("id", $("#f").elements.id.value);
   if (error) return alert(error.message);
+  logAcao("Excluiu ponto", nmDel);
   $("#dlg").close(); load();
 };
 
@@ -498,6 +633,7 @@ function resumoRows(a, d) {
 const RH = ["Área", "Linhas de projeto", "Pontos de adequação", "Levantados (linhas)", "Levantados (pontos)", "Com desenho (linhas)", "Com desenho (pontos)", "No Sphera (linhas)", "No Sphera (pontos)", "No SAP (linhas)", "No SAP (pontos)", "Comprados (linhas)", "Comprados (pontos)", "% com desenho (linhas)", "% com desenho (pontos)"];
 
 $("#rx").onclick = () => {
+  logAcao("Gerou relatório Excel", $("#rA").value || "Todas as áreas");
   const { a, d } = repData(), wb = XLSX.utils.book_new();
   const add = (nome, head, linhas) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([head, ...linhas]), nome);
   add("Resumo", RH, resumoRows(a, d));
@@ -524,6 +660,7 @@ const kpiList = s => [["Linhas / Pontos", `${s.n} / ${s.p.n}`, "linhas de projet
   ...TKEYS.map(([l, k, col]) => [l, pc(s[k], s.n), `Linhas: ${s[k]} de ${s.n} · faltam ${s.n - s[k]}\nPontos: ${s.p[k]} de ${s.p.n} · faltam ${s.p.n - s.p[k]}`, col])];
 
 $("#rp").onclick = () => {
+  logAcao("Gerou relatório PDF", $("#rA").value || "Todas as áreas");
   const { a, d } = repData(), s = stats(d), ew = evo(d, "w"), em = evo(d, "m"), ar = AREAS.filter(x => !a || x === a), pd = pendList(d);
   const w = window.open("", "_blank");
   if (!w) return alert("Permita pop-ups para este site e tente de novo.");
@@ -545,6 +682,24 @@ $("#rp").onclick = () => {
     let lx = L; TKEYS.forEach(([name, key, color]) => { g += `<line x1="${lx}" y1="${H - 9}" x2="${lx + 14}" y2="${H - 9}" stroke="#${color}" stroke-width="3.5"/><text x="${lx + 19}" y="${H - 5.5}" font-size="10" fill="#666666">${name}</text>`; lx += name.length * 5.6 + 40; });
     return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc2(title)}" xmlns="http://www.w3.org/2000/svg">${g}</svg>`;
   };
+  const pj = evoProj(d, "comp", true);
+  const projSvg = () => {
+    const W = 1000, H = 300, L = 44, R = 14, T = 16, B = 56, pw2 = W - L - R, ph = H - T - B, n = pj.labels.length;
+    const max = Math.max(1, pj.tot, ...pj.real.filter(v => v != null), ...pj.proj.filter(v => v != null));
+    const x = i => L + i * pw2 / (n - 1), y = v => T + ph - (v / max) * ph;
+    const path = vals => { let q = "", pen = false; vals.forEach((v, i) => { if (v == null) { pen = false; return; } q += `${pen ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)} `; pen = true; }); return q; };
+    let g = "";
+    for (let j = 0; j <= 4; j++) { const val = Math.round(max * j / 4), yy = y(val); g += `<line x1="${L}" y1="${yy}" x2="${W - R}" y2="${yy}" stroke="#d3d3d3"/><text x="${L - 7}" y="${yy + 3.5}" text-anchor="end" font-size="10" fill="#7f7f7f">${val}</text>`; }
+    pj.labels.forEach((lab, i) => { g += `<text x="${x(i)}" y="${H - 34}" text-anchor="middle" font-size="10" fill="#7f7f7f">${esc2(lab)}</text>`; });
+    [[pj.plan, "#7f7f7f", "2 5"], [pj.proj, "#00b351", "8 5"], [pj.real, "#00b351", ""]].forEach(([v, c, da]) => {
+      g += `<path d="${path(v)}" fill="none" stroke="${c}" stroke-width="2.8" ${da ? `stroke-dasharray="${da}"` : ""} stroke-linejoin="round" stroke-linecap="round"/>`;
+      if (!da) v.forEach((val, i) => { if (val != null) g += `<circle cx="${x(i)}" cy="${y(val)}" r="3" fill="${c}"/>`; });
+    });
+    [["#00b351", "", "Comprados (realizado)"], ["#00b351", "8 5", "Projeção no ritmo atual"], ["#7f7f7f", "2 5", "Meta linear do cronograma"]].forEach(([c, da, nm], i) => {
+      const lx = L + i * 230; g += `<line x1="${lx}" y1="${H - 10}" x2="${lx + 26}" y2="${H - 10}" stroke="${c}" stroke-width="3" ${da ? `stroke-dasharray="${da}"` : ""}/><text x="${lx + 32}" y="${H - 6.5}" font-size="10.5" fill="#666666">${nm}</text>`;
+    });
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Cronograma do projeto" xmlns="http://www.w3.org/2000/svg">${g}</svg>`;
+  };
   const tbl = (head, body, boldFirst) => `<table><thead><tr>${head.map(h => `<th>${esc2(h)}</th>`).join("")}</tr></thead><tbody>${body.map((r, ri) => `<tr${boldFirst && ri === 0 ? ' class="tot"' : ""}>${r.map(c => `<td>${esc2(tdash(c))}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
   const hd = (t, sub) => `<header class="hd"><div class="bar"></div><div><h1>${esc2(t)}</h1><p>${esc2(sub)}</p></div><img class="ic" src="${TERN.icon}" alt=""></header>`;
   const ft = n => `<footer class="ft"><span>${TFOOT.replace(/ /g, "&nbsp;")}</span><span>${n}</span></footer>`;
@@ -556,7 +711,10 @@ $("#rp").onclick = () => {
 <p class="note">Linha = ponto levantado com projeto próprio. Ponto de adequação = soma das quantidades de cada linha. Pendências identificadas: ${pd.length}.</p>${ft(2)}</section>`,
     `<section class="page">${hd("Evolução do projeto", "Marcos acumulados registrados no histórico do aplicativo")}<div class="charts"><div>${chartSvg(ew, "Semanal · últimas 12 semanas")}</div><div>${chartSvg(em, "Mensal · últimos 6 meses")}</div></div>
 <p class="note">As linhas mostram a quantidade acumulada de itens em cada etapa. O histórico é registrado a partir da ativação desta função; períodos anteriores podem aparecer sem movimento, o que não significa ausência de atividade.</p>${ft(3)}</section>`,
-    `<section class="page">${hd(`Próximas ações · ${pd.length} pendência(s)`, "Lista resumida para orientar o acompanhamento")}${pd.length ? tbl(["Área", "Equipamento", "Tipo de projeto", "Situação"], pd.slice(0, 12).map(([r, t]) => [r.area, r.equipamento, r.tipo_projeto || "—", t])) + (pd.length > 12 ? `<p class="note">Exibindo 12 de ${pd.length} pendências. Consulte o aplicativo para a lista completa.</p>` : "") : `<p class="ok">Nenhuma pendência identificada com os critérios atuais.</p>`}${ft(4)}</section>`
+    `<section class="page">${hd("Cronograma do projeto", "01/07/2026 a 30/06/2027 · pontos de adequação concluídos (Comprados)")}<div class="kpis k5">${projKpis(pj, "pontos", "Comprados").map(([v, l]) => `<div class="kpi"><strong>${esc2(v)}</strong><em>${esc2(l)}</em></div>`).join("")}</div>
+<div class="proj">${projSvg()}</div>
+<p class="note">Projeção: ritmo médio desde 01/07/2026 mantido até 30/06/2027 (limitada ao total de pontos). Meta linear: avanço constante do início ao fim do prazo. O realizado dos meses anteriores depende do histórico registrado no aplicativo.</p>${ft(4)}</section>`,
+    `<section class="page">${hd(`Próximas ações · ${pd.length} pendência(s)`, "Lista resumida para orientar o acompanhamento")}${pd.length ? tbl(["Área", "Equipamento", "Tipo de projeto", "Situação"], pd.slice(0, 12).map(([r, t]) => [r.area, r.equipamento, r.tipo_projeto || "—", t])) + (pd.length > 12 ? `<p class="note">Exibindo 12 de ${pd.length} pendências. Consulte o aplicativo para a lista completa.</p>` : "") : `<p class="ok">Nenhuma pendência identificada com os critérios atuais.</p>`}${ft(5)}</section>`
   ];
   w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Relatório – Adequação de Pontos de Grua Segura</title>
 <style>
@@ -576,6 +734,7 @@ html,body{margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;color:#666;-
 table{width:100%;border-collapse:collapse;font-size:8.5pt}th{background:#666;color:#fff;text-align:right;padding:2mm 2.2mm;font-weight:700}td{padding:2mm 2.2mm;border-bottom:1px solid #d3d3d3;text-align:right;color:#666}
 th:first-child,td:first-child{text-align:left}tr.tot td{font-weight:700;background:#f4f4f4}
 .note{margin:6mm 0 0;padding:1mm 0 1mm 3mm;border-left:1.2mm solid #ff9900;font-size:8.5pt;line-height:1.45;color:#666}.ok{font-size:16pt;font-weight:700;color:#00b351;text-align:center;margin-top:30mm}
+.kpis.k5{grid-template-columns:repeat(5,1fr)}.kpis.k5 .kpi strong{font-size:20pt}.kpis.k5 .kpi em{font-size:8pt;margin-top:1mm}.proj{margin-top:7mm}.proj svg{width:100%;height:auto;display:block}
 .charts{display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin-top:2mm}.charts svg{width:100%;height:auto;display:block}
 @media screen{body{background:#e6e6e6;padding:12px}.page{margin:0 auto 14px;box-shadow:0 2px 12px #0003}.printbtn{display:block;margin:0 auto 12px;padding:9px 16px;background:#ff9900;color:#fff;border:0;border-radius:5px;font-size:14px;font-weight:700}}
 @media print{.printbtn{display:none}body{padding:0}}
@@ -586,6 +745,7 @@ ${pages.join("\n")}
 };
 
 $("#rpp").onclick = async () => {
+  logAcao("Gerou apresentação PowerPoint", $("#rA").value || "Todas as áreas");
   if (typeof PptxGenJS === "undefined") return alert("A biblioteca do PowerPoint não carregou. Recarregue a página e tente de novo.");
   const { a, d } = repData(), s = stats(d), P = new PptxGenJS(), FT = "Arial", scope = a || "Todas as áreas";
   const U = u => u.replace(/^data:/, "");
@@ -669,6 +829,30 @@ $("#rpp").onclick = async () => {
   });
   note(sl, "O histórico é contabilizado a partir da ativação da função. Períodos anteriores sem movimento não significam, necessariamente, ausência de atividade.", 0.527, 6.5, 12.2, 0.5);
 
+  // 5b — Cronograma do projeto (01/07/2026 a 30/06/2027)
+  sl = content("Cronograma do projeto", "01/07/2026 a 30/06/2027 · pontos de adequação concluídos (Comprados)");
+  const pj = evoProj(d, "comp", true);
+  projKpis(pj, "pontos", "Comprados").forEach(([v, l], i) => {
+    const x = 0.527 + i * 2.47;
+    sl.addShape(P.ShapeType.rect, { x, y: 1.35, w: 2.3, h: 1.15, fill: { color: "FFFFFF" }, line: { color: TC.light, width: 0.75 } });
+    sl.addShape(P.ShapeType.rect, { x, y: 1.35, w: 2.3, h: 0.07, fill: { color: TC.green }, line: { color: TC.green, transparency: 100 } });
+    sl.addText(String(v), { x: x + 0.05, y: 1.5, w: 2.2, h: 0.45, fontFace: FT, fontSize: 22, bold: true, color: TC.gray, align: "center", margin: 0, fit: "shrink", isTextBox: true });
+    sl.addText(l, { x: x + 0.08, y: 1.97, w: 2.14, h: 0.45, fontFace: FT, fontSize: 9, color: TC.mid, align: "center", valign: "top", margin: 0, fit: "shrink", isTextBox: true });
+  });
+  const projImg = () => {
+    const cv = document.createElement("canvas"); cv.width = 1500; cv.height = 486;
+    const fo = (size) => ({ size, family: "Arial" });
+    const ch = new Chart(cv, { type: "line", data: { labels: pj.labels, datasets: [
+      { label: "Comprados (realizado)", data: pj.real, borderColor: "#00B351", backgroundColor: "#00B351", borderWidth: 4, pointRadius: 5, tension: .2 },
+      { label: "Projeção no ritmo atual", data: pj.proj, borderColor: "#00B351", backgroundColor: "#00B351", borderWidth: 4, borderDash: [14, 10], pointRadius: 5, pointStyle: "rectRot" },
+      { label: "Meta linear do cronograma", data: pj.plan, borderColor: "#7F7F7F", backgroundColor: "#7F7F7F", borderWidth: 3, borderDash: [4, 8], pointRadius: 0 }] },
+      options: { responsive: false, animation: false, devicePixelRatio: 1, scales: { x: { ticks: { font: fo(20), color: "#666666" }, grid: { display: false } }, y: { beginAtZero: true, suggestedMax: pj.tot, ticks: { font: fo(20), color: "#666666" }, grid: { color: "#D3D3D3" } } },
+        plugins: { legend: { position: "bottom", labels: { font: fo(22), color: "#666666", boxWidth: 40 } } } } });
+    const url = cv.toDataURL("image/png"); ch.destroy(); return url;
+  };
+  sl.addImage({ data: U(projImg()), x: 0.527, y: 2.65, w: 12.2, h: 3.95, altText: "Gráfico do cronograma do projeto com realizado, projeção e meta linear" });
+  note(sl, "Projeção: ritmo médio desde 01/07/2026 mantido até 30/06/2027. Meta linear: avanço constante do início ao fim do prazo.", 0.527, 6.68, 12.2, 0.4);
+
   // 6 — Próximas ações
   sl = content(`Próximas ações · ${pd.length} pendência(s)`, "Lista resumida para orientar o acompanhamento");
   if (pd.length) {
@@ -715,9 +899,11 @@ $("#imp").onclick = async () => {
     const { error } = await sb.from("pontos").insert(pending.slice(i, i + 200));
     if (error) return alert("Erro na importação: " + error.message);
   }
+  logAcao("Importou planilha", `${pending.length} linhas${$("#rep").checked ? " (substituindo os dados)" : ""}`);
   alert(pending.length + " linhas importadas."); $("#fi").value = ""; $("#pv").textContent = ""; $("#imp").classList.add("hide"); load();
 };
 $("#exp").onclick = () => {
+  logAcao("Exportou pontos (Excel)");
   const out = rows.map(expRow);
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(out), "Pontos");
   XLSX.writeFile(wb, "pontos_grua_segura.xlsx");
