@@ -14,51 +14,72 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js"></script>
 <script src="config.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap">
 <style>
-*{box-sizing:border-box}body{margin:0;font:14px Arial,sans-serif;background:#f3f5f9;color:#1b2430}
-header{background:#1f3864;color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px}
-header h1{font-size:16px;margin:0}nav{display:flex;gap:6px;padding:8px 14px;background:#fff;border-bottom:1px solid #d9dee8;overflow-x:auto}
-nav button{border:0;background:#e8ecf4;padding:8px 14px;border-radius:6px;cursor:pointer;white-space:nowrap}nav button.on{background:#1f3864;color:#fff}
-main{padding:14px;max-width:1200px;margin:auto}.card{background:#fff;border-radius:8px;padding:12px;box-shadow:0 1px 3px #0001;margin-bottom:12px}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
-.kpi b{display:block;font-size:22px;color:#1f3864}.kpi span{font-size:12px;color:#5b6677}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:12px}.ch{height:300px;position:relative}
-input,select,textarea,button{font:inherit;padding:8px;border:1px solid #c5ccd8;border-radius:6px;max-width:100%}
-button.p{background:#1f3864;color:#fff;border:0;cursor:pointer}button.d{background:#b3261e;color:#fff;border:0;cursor:pointer}
-.bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}.tw{overflow-x:auto}
-table{border-collapse:collapse;width:100%;min-width:760px}th,td{padding:7px 8px;border-bottom:1px solid #e3e7ef;text-align:left;vertical-align:top}
-th{background:#eef1f7;position:sticky;top:0}.ce{cursor:pointer;padding:3px 4px;white-space:nowrap;border-radius:4px}.ce:hover{background:#e6edf8}.add{cursor:pointer;color:#1f3864;font-weight:bold;padding:1px 8px;border:1px dashed #9aa6bd;border-radius:4px}
-.tag{padding:2px 8px;border-radius:10px;font-size:12px;background:#e8ecf4;white-space:nowrap}
-dialog{border:0;border-radius:10px;padding:16px;width:min(560px,94vw)}dialog::backdrop{background:#0006}
-label{display:block;font-size:12px;color:#5b6677;margin-top:8px}label input,label select,label textarea{width:100%}
-#login{max-width:340px;margin:12vh auto}#login input{width:100%;margin-bottom:8px}.err{color:#b3261e}.hide{display:none!important}
-html{-webkit-text-size-adjust:100%}
-main{max-width:1400px}header{padding-top:max(10px,env(safe-area-inset-top))}
-nav{position:sticky;top:0;z-index:5}.v{display:block}.ch.tall{height:380px}
+:root{--navy:#1f3864;--blue:#2f5fb3;--amber:#f2b705;--bg:#f2f5fb;--line:#e4e9f2;--txt:#1b2430;--mut:#6a7588}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+body{margin:0;font:14px/1.45 Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--txt);min-height:100vh;
+background:radial-gradient(1100px 480px at 8% -8%,#dce6fb 0,transparent 60%),radial-gradient(800px 380px at 100% 0,#fdf0c4 0,transparent 55%),var(--bg)}
+header{background:linear-gradient(120deg,#182c52,#2f5fb3);color:#fff;padding:12px 18px;padding-top:max(12px,env(safe-area-inset-top));display:flex;justify-content:space-between;align-items:center;gap:10px}
+header h1{font-size:16px;margin:0;font-weight:700}header img{box-shadow:0 2px 8px #0004}
+header button{background:#ffffff1f;color:#fff;border:1px solid #ffffff40;min-height:0;padding:6px 14px}
+nav{display:flex;gap:6px;padding:10px 18px;position:sticky;top:0;z-index:5;overflow-x:auto;background:#f4f6fbd1;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+nav button{border:0;background:transparent;color:var(--mut);padding:8px 16px;border-radius:999px;white-space:nowrap;font-weight:600;transition:.15s}
+nav button:hover{background:#e6ecf8;color:var(--navy)}nav button.on{background:var(--navy);color:#fff;box-shadow:0 4px 12px #1f386440}
+main{padding:18px;max-width:1400px;margin:auto}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 1px 2px #1b243008,0 8px 24px #1b24300a;margin-bottom:14px}
+.card>b{font-size:15px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}
+.kpi{position:relative;overflow:hidden;padding-left:20px}.kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:linear-gradient(var(--blue),var(--amber))}
+.kpi b{display:block;font-size:26px;letter-spacing:-.5px;color:var(--navy)}.kpi span{font-size:12px;color:var(--mut)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:14px}
+.ch{height:300px;position:relative}.ch.tall{height:380px}
+input,select,textarea,button{font:inherit;padding:9px 12px;border:1px solid #cfd6e4;border-radius:10px;max-width:100%;background:#fff;color:var(--txt);transition:border-color .15s,box-shadow .15s,filter .15s}
+input:focus,select:focus,textarea:focus{outline:0;border-color:var(--blue);box-shadow:0 0 0 3px #2f5fb324}
+button{cursor:pointer}
+button.p{background:linear-gradient(135deg,#1f3864,#2f5fb3);color:#fff;border:0;font-weight:600;box-shadow:0 4px 12px #1f386433}button.p:hover{filter:brightness(1.12)}
+button.d{background:#d64545;color:#fff;border:0;font-weight:600}
+.bar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;align-items:center}.tw{overflow-x:auto}
+table{border-collapse:separate;border-spacing:0;width:100%;min-width:760px}
+th{background:#f4f6fb;color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;position:sticky;top:0}
+th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+tbody tr:hover td{background:#f8faff}
+.ce{cursor:pointer;padding:4px 6px;white-space:nowrap;border-radius:8px;transition:background .12s}.ce:hover{background:#e9f0fd}
+.add{cursor:pointer;color:var(--blue);font-weight:700;padding:1px 9px;border:1px dashed #a9b8d6;border-radius:8px}.add:hover{background:#eaf0fc}
+.tag{display:inline-flex;align-items:center;padding:2px 9px;border-radius:999px;font-size:12px;background:#eef2fa;color:#33405a;white-space:nowrap;font-weight:600}
+.tag::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--c,#b0b7c3);margin-right:6px}
+dialog{border:0;border-radius:20px;padding:20px;width:min(680px,94vw);max-height:92vh;overflow:auto;box-shadow:0 24px 70px #0003}
+dialog::backdrop{background:#0b1a3a80;backdrop-filter:blur(3px)}
+label{display:block;font-size:12px;font-weight:600;color:var(--mut);margin-top:10px}
+label input,label select,label textarea{width:100%;margin-top:4px;font-weight:400}
 #f .g{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}#f .g .w{grid-column:1/-1}
-dialog{width:min(680px,94vw);max-height:92vh;overflow:auto}
+#login{max-width:380px;margin:10vh auto;padding:28px;border-radius:24px;box-shadow:0 20px 60px #1f386426}
+#login input{width:100%;margin-bottom:10px}#login h2{margin:6px 0 16px}
+a{color:var(--blue);font-weight:600}small{color:var(--mut)}.err{color:#c0362c}.hide{display:none!important}.v{display:block}
 @media(max-width:760px){
- body{font-size:15px}header h1{font-size:14px}main{padding:10px}
- input,select,textarea,button{font-size:16px;min-height:42px}
- nav button{padding:10px 14px}.bar>*{flex:1 1 100%}
- .ch{height:260px}.ch.tall{height:340px}
- #f .g{grid-template-columns:1fr}
- dialog{width:100vw;max-width:100vw;margin:auto 0 0 0;border-radius:14px 14px 0 0;max-height:94vh;padding-bottom:max(16px,env(safe-area-inset-bottom))}
+ body{font-size:15px}header h1{font-size:14px}main{padding:12px}
+ input,select,textarea,button{font-size:16px;min-height:44px}header button{min-height:38px}
+ nav{padding:8px 12px}nav button{padding:10px 14px}.bar>*{flex:1 1 100%}
+ .ch{height:260px}.ch.tall{height:340px}#f .g{grid-template-columns:1fr}
+ dialog{width:100vw;max-width:100vw;margin:auto 0 0 0;border-radius:22px 22px 0 0;max-height:94vh;padding-bottom:max(18px,env(safe-area-inset-bottom))}
  table.st{min-width:0!important}table.st thead{display:none}
  table.st,table.st tbody,table.st td{display:block;width:100%}
- table.st tr{display:flex;flex-direction:column;width:100%;background:#fff;border:1px solid #dfe4ee;border-radius:8px;margin-bottom:10px;padding:6px 10px}
+ table.st tr{display:flex;flex-direction:column;width:100%;background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:10px;padding:8px 12px;box-shadow:0 1px 2px #1b243008}
  table.st td{border:0;padding:5px 0;display:flex;gap:10px;justify-content:space-between;align-items:flex-start}
- table.st td::before{content:attr(data-l);font-size:12px;color:#5b6677;flex:0 0 34%}
- table.st td.h{order:-1;font-size:16px;border-bottom:1px solid #e3e7ef;padding-bottom:6px;margin-bottom:2px}table.st td.h::before{content:none}
+ table.st td::before{content:attr(data-l);font-size:12px;color:var(--mut);flex:0 0 34%}
+ table.st td.h{order:-1;font-size:16px;border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:2px}table.st td.h::before{content:none}
  table.st td.em{display:none}table.st .v{flex:1;text-align:right}
- .ce{padding:6px 4px;white-space:normal}
+ tbody tr:hover td{background:transparent}.ce{padding:6px 4px;white-space:normal}
 }
 </style>
 </head>
 <body>
 <div id="login" class="card hide">
-  <h2 id="lt">Grua Segura</h2>
+  <img src="icon-192.png" alt="" width="96" height="96" style="border-radius:20px;display:block;margin:0 auto 8px">
+  <h2 id="lt" style="text-align:center">Grua Segura</h2>
   <input id="em" type="email" placeholder="E-mail" autocomplete="username">
   <input id="pw" type="password" placeholder="Senha" autocomplete="current-password">
   <input id="pw2" type="password" class="hide" placeholder="Repita a senha" autocomplete="new-password">
@@ -73,8 +94,8 @@ dialog{width:min(680px,94vw);max-height:92vh;overflow:auto}
 </div>
 
 <div id="app" class="hide">
-<header><h1>Adequação de Pontos de Grua Segura</h1><button id="out">Sair</button></header>
-<nav><button data-t="t1" class="on">Dashboard</button><button data-t="t2">Cadastro</button><button data-t="t3">Importar / Exportar</button><button data-t="t4" id="navU" class="hide">Usuários</button></nav>
+<header><div style="display:flex;align-items:center;gap:10px"><img src="icon-192.png" alt="" width="38" height="38" style="border-radius:8px"><h1>Adequação de Pontos de Grua Segura</h1></div><button id="out">Sair</button></header>
+<nav><button data-t="t1" class="on">Dashboard</button><button data-t="t2">Cadastro</button><button data-t="t5">Relatórios</button><button data-t="t3">Importar / Exportar</button><button data-t="t4" id="navU" class="hide">Usuários</button></nav>
 <main>
  <section id="t1">
   <div class="bar"><select id="dA"><option value="">Todas as áreas</option></select></div>
@@ -83,6 +104,14 @@ dialog{width:min(680px,94vw);max-height:92vh;overflow:auto}
    <div class="card"><b>Por área e status</b><div class="ch"><canvas id="c1"></canvas></div></div>
    <div class="card"><b>Funil do projeto</b><div class="ch"><canvas id="c2"></canvas></div></div>
    <div class="card" style="grid-column:1/-1"><b>Por tipo de projeto e status</b><div class="ch tall"><canvas id="c3"></canvas></div></div>
+  </div>
+  <div class="card">
+   <div class="bar" style="justify-content:space-between;align-items:center"><b>Evolução e andamento</b>
+    <select id="evP"><option value="w">Semanal (12 semanas)</option><option value="m">Mensal (6 meses)</option></select></div>
+   <div class="cards" id="evk"></div>
+   <div class="ch"><canvas id="c4"></canvas></div>
+   <div class="tw" id="evt" style="margin-top:10px"></div>
+   <small>O histórico é registrado a partir da instalação desta função; datas anteriores aparecem sem movimento.</small>
   </div>
   <div class="card"><b>Pendências</b><div class="tw" id="pend"></div></div>
  </section>
@@ -107,6 +136,20 @@ dialog{width:min(680px,94vw);max-height:92vh;overflow:auto}
    <p id="pv"></p><button class="p hide" id="imp">Importar</button>
   </div>
   <div class="card"><b>Exportar</b><p>Baixa todos os pontos cadastrados em Excel.</p><button class="p" id="exp">Exportar para Excel</button></div>
+ </section>
+
+ <section id="t5" class="hide">
+  <div class="card">
+   <b>Relatórios e apresentação</b>
+   <p>Gerados com os dados atuais do app. Escolha a área e o formato.</p>
+   <div class="bar"><select id="rA"><option value="">Todas as áreas</option></select></div>
+   <div class="bar">
+    <button class="p" id="rx">Relatório em Excel (.xlsx)</button>
+    <button class="p" id="rp">Relatório em PDF</button>
+    <button class="p" id="rpp">Apresentação PowerPoint (.pptx)</button>
+   </div>
+   <small>O PDF abre numa nova janela: use “Imprimir” e escolha “Salvar como PDF”. Se nada abrir, permita pop-ups para este site.</small>
+  </div>
  </section>
 
  <section id="t4" class="hide">
@@ -138,6 +181,7 @@ dialog{width:min(680px,94vw);max-height:92vh;overflow:auto}
 
 <script>
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+Chart.defaults.font.family = 'Inter, system-ui, "Segoe UI", Arial, sans-serif'; Chart.defaults.color = "#5b6677"; Chart.defaults.elements.bar.borderRadius = 4;
 const AREAS = ["Aciaria","Oficina Central","Porto"];
 const ST = ["A projetar","Em projeto","Desenho concluído","Cadastrado no Sphera","Comprado"];
 const COL = ["#b0b7c3","#f2a93b","#3b82c4","#7a5cc7","#2e9e5b"];
@@ -151,7 +195,7 @@ const si = r => Math.max(0, ST.indexOf(r.status_projeto));
 function fillSelect(el, items, first) {
   el.innerHTML = (first ? `<option value="">${first}</option>` : "") + items.map(i => `<option>${i}</option>`).join("");
 }
-fillSelect($("#dA"), AREAS, "Todas as áreas"); fillSelect($("#fA"), AREAS, "Área");
+fillSelect($("#dA"), AREAS, "Todas as áreas"); fillSelect($("#rA"), AREAS, "Todas as áreas"); fillSelect($("#fA"), AREAS, "Área");
 fillSelect($("#fS"), ST, "Status do projeto"); fillSelect($("#fArea"), AREAS); fillSelect($("#fSt"), ST);
 
 // ---------- Login e acesso ----------
@@ -211,7 +255,7 @@ async function users() {
 async function load() {
   const { data, error } = await sb.from("pontos").select("*").order("area").order("equipamento").limit(5000);
   if (error) return alert("Erro ao carregar: " + error.message);
-  rows = data;
+  rows = data; hist = await fetchAll("historico");
   const tps = [...new Set([...TIPOS, ...rows.map(r => r.tipo_projeto)])];
   $("#tps").innerHTML = tps.map(t => `<option value="${esc(t)}">`).join("");
   dash(); table();
@@ -221,7 +265,7 @@ async function load() {
 // ---------- Abas ----------
 document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
   document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
-  ["t1","t2","t3","t4"].forEach(t => $("#" + t).classList.toggle("hide", t !== b.dataset.t));
+  ["t1","t2","t3","t4","t5"].forEach(t => $("#" + t).classList.toggle("hide", t !== b.dataset.t));
 });
 
 // ---------- Dashboard ----------
@@ -241,7 +285,7 @@ function dash() {
   const c = k => d.filter(r => si(r) >= k).length;
   const k = [["Linhas de projeto", d.length], ["Levantados", pct(lev, n)], ["Com desenho", pct(c(2), n)], ["Cadastrados no Sphera", pct(c(3), n)], ["Comprados", pct(c(4), n)]];
   $("#kpis").innerHTML = k.map(([l, v]) => `<div class="card kpi" style="margin:0"><b>${v}</b><span>${l}</span></div>`).join("");
-  stack("c1", "area", d); stack("c3", "tipo_projeto", d, true);
+  stack("c1", "area", d); stack("c3", "tipo_projeto", d, true); evoDash(d);
   charts.c2?.destroy();
   charts.c2 = new Chart($("#c2"), { type: "bar", data: { labels: ["Total", "Levantados", "Desenho concluído+", "No Sphera+", "Comprados"],
     datasets: [{ data: [d.length, lev, c(2), c(3), c(4)], backgroundColor: ["#b0b7c3", "#f2a93b", "#3b82c4", "#7a5cc7", "#2e9e5b"] }] },
@@ -252,6 +296,57 @@ function dash() {
   $("#pend").innerHTML = p.length ? `<table class="st" style="min-width:520px"><thead><tr><th>Área</th><th>Equipamento</th><th>Tipo</th><th>Pendência</th></tr></thead><tbody>${p.slice(0, 80).map(([r, t]) =>
     `<tr><td data-l="Área"><div class="v">${esc(r.area)}</div></td><td class="h"><b>${esc(r.equipamento)}</b></td><td data-l="Tipo"><div class="v">${esc(r.tipo_projeto)}</div></td><td data-l="Pendência"><div class="v">${t}</div></td></tr>`).join("")}</tbody></table>` + (p.length > 80 ? `<small>+${p.length - 80} itens</small>` : "") : "Nenhuma pendência.";
 }
+let hist = [];
+async function fetchAll(t) {
+  let out = [], f = 0;
+  for (;;) {
+    const { data, error } = await sb.from(t).select("*").order("created_at").order("id").range(f, f + 999);
+    if (error || !data) return out;
+    out = out.concat(data); if (data.length < 1000) return out; f += 1000;
+  }
+}
+function evo(d, mode) {
+  const set = new Set(d.map(r => r.id)), by = {}, ts = [];
+  hist.forEach(h => { if (set.has(h.ponto_id)) { const t = new Date(h.created_at).getTime(); ts.push(t);
+    (by[h.ponto_id] = by[h.ponto_id] || []).push({ t, l: h.status_levantamento, s: ST.indexOf(h.status_projeto) }); } });
+  const now = new Date(), ends = [], labels = [], n = mode === "w" ? 12 : 6, f2 = x => String(x).padStart(2, "0");
+  for (let i = n - 1; i >= 0; i--) {
+    if (mode === "w") {
+      const dow = (now.getDay() + 6) % 7, end = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dow + 6 - 7 * i, 23, 59, 59, 999);
+      const st = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 6);
+      ends.push(end); labels.push(f2(st.getDate()) + "/" + f2(st.getMonth() + 1));
+    } else {
+      const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999);
+      ends.push(end); labels.push(f2(end.getMonth() + 1) + "/" + end.getFullYear());
+    }
+  }
+  const rowsOut = ends.map(T => {
+    const t = T.getTime(); let lev = 0, des = 0, sph = 0, comp = 0;
+    for (const id of set) {
+      let l = "Pendente", st = 0;
+      for (const e of (by[id] || [])) { if (e.t <= t) { l = e.l; st = Math.max(0, e.s); } else break; }
+      if (l === "Levantado") lev++; if (st >= 2) des++; if (st >= 3) sph++; if (st >= 4) comp++;
+    }
+    const prev = mode === "w" ? new Date(T.getFullYear(), T.getMonth(), T.getDate() - 7, 23, 59, 59, 999) : new Date(T.getFullYear(), T.getMonth(), 0, 23, 59, 59, 999);
+    return { lev, des, sph, comp, mov: ts.filter(x => x > prev.getTime() && x <= t).length };
+  });
+  return { labels, rows: rowsOut, mode };
+}
+const EH = ["Período", "Levantados", "Com desenho", "No Sphera", "Comprados", "Movimentações"];
+const evoLines = e => e.rows.map((x, i) => [(e.mode === "w" ? "Semana de " : "") + e.labels[i], x.lev, x.des, x.sph, x.comp, x.mov]).reverse();
+function evoDash(d) {
+  const mode = $("#evP").value, e = evo(d, mode), R = e.rows, last = R[R.length - 1], prev = R[R.length - 2] || { lev: 0, des: 0, sph: 0, comp: 0 };
+  const dl = (a, b) => (a >= b ? "+" : "") + (a - b), per = mode === "w" ? "Nesta semana" : "Neste mês";
+  $("#evk").innerHTML = [["Levantados", dl(last.lev, prev.lev)], ["Com desenho", dl(last.des, prev.des)], ["No Sphera", dl(last.sph, prev.sph)], ["Comprados", dl(last.comp, prev.comp)], ["Movimentações", String(last.mov)]]
+    .map(([l, v]) => `<div class="card kpi" style="margin:0"><b>${v}</b><span>${per}: ${l}</span></div>`).join("");
+  charts.c4?.destroy();
+  charts.c4 = new Chart($("#c4"), { type: "line", data: { labels: e.labels, datasets: [["Levantados", "lev", "#f2a93b"], ["Com desenho", "des", "#3b82c4"], ["No Sphera", "sph", "#7a5cc7"], ["Comprados", "comp", "#2e9e5b"]]
+    .map(([n, k, c]) => ({ label: n, data: R.map(x => x[k]), borderColor: c, backgroundColor: c, tension: .25 })) },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } }, plugins: { legend: { position: "bottom" } } } });
+  $("#evt").innerHTML = `<table class="st" style="min-width:560px"><thead><tr>${EH.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${evoLines(e).map(l =>
+    `<tr><td class="h"><b>${l[0]}</b></td>${l.slice(1).map((v, i) => `<td data-l="${EH[i + 1]}"><div class="v">${v}</div></td>`).join("")}</tr>`).join("")}</tbody></table>`;
+}
+$("#evP").onchange = dash;
 $("#dA").onchange = dash;
 
 // ---------- Cadastro ----------
@@ -264,7 +359,7 @@ const COLS = [
   ["Grade de piso", /grade/i, "Grade de piso (garagem de manutenção)"],
   ["Outros", null, ""]];
 const colOf = r => { const i = COLS.findIndex(c => c[1] && c[1].test(r.tipo_projeto || "")); return i < 0 ? COLS.length - 1 : i; };
-const cell = r => `<div class="ce" data-id="${r.id}" title="${esc(r.tipo_projeto)}"><b>${r.qtd ?? "•"}</b> <span class="tag" style="border-left:4px solid ${COL[si(r)]}">${esc(r.status_projeto)}</span>${r.status_levantamento === "Levantado" ? " ✓" : ""}${r.file_name ? ` <span title="${esc(r.file_name)}">📄</span>` : ""}</div>`;
+const cell = r => `<div class="ce" data-id="${r.id}" title="${esc(r.tipo_projeto)}"><b>${r.qtd ?? "•"}</b> <span class="tag" style="--c:${COL[si(r)]}">${esc(r.status_projeto)}</span>${r.status_levantamento === "Levantado" ? " ✓" : ""}${r.file_name ? ` <span title="${esc(r.file_name)}">📄</span>` : ""}</div>`;
 function table() {
   const a = $("#fA").value, s = $("#fS").value, q = $("#fQ").value.toLowerCase();
   const d = rows.filter(r => (!a || r.area === a) && (!s || ST[si(r)] === s) &&
@@ -308,6 +403,110 @@ $("#del").onclick = async () => {
   const { error } = await sb.from("pontos").delete().eq("id", $("#f").elements.id.value);
   if (error) return alert(error.message);
   $("#dlg").close(); load();
+};
+
+
+// ---------- Relatórios ----------
+const lv = r => r.status_levantamento === "Levantado";
+const today = () => new Date().toLocaleDateString("pt-BR");
+const stamp = () => new Date().toISOString().slice(0, 10);
+function stats(d) { const c = k => d.filter(r => si(r) >= k).length; return { n: d.length, lev: d.filter(lv).length, des: c(2), sph: c(3), comp: c(4) }; }
+const pc = (x, n) => n ? Math.round(100 * x / n) + "%" : "0%";
+function repData() { const a = $("#rA").value; return { a, d: a ? rows.filter(r => r.area === a) : rows }; }
+function pendList(d) { return [...d.filter(r => lv(r) && si(r) < 2).map(r => [r, "Levantado, sem desenho"]), ...d.filter(r => si(r) === 2).map(r => [r, "Desenho pronto, falta Sphera"])]; }
+function matrix(d, field) {
+  const keys = [...new Set(d.map(r => r[field] || "—"))].sort();
+  return { keys, m: keys.map(k => ST.map((s, i) => d.filter(r => (r[field] || "—") === k && si(r) === i).length)) };
+}
+function resumoRows(a, d) {
+  const rs = AREAS.filter(x => !a || x === a).map(ar => [ar, stats(d.filter(r => r.area === ar))]);
+  rs.push(["Total", stats(d)]);
+  return rs.map(([n, s]) => [n, s.n, s.lev, s.des, s.sph, s.comp, pc(s.des, s.n)]);
+}
+const RH = ["Área", "Linhas de projeto", "Levantados", "Com desenho", "No Sphera", "Comprados", "% com desenho"];
+
+$("#rx").onclick = () => {
+  const { a, d } = repData(), wb = XLSX.utils.book_new();
+  const add = (nome, head, linhas) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([head, ...linhas]), nome);
+  add("Resumo", RH, resumoRows(a, d));
+  const mt = matrix(d, "tipo_projeto");
+  add("Por tipo de projeto", ["Tipo de projeto", ...ST], mt.keys.map((k, i) => [k, ...mt.m[i]]));
+  add("Pendências", ["Área", "Equipamento", "Tipo de projeto", "Pendência"], pendList(d).map(([r, t]) => [r.area, r.equipamento, r.tipo_projeto, t]));
+  add("Evolução semanal", EH, evoLines(evo(d, "w")));
+  add("Evolução mensal", EH, evoLines(evo(d, "m")));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(d.map(r => { const o = {}; for (const k in MAP) o[k] = r[MAP[k]]; return o; })), "Dados");
+  XLSX.writeFile(wb, `relatorio_grua_segura_${stamp()}.xlsx`);
+};
+
+$("#rp").onclick = () => {
+  const { a, d } = repData();
+  const w = window.open("", "_blank");
+  if (!w) return alert("Permita pop-ups para este site e tente de novo.");
+  const tbl = (h, r) => `<table><thead><tr>${h.map(x => `<th>${esc(x)}</th>`).join("")}</tr></thead><tbody>${r.map(l => `<tr>${l.map(x => `<td>${esc(x)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+  const mt = matrix(d, "tipo_projeto"), pd = pendList(d), ew = evo(d, "w"), em = evo(d, "m");
+  w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatório – Grua Segura</title>
+<style>body{font:12px Arial,sans-serif;margin:24px;color:#1b2430}h1{color:#1f3864;font-size:20px;margin:10px 0 2px}h2{font-size:14px;margin:18px 0 6px;color:#1f3864}
+table{border-collapse:collapse;width:100%;margin-bottom:8px}th,td{border:1px solid #c9d0dc;padding:4px 6px;text-align:left}th{background:#eef1f7}tr{page-break-inside:avoid}
+button{padding:8px 14px;font-size:14px}@media print{button{display:none}}</style></head><body>
+<button onclick="print()">Imprimir / Salvar como PDF</button>
+<h1>Adequação de Pontos de Grua Segura</h1><p>Relatório de acompanhamento · ${today()} · ${esc(a || "Todas as áreas")}</p>
+<h2>Resumo por área</h2>${tbl(RH, resumoRows(a, d))}
+<h2>Evolução semanal (últimas 12 semanas)</h2>${tbl(EH, evoLines(ew))}
+<h2>Evolução mensal (últimos 6 meses)</h2>${tbl(EH, evoLines(em))}
+<h2>Por tipo de projeto e status</h2>${tbl(["Tipo de projeto", ...ST], mt.keys.map((k, i) => [k, ...mt.m[i]]))}
+<h2>Pendências (${pd.length})</h2>${pd.length ? tbl(["Área", "Equipamento", "Tipo de projeto", "Pendência"], pd.map(([r, t]) => [r.area, r.equipamento, r.tipo_projeto, t])) : "Nenhuma pendência."}
+<h2>Todos os registros</h2>${tbl(["Área", "Equipamento", "Tipo de projeto", "Qtd", "Levantamento", "Status do projeto", "file_name", "Sphera"], d.map(r => [r.area, r.equipamento, r.tipo_projeto, r.qtd ?? "", r.status_levantamento, r.status_projeto, r.file_name || "", r.sphera || ""]))}
+</body></html>`);
+  w.document.close(); setTimeout(() => w.print(), 500);
+};
+
+$("#rpp").onclick = () => {
+  if (typeof PptxGenJS === "undefined") return alert("A biblioteca do PowerPoint não carregou. Recarregue a página (Ctrl+F5) e tente de novo.");
+  const { a, d } = repData(), s = stats(d), P = new PptxGenJS(), NAVY = "1F3864", FT = "Arial";
+  P.layout = "LAYOUT_WIDE";
+  const head = (sl, t) => { sl.addShape(P.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 0.9, fill: { color: NAVY }, line: { color: NAVY } });
+    sl.addText(t, { x: 0.5, y: 0.1, w: 12.3, h: 0.7, fontFace: FT, fontSize: 24, bold: true, color: "FFFFFF" }); };
+  const th = t => ({ text: t, options: { bold: true, color: "FFFFFF", fill: { color: NAVY } } });
+  let sl = P.addSlide(); sl.background = { color: NAVY };
+  sl.addText("Adequação de Pontos de Grua Segura", { x: 0.7, y: 2.2, w: 12, h: 1, fontFace: FT, fontSize: 38, bold: true, color: "FFFFFF" });
+  sl.addText("Proteções NR12, sistemas antiqueda e acessos · Aciaria, Oficina Central e Porto", { x: 0.7, y: 3.3, w: 12, h: 0.6, fontFace: FT, fontSize: 18, color: "F2B705" });
+  sl.addText(`Relatório de acompanhamento · ${today()}${a ? " · " + a : ""}`, { x: 0.7, y: 4.1, w: 12, h: 0.5, fontFace: FT, fontSize: 16, color: "DDE3EF" });
+
+  sl = P.addSlide(); head(sl, "Resumo geral");
+  [["Linhas de projeto", String(s.n)], ["Levantados", pc(s.lev, s.n)], ["Com desenho", pc(s.des, s.n)], ["No Sphera", pc(s.sph, s.n)], ["Comprados", pc(s.comp, s.n)]].forEach(([l, v], i) => {
+    const x = 0.5 + i * 2.5;
+    sl.addShape(P.ShapeType.roundRect, { x, y: 1.3, w: 2.3, h: 1.5, fill: { color: "EEF1F7" }, line: { color: "EEF1F7" } });
+    sl.addText(v, { x, y: 1.4, w: 2.3, h: 0.9, align: "center", fontFace: FT, fontSize: 32, bold: true, color: NAVY });
+    sl.addText(l, { x, y: 2.3, w: 2.3, h: 0.4, align: "center", fontFace: FT, fontSize: 13, color: "5B6677" }); });
+  sl.addChart(P.charts.BAR, [{ name: "Linhas de projeto", labels: ["Total", "Levantados", "Desenho concluído ou além", "No Sphera ou além", "Comprados"], values: [s.n, s.lev, s.des, s.sph, s.comp] }],
+    { x: 0.5, y: 3.1, w: 12.3, h: 4, barDir: "bar", chartColors: [NAVY], showValue: true, showLegend: false, catAxisOrientation: "maxMin", catAxisLabelFontSize: 12, valAxisLabelFontSize: 11 });
+
+  const ar = AREAS.filter(x => !a || x === a);
+  sl = P.addSlide(); head(sl, "Avanço por área");
+  sl.addChart(P.charts.BAR, ST.map((st, i) => ({ name: st, labels: ar, values: ar.map(x => d.filter(r => r.area === x && si(r) === i).length) })),
+    { x: 0.5, y: 1.1, w: 7.4, h: 6, barDir: "col", barGrouping: "stacked", chartColors: COL.map(c => c.slice(1)), showLegend: true, legendPos: "b", legendFontSize: 11, catAxisLabelFontSize: 12, valAxisLabelFontSize: 11 });
+  const pick = r => [r[0], r[1], r[2], r[3], r[6]];
+  sl.addTable([pick(RH).map(th), ...resumoRows(a, d).map(r => pick(r).map(t => ({ text: String(t), options: { fontSize: 11 } })))],
+    { x: 8.1, y: 1.3, w: 4.9, fontFace: FT, fontSize: 10, border: { type: "solid", color: "C9D0DC", pt: 0.5 }, rowH: 0.45 });
+
+  const mt = matrix(d, "tipo_projeto");
+  sl = P.addSlide(); head(sl, "Avanço por tipo de projeto");
+  sl.addChart(P.charts.BAR, ST.map((st, i) => ({ name: st, labels: mt.keys, values: mt.m.map(l => l[i]) })),
+    { x: 0.5, y: 1.1, w: 12.3, h: 6, barDir: "bar", barGrouping: "stacked", chartColors: COL.map(c => c.slice(1)), showLegend: true, legendPos: "b", legendFontSize: 11, catAxisOrientation: "maxMin", catAxisLabelFontSize: 11, valAxisLabelFontSize: 11 });
+
+  [["w", "Evolução semanal (12 semanas)"], ["m", "Evolução mensal (6 meses)"]].forEach(([m, t]) => {
+    const e = evo(d, m); sl = P.addSlide(); head(sl, t);
+    sl.addChart(P.charts.LINE, [["Levantados", "lev"], ["Com desenho", "des"], ["No Sphera", "sph"], ["Comprados", "comp"]].map(([n, k]) => ({ name: n, labels: e.labels, values: e.rows.map(x => x[k]) })),
+      { x: 0.5, y: 1.1, w: 12.3, h: 6, chartColors: ["F2A93B", "3B82C4", "7A5CC7", "2E9E5B"], lineSize: 3, showLegend: true, legendPos: "b", legendFontSize: 12, catAxisLabelFontSize: 12, valAxisLabelFontSize: 11 });
+  });
+  const pd = pendList(d);
+  sl = P.addSlide(); head(sl, `Pendências (${pd.length})`);
+  if (pd.length) {
+    const top = pd.slice(0, 14).map(([r, t]) => [r.area, r.equipamento, r.tipo_projeto, t].map(x => ({ text: String(x), options: { fontSize: 11 } })));
+    sl.addTable([["Área", "Equipamento", "Tipo de projeto", "Pendência"].map(th), ...top], { x: 0.5, y: 1.2, w: 12.3, colW: [2.2, 1.9, 4.6, 3.6], fontFace: FT, border: { type: "solid", color: "C9D0DC", pt: 0.5 }, rowH: 0.36 });
+    if (pd.length > 14) sl.addText(`+ ${pd.length - 14} pendências no relatório completo.`, { x: 0.5, y: 6.9, w: 12, h: 0.4, fontFace: FT, fontSize: 12, color: "5B6677" });
+  } else sl.addText("Nenhuma pendência no momento.", { x: 0.5, y: 2, w: 12, h: 1, fontFace: FT, fontSize: 20, color: NAVY });
+  P.writeFile({ fileName: `apresentacao_grua_segura_${stamp()}.pptx` });
 };
 
 // ---------- Importar / Exportar ----------
