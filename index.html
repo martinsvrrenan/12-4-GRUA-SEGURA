@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#1f3864">
+<meta name="theme-color" content="#14284b">
 <link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="logo.svg">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="Grua Segura">
@@ -17,57 +18,70 @@
 <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <script src="config.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
 <style>
-:root{--navy:#1f3864;--blue:#2f5fb3;--amber:#f2b705;--bg:#f2f5fb;--line:#e4e9f2;--txt:#1b2430;--mut:#6a7588}
+:root{--ink:#0f1b2d;--navy:#14284b;--blue:#2456b8;--amber:#ffc21a;--bg:#f4f5f8;--line:#e2e6ee;--txt:#1a2433;--mut:#66738a;--top:calc(60px + env(safe-area-inset-top,0px));--sb:228px}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
-body{margin:0;font:14px/1.45 Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--txt);min-height:100vh;
-background:radial-gradient(1100px 480px at 8% -8%,#dce6fb 0,transparent 60%),radial-gradient(800px 380px at 100% 0,#fdf0c4 0,transparent 55%),var(--bg)}
-header{background:linear-gradient(120deg,#182c52,#2f5fb3);color:#fff;padding:12px 18px;padding-top:max(12px,env(safe-area-inset-top));display:flex;justify-content:space-between;align-items:center;gap:10px}
-header h1{font-size:16px;margin:0;font-weight:700}header img{box-shadow:0 2px 8px #0004}
-header button{background:#ffffff1f;color:#fff;border:1px solid #ffffff40;min-height:0;padding:6px 14px}
-nav{display:flex;gap:6px;padding:10px 18px;position:sticky;top:0;z-index:5;overflow-x:auto;background:#f4f6fbd1;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
-nav button{border:0;background:transparent;color:var(--mut);padding:8px 16px;border-radius:999px;white-space:nowrap;font-weight:600;transition:.15s}
-nav button:hover{background:#e6ecf8;color:var(--navy)}nav button.on{background:var(--navy);color:#fff;box-shadow:0 4px 12px #1f386440}
-main{padding:18px;max-width:1400px;margin:auto}
-.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 1px 2px #1b243008,0 8px 24px #1b24300a;margin-bottom:14px}
-.card>b{font-size:15px}
+body{margin:0;font:14px/1.5 Manrope,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--txt);background:var(--bg);min-height:100vh}
+.logo{width:36px;height:36px;flex:none;display:block}
+header{position:sticky;top:0;z-index:30;height:var(--top);padding:env(safe-area-inset-top,0px) 18px 0;display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--navy);color:#fff}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}.brand>div{min-width:0}
+header h1{font-size:15px;line-height:1.2;margin:0;font-weight:800;letter-spacing:-.2px}
+header small{display:block;color:#9db0d3;font-size:11.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header button{background:transparent;color:#fff;border:1px solid #ffffff40;min-height:0;padding:7px 14px}header button:hover{background:#ffffff14}
+nav{position:fixed;z-index:20;left:0;top:var(--top);bottom:0;width:var(--sb);padding:14px 12px;display:flex;flex-direction:column;gap:4px;background:#fff;border-right:1px solid var(--line);overflow-y:auto}
+nav button{display:flex;align-items:center;gap:12px;width:100%;border:0;background:transparent;color:var(--mut);padding:11px 14px;border-radius:10px;font-weight:600;text-align:left}
+nav button:hover{background:#f1f4fa;color:var(--navy)}nav button.on{background:var(--navy);color:#fff}nav button.on .ic{color:var(--amber)}
+nav .sh{display:none}.ic{width:20px;height:20px;flex:none}
+main{padding:22px;max-width:1400px;margin-left:var(--sb)}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
+.card>b{font-size:15px;font-weight:700;color:var(--ink)}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}
-.kpi{position:relative;overflow:hidden;padding-left:20px}.kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:linear-gradient(var(--blue),var(--amber))}
-.kpi b{display:block;font-size:26px;letter-spacing:-.5px;color:var(--navy)}.kpi span{font-size:12px;color:var(--mut)}
+.kpi{padding:14px 16px}.kpi::before{content:"";display:block;width:20px;height:4px;border-radius:2px;background:var(--amber);margin-bottom:10px}
+.kpi b{display:block;font-size:28px;line-height:1.1;font-weight:800;letter-spacing:-.8px;color:var(--navy)}.kpi span{font-size:12px;color:var(--mut);font-weight:600}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:14px}
 .ch{height:300px;position:relative}.ch.tall{height:380px}
-input,select,textarea,button{font:inherit;padding:9px 12px;border:1px solid #cfd6e4;border-radius:10px;max-width:100%;background:#fff;color:var(--txt);transition:border-color .15s,box-shadow .15s,filter .15s}
-input:focus,select:focus,textarea:focus{outline:0;border-color:var(--blue);box-shadow:0 0 0 3px #2f5fb324}
-button{cursor:pointer}
-button.p{background:linear-gradient(135deg,#1f3864,#2f5fb3);color:#fff;border:0;font-weight:600;box-shadow:0 4px 12px #1f386433}button.p:hover{filter:brightness(1.12)}
-button.d{background:#d64545;color:#fff;border:0;font-weight:600}
+input,select,textarea,button{font:inherit;padding:9px 12px;border:1px solid #cdd4e1;border-radius:10px;max-width:100%;background:#fff;color:var(--txt);transition:border-color .15s,box-shadow .15s,background .15s}
+input:focus,select:focus,textarea:focus{outline:0;border-color:var(--blue);box-shadow:0 0 0 3px #2456b82b}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+button{cursor:pointer;font-weight:600}button:hover{background:#f3f5fa}
+button.p{background:var(--navy);color:#fff;border-color:var(--navy)}button.p:hover{background:#1d3a6b}
+button.d{background:#d64545;color:#fff;border-color:#d64545}button.d:hover{background:#c23a3a}
 .bar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;align-items:center}.tw{overflow-x:auto}
 table{border-collapse:separate;border-spacing:0;width:100%;min-width:760px}
-th{background:#f4f6fb;color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;position:sticky;top:0}
+th{background:#f7f8fb;color:var(--mut);font-size:12px;font-weight:700;letter-spacing:.2px;position:sticky;top:0}
 th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
-tbody tr:hover td{background:#f8faff}
-.ce{cursor:pointer;padding:4px 6px;white-space:nowrap;border-radius:8px;transition:background .12s}.ce:hover{background:#e9f0fd}
+tbody tr:hover td{background:#fafbfd}
+.ce{cursor:pointer;padding:5px 7px;white-space:nowrap;border-radius:8px;transition:background .12s}.ce:hover{background:#eef2fb}.ce+.ce{margin-top:4px}
+.fn{display:block;margin-top:5px}.fn span{display:block;line-height:1.35}
+.fn .n{font:700 12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--navy)}.fn .c{font-size:11.5px;font-weight:700;color:var(--mut);margin:1px 0}.fn .x{font-weight:500;color:var(--mut)}
 .add{cursor:pointer;color:var(--blue);font-weight:700;padding:1px 9px;border:1px dashed #a9b8d6;border-radius:8px}.add:hover{background:#eaf0fc}
 .tag{display:inline-flex;align-items:center;padding:2px 9px;border-radius:999px;font-size:12px;background:#eef2fa;color:#33405a;white-space:nowrap;font-weight:600}
 .tag::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--c,#b0b7c3);margin-right:6px}
-dialog{border:0;border-radius:20px;padding:20px;width:min(680px,94vw);max-height:92vh;overflow:auto;box-shadow:0 24px 70px #0003}
-dialog::backdrop{background:#0b1a3a80;backdrop-filter:blur(3px)}
+dialog{border:0;border-radius:18px;padding:22px;width:min(680px,94vw);max-height:92vh;overflow:auto;box-shadow:0 30px 80px #0f1b2d45;color:var(--txt)}
+dialog::backdrop{background:#0f1b2d80;backdrop-filter:blur(3px)}dialog h3{margin:0 0 4px;font-size:18px;letter-spacing:-.2px}
 label{display:block;font-size:12px;font-weight:600;color:var(--mut);margin-top:10px}
 label input,label select,label textarea{width:100%;margin-top:4px;font-weight:400}
 #f .g{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}#f .g .w{grid-column:1/-1}
-#login{max-width:380px;margin:10vh auto;padding:28px;border-radius:24px;box-shadow:0 20px 60px #1f386426}
-#login input{width:100%;margin-bottom:10px}#login h2{margin:6px 0 16px}
+#fnPrev{background:#fffaf0;border:1px solid #f3dfa4;border-radius:10px;padding:10px 12px;margin-top:10px}#fnPrev:empty{display:none}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.chip{background:#fff;border:1px solid #e8d9a8;border-radius:8px;padding:5px 9px;font:600 12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--navy)}.chip i{font-style:normal;color:var(--mut);margin-right:7px}
+#login{max-width:400px;margin:9vh auto;padding:32px 28px;border-radius:20px}#login .logo{width:72px;height:72px;margin:0 auto 14px}
+#login input{width:100%;margin-bottom:10px}#login h2{margin:0 0 4px;text-align:center;font-size:22px;letter-spacing:-.4px}#login .sub{text-align:center;color:var(--mut);margin:0 0 20px;font-size:13px}
 a{color:var(--blue);font-weight:600}small{color:var(--mut)}.err{color:#c0362c}.hide{display:none!important}.v{display:block}
+@media(max-width:899px){
+ nav{top:auto;bottom:0;width:100%;flex-direction:row;gap:0;justify-content:space-around;padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));border-right:0;border-top:1px solid var(--line);overflow:visible}
+ nav button{flex:1;min-width:0;flex-direction:column;justify-content:center;gap:3px;padding:7px 2px;font-size:11px;text-align:center;border-radius:12px}
+ nav .lg{display:none}nav .sh{display:inline}
+ main{margin-left:0;padding-bottom:calc(92px + env(safe-area-inset-bottom,0px))}
+}
 @media(max-width:760px){
- body{font-size:15px}header h1{font-size:14px}main{padding:12px}
- input,select,textarea,button{font-size:16px;min-height:44px}header button{min-height:38px}
- nav{padding:8px 12px}nav button{padding:10px 14px}.bar>*{flex:1 1 100%}
- .ch{height:260px}.ch.tall{height:340px}#f .g{grid-template-columns:1fr}
- dialog{width:100vw;max-width:100vw;margin:auto 0 0 0;border-radius:22px 22px 0 0;max-height:94vh;padding-bottom:max(18px,env(safe-area-inset-bottom))}
+ body{font-size:15px}header h1{font-size:14px}main{padding:14px 12px calc(92px + env(safe-area-inset-bottom,0px))}
+ input,select,textarea,button{font-size:16px;min-height:44px}header button{min-height:38px}nav button{font-size:11px;min-height:0}
+ .bar>*{flex:1 1 100%}.ch{height:260px}.ch.tall{height:340px}#f .g{grid-template-columns:1fr}
+ dialog{width:100vw;max-width:100vw;margin:auto 0 0 0;border-radius:20px 20px 0 0;max-height:94vh;padding-bottom:max(18px,env(safe-area-inset-bottom))}
  table.st{min-width:0!important}table.st thead{display:none}
  table.st,table.st tbody,table.st td{display:block;width:100%}
- table.st tr{display:flex;flex-direction:column;width:100%;background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:10px;padding:8px 12px;box-shadow:0 1px 2px #1b243008}
+ table.st tr{display:flex;flex-direction:column;width:100%;background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:10px;padding:8px 12px}
  table.st td{border:0;padding:5px 0;display:flex;gap:10px;justify-content:space-between;align-items:flex-start}
  table.st td::before{content:attr(data-l);font-size:12px;color:var(--mut);flex:0 0 34%}
  table.st td.h{order:-1;font-size:16px;border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:2px}table.st td.h::before{content:none}
@@ -77,9 +91,10 @@ a{color:var(--blue);font-weight:600}small{color:var(--mut)}.err{color:#c0362c}.h
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="lg" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#14284b"/><path d="M32 33 43 37v8c0 7-5 11-11 14-6-3-11-7-11-14v-8z" fill="#ffc21a"/><path d="m26.5 45.5 4 4 7.5-8" stroke="#14284b" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="9" y="13" width="46" height="6" rx="3" fill="#ffc21a"/><rect x="9" y="10" width="5" height="12" rx="2" fill="#fff"/><rect x="50" y="10" width="5" height="12" rx="2" fill="#fff"/><rect x="25" y="19" width="14" height="6" rx="2" fill="#fff"/><path d="M32 25v8" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></symbol></svg>
 <div id="login" class="card hide">
-  <img src="icon-192.png" alt="" width="96" height="96" style="border-radius:20px;display:block;margin:0 auto 8px">
-  <h2 id="lt" style="text-align:center">Grua Segura</h2>
+  <svg class="logo" aria-hidden="true"><use href="#lg"/></svg>
+  <h2 id="lt">Grua Segura</h2><p class="sub">Acompanhamento de adequações de segurança</p>
   <input id="em" type="email" placeholder="E-mail" autocomplete="username">
   <input id="pw" type="password" placeholder="Senha" autocomplete="current-password">
   <input id="pw2" type="password" class="hide" placeholder="Repita a senha" autocomplete="new-password">
@@ -94,8 +109,8 @@ a{color:var(--blue);font-weight:600}small{color:var(--mut)}.err{color:#c0362c}.h
 </div>
 
 <div id="app" class="hide">
-<header><div style="display:flex;align-items:center;gap:10px"><img src="icon-192.png" alt="" width="38" height="38" style="border-radius:8px"><h1>Adequação de Pontos de Grua Segura</h1></div><button id="out">Sair</button></header>
-<nav><button data-t="t1" class="on">Dashboard</button><button data-t="t2">Cadastro</button><button data-t="t5">Relatórios</button><button data-t="t3">Importar / Exportar</button><button data-t="t4" id="navU" class="hide">Usuários</button></nav>
+<header><div class="brand"><svg class="logo" aria-hidden="true"><use href="#lg"/></svg><div><h1>Grua Segura</h1><small>Adequação de pontos de segurança</small></div></div><button id="out">Sair</button></header>
+<nav><button data-t="t1" class="on"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z"/></svg><span>Dashboard</span></button><button data-t="t2"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Cadastro</span></button><button data-t="t5"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 17v-3M12 17v-6M16 17v-2"/></svg><span>Relatórios</span></button><button data-t="t3"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v13M3 13l4 4 4-4M17 20V7M13 11l4-4 4 4"/></svg><span class="lg">Importar / Exportar</span><span class="sh">Dados</span></button><button data-t="t4" id="navU" class="hide"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c2 .6 3.3 2.2 3.5 5.2"/></svg><span>Usuários</span></button></nav>
 <main>
  <section id="t1">
   <div class="bar"><select id="dA"><option value="">Todas as áreas</option></select></div>
@@ -171,7 +186,9 @@ a{color:var(--blue);font-weight:600}small{color:var(--mut)}.err{color:#c0362c}.h
  <label class="w">Detalhe / local<textarea name="detalhe" rows="2"></textarea></label>
  <label>Status do levantamento<select name="status_levantamento"><option>Pendente</option><option>Levantado</option></select></label>
  <label>Status do projeto<select name="status_projeto" id="fSt"></select></label>
- <label class="w">file_name (nome do desenho)<input name="file_name"></label>
+ <label class="w">file_name (nome do desenho)<input name="file_name" autocomplete="off" placeholder="ex.: pr01-abc-001"></label>
+ <label>Quantidade de folhas<input name="folhas" type="number" min="1" step="1" value="1" inputmode="numeric"></label>
+ <div class="w" id="fnPrev"></div>
  <label>Nº requisição Sphera<input name="sphera"></label>
  <label>Responsável<input name="responsavel"></label>
  <label class="w">Observações<textarea name="observacoes" rows="2"></textarea></label>
@@ -181,16 +198,29 @@ a{color:var(--blue);font-weight:600}small{color:var(--mut)}.err{color:#c0362c}.h
 
 <script>
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-Chart.defaults.font.family = 'Inter, system-ui, "Segoe UI", Arial, sans-serif'; Chart.defaults.color = "#5b6677"; Chart.defaults.elements.bar.borderRadius = 4;
+Chart.defaults.font.family = 'Manrope, system-ui, "Segoe UI", Arial, sans-serif'; Chart.defaults.color = "#5b6677"; Chart.defaults.elements.bar.borderRadius = 4;
 const AREAS = ["Aciaria","Oficina Central","Porto"];
 const ST = ["A projetar","Em projeto","Desenho concluído","Cadastrado no Sphera","Comprado"];
 const COL = ["#b0b7c3","#f2a93b","#3b82c4","#7a5cc7","#2e9e5b"];
 const TIPOS = ["Proteção NR12 (partes girantes)","Sistema antiqueda","Linha de vida","Plataforma de acesso","Portão para escada de acesso à viga de rolamento","Grade de piso (garagem de manutenção)"];
-const MAP = {"Área":"area","Equipamento":"equipamento","Tipo de equipamento":"tipo_equipamento","Tipo de projeto":"tipo_projeto","Qtd. no escopo":"qtd","Detalhe do escopo":"detalhe","Status do levantamento":"status_levantamento","Status do projeto":"status_projeto","file_name (desenho)":"file_name","Nº requisição Sphera":"sphera","Responsável":"responsavel","Observações":"observacoes"};
+const MAP = {"Área":"area","Equipamento":"equipamento","Tipo de equipamento":"tipo_equipamento","Tipo de projeto":"tipo_projeto","Qtd. no escopo":"qtd","Detalhe do escopo":"detalhe","Status do levantamento":"status_levantamento","Status do projeto":"status_projeto","file_name (desenho)":"file_name","Qtd. de folhas":"folhas","Nº requisição Sphera":"sphera","Responsável":"responsavel","Observações":"observacoes"};
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 let rows = [], charts = {}, pending = [];
 const si = r => Math.max(0, ST.indexOf(r.status_projeto));
+// Folhas: o último número do file_name é a folha (pode haver números antes). Ex.: pr01-abc-001 + 2 folhas → pr01-abc-001, pr01-abc-002
+function sheetNames(fn, n) {
+  fn = String(fn || "").trim(); if (!fn) return [];
+  n = Math.max(1, parseInt(n) || 1);
+  const m = fn.match(/^(.*?)(\d+)(\.[A-Za-z0-9]+)?$/); if (!m) return [fn];
+  const pre = m[1], num = m[2], ext = m[3] || "", w = num.length, st = parseInt(num, 10);
+  return Array.from({ length: n }, (_, i) => pre + String(st + i).padStart(w, "0") + ext);
+}
+const fnHtml = r => { if (!r.file_name) return ""; const n = Math.max(1, parseInt(r.folhas) || 1), ns = sheetNames(r.file_name, n);
+  return `<span class="fn"><span class="n">${esc(ns[0] || r.file_name)}</span><span class="c">${n} ${n > 1 ? "folhas" : "folha"}</span>${ns.slice(1).map(x => `<span class="n x">${esc(x)}</span>`).join("")}</span>`; };
+const expRow = r => { const o = {}; for (const k in MAP) o[k] = r[MAP[k]]; if (r.file_name) o["Nomes das folhas"] = sheetNames(r.file_name, r.folhas).join(", "); return o; };
+let hasF = true;
+const SQLF = "Para salvar a quantidade de folhas, crie a coluna no Supabase (SQL Editor):\nalter table pontos add column folhas integer default 1;";
 
 function fillSelect(el, items, first) {
   el.innerHTML = (first ? `<option value="">${first}</option>` : "") + items.map(i => `<option>${i}</option>`).join("");
@@ -259,7 +289,7 @@ async function users() {
 async function load() {
   const { data, error } = await sb.from("pontos").select("*").order("area").order("equipamento").limit(5000);
   if (error) return alert("Erro ao carregar: " + error.message);
-  rows = data; hist = await fetchAll("historico");
+  rows = data; hasF = !rows.length || "folhas" in rows[0]; hist = await fetchAll("historico");
   const tps = [...new Set([...TIPOS, ...rows.map(r => r.tipo_projeto)])];
   $("#tps").innerHTML = tps.map(t => `<option value="${esc(t)}">`).join("");
   dash(); table();
@@ -363,11 +393,11 @@ const COLS = [
   ["Grade de piso", /grade/i, "Grade de piso (garagem de manutenção)"],
   ["Outros", null, ""]];
 const colOf = r => { const i = COLS.findIndex(c => c[1] && c[1].test(r.tipo_projeto || "")); return i < 0 ? COLS.length - 1 : i; };
-const cell = r => `<div class="ce" data-id="${r.id}" title="${esc(r.tipo_projeto)}"><b>${r.qtd ?? "•"}</b> <span class="tag" style="--c:${COL[si(r)]}">${esc(r.status_projeto)}</span>${r.status_levantamento === "Levantado" ? " ✓" : ""}${r.file_name ? ` <span title="${esc(r.file_name)}">📄</span>` : ""}</div>`;
+const cell = r => `<div class="ce" data-id="${r.id}" title="${esc(r.tipo_projeto)}"><b>${r.qtd ?? "•"}</b> <span class="tag" style="--c:${COL[si(r)]}">${esc(r.status_projeto)}</span>${r.status_levantamento === "Levantado" ? " ✓" : ""}${fnHtml(r)}</div>`;
 function table() {
   const a = $("#fA").value, s = $("#fS").value, q = $("#fQ").value.toLowerCase();
   const d = rows.filter(r => (!a || r.area === a) && (!s || ST[si(r)] === s) &&
-    (!q || [r.equipamento, r.tipo_projeto, r.file_name, r.sphera, r.responsavel].join(" ").toLowerCase().includes(q)));
+    (!q || [r.equipamento, r.tipo_projeto, r.file_name, sheetNames(r.file_name, r.folhas).join(" "), r.sphera, r.responsavel].join(" ").toLowerCase().includes(q)));
   const g = {};
   d.forEach(r => { const k = r.area + "|" + r.equipamento;
     (g[k] = g[k] || { area: r.area, eq: r.equipamento, te: r.tipo_equipamento, c: COLS.map(() => []) }).c[colOf(r)].push(r); });
@@ -376,7 +406,7 @@ function table() {
   $("#th").innerHTML = "<tr><th>Área</th><th>Equipamento</th>" + COLS.map((c, i) => used[i] ? `<th>${c[0]}</th>` : "").join("") + "</tr>";
   $("#tb").innerHTML = list.map(x => `<tr><td data-l="Área"><div class="v">${esc(x.area)}</div></td><td class="h"><b>${esc(x.eq)}</b></td>` +
     x.c.map((l, i) => !used[i] ? "" : `<td data-l="${COLS[i][0]}"${l.length || canEdit ? "" : ' class="em"'}><div class="v">${l.length ? l.map(cell).join("") : (canEdit ? `<a class="add" data-a="${esc(x.area)}" data-e="${esc(x.eq)}" data-t="${esc(x.te || "")}" data-c="${i}">+</a>` : "–")}</div></td>`).join("") + "</tr>").join("");
-  $("#cnt").textContent = `${d.length} de ${rows.length} registros em ${list.length} equipamentos · ✓ levantado · 📄 desenho informado`;
+  $("#cnt").textContent = `${d.length} de ${rows.length} registros em ${list.length} equipamentos · ✓ levantado`;
   document.querySelectorAll(".ce").forEach(el => el.onclick = () => edit(rows.find(r => r.id == el.dataset.id)));
   document.querySelectorAll(".add").forEach(el => el.onclick = () => edit(null, { area: el.dataset.a, equipamento: el.dataset.e, tipo_equipamento: el.dataset.t, tipo_projeto: COLS[el.dataset.c][2] }));
 }
@@ -388,8 +418,16 @@ function edit(r, p) {
   f.elements.id.value = r?.id ?? "";
   if (r) for (const k in MAP) { const n = MAP[k]; if (f[n]) f[n].value = r[n] ?? ""; }
   else if (p) for (const k in p) if (f[k]) f[k].value = p[k];
-  $("#dlg").showModal();
+  if (!f.elements.folhas.value) f.elements.folhas.value = 1;
+  prev(); $("#dlg").showModal();
 }
+function prev() {
+  const f = $("#f").elements, fn = f.file_name.value.trim(), n = Math.max(1, parseInt(f.folhas.value) || 1), ns = sheetNames(fn, n);
+  $("#fnPrev").innerHTML = !fn ? "" : ns.length < n
+    ? `<small class="err">Para gerar ${n} folhas, o file_name precisa terminar em número (ex.: pr01-abc-001).</small>`
+    : `<small><b>${n} ${n > 1 ? "folhas" : "folha"}</b>${n > 1 ? " · nomes gerados:" : ""}</small><div class="chips">${ns.map((x, i) => `<span class="chip"><i>${i + 1}</i>${esc(x)}</span>`).join("")}</div>`;
+}
+["file_name", "folhas"].forEach(k => $("#f").elements[k].addEventListener("input", prev));
 $("#novo").onclick = () => edit(null); $("#cx").onclick = () => $("#dlg").close();
 $("#f").onsubmit = async e => {
   e.preventDefault();
@@ -397,9 +435,12 @@ $("#f").onsubmit = async e => {
   o.qtd = o.qtd === "" ? null : Number(o.qtd);
   for (const k in o) if (o[k] === "") o[k] = null;
   if (ST.indexOf(o.status_projeto) >= 2 && !o.file_name) return alert("Informe o file_name do desenho para este status.");
+  o.folhas = o.file_name ? Math.max(1, parseInt(o.folhas) || 1) : null;
+  if (o.file_name && sheetNames(o.file_name, o.folhas).length < o.folhas) return alert("Para gerar mais de uma folha, o file_name precisa terminar em número (ex.: pr01-abc-001).");
+  if (!hasF) { if (o.folhas > 1) return alert(SQLF); delete o.folhas; }
   const id = o.id; delete o.id;
   const { error } = await (id ? sb.from("pontos").update(o).eq("id", id) : sb.from("pontos").insert(o));
-  if (error) return alert("Erro ao salvar: " + error.message);
+  if (error) return alert("Erro ao salvar: " + error.message + (/folhas/.test(error.message) ? "\n\n" + SQLF : ""));
   $("#dlg").close(); load();
 };
 $("#del").onclick = async () => {
@@ -439,7 +480,7 @@ $("#rx").onclick = () => {
   add("Pendências", ["Área", "Equipamento", "Tipo de projeto", "Pendência"], pendList(d).map(([r, t]) => [r.area, r.equipamento, r.tipo_projeto, t]));
   add("Evolução semanal", EH, evoLines(evo(d, "w")));
   add("Evolução mensal", EH, evoLines(evo(d, "m")));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(d.map(r => { const o = {}; for (const k in MAP) o[k] = r[MAP[k]]; return o; })), "Dados");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(d.map(expRow)), "Dados");
   XLSX.writeFile(wb, `relatorio_grua_segura_${stamp()}.xlsx`);
 };
 
@@ -597,6 +638,8 @@ $("#fi").onchange = async e => {
     for (const k in MAP) { const v = row[k]; o[MAP[k]] = (v === null || v === "") ? null : v; }
     if (o.qtd !== null) o.qtd = Number(o.qtd) || null;
     if (o.sphera !== null) o.sphera = String(o.sphera);
+    if (o.folhas !== null) o.folhas = Math.max(1, parseInt(o.folhas) || 1);
+    if (!hasF) delete o.folhas;
     if (!AREAS.includes(o.area)) errs.push(`Linha ${i + 2}: área inválida (${o.area})`);
     else if (!o.equipamento || !o.tipo_projeto) errs.push(`Linha ${i + 2}: falta equipamento ou tipo de projeto`);
     else {
@@ -619,7 +662,7 @@ $("#imp").onclick = async () => {
   alert(pending.length + " linhas importadas."); $("#fi").value = ""; $("#pv").textContent = ""; $("#imp").classList.add("hide"); load();
 };
 $("#exp").onclick = () => {
-  const out = rows.map(r => { const o = {}; for (const k in MAP) o[k] = r[MAP[k]]; return o; });
+  const out = rows.map(expRow);
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(out), "Pontos");
   XLSX.writeFile(wb, "pontos_grua_segura.xlsx");
 };
