@@ -232,7 +232,7 @@ fillSelect($("#fS"), ST, "Status do projeto"); fillSelect($("#fArea"), AREAS); f
 
 // ---------- Login e acesso ----------
 let papel = null, canEdit = false, canDelete = false, canImport = false, signup = false, me = null;
-const PAPEIS = [["pendente","Pendente (sem acesso)"],["visualizador","Visualizador"],["visualizador_editor","Colaborador"],["editor","Editor"],["admin","Administrador"]];
+const PAPEIS = [["pendente","Pendente (sem acesso)"],["visualizador","Visualizador"],["colaborador","Colaborador"],["editor","Editor"],["admin","Administrador"]];
 async function boot() {
   const { data } = await sb.auth.getSession();
   enter(data.session);
@@ -244,7 +244,7 @@ async function enter(session) {
   const { data } = await sb.from("perfis").select("papel").eq("id", me).maybeSingle();
   papel = data?.papel || "pendente";
   if (papel === "pendente") return $("#wait").classList.remove("hide");
-  canEdit = ["visualizador_editor", "editor", "admin"].includes(papel);
+  canEdit = ["colaborador", "visualizador_editor", "editor", "admin"].includes(papel);
   canDelete = ["editor", "admin"].includes(papel);
   canImport = ["editor", "admin"].includes(papel);
   $("#novo").classList.toggle("hide", !canEdit); $("#imp-card").classList.toggle("hide", !canImport);
