@@ -199,8 +199,8 @@ fillSelect($("#dA"), AREAS, "Todas as áreas"); fillSelect($("#rA"), AREAS, "Tod
 fillSelect($("#fS"), ST, "Status do projeto"); fillSelect($("#fArea"), AREAS); fillSelect($("#fSt"), ST);
 
 // ---------- Login e acesso ----------
-let papel = null, canEdit = false, signup = false, me = null;
-const PAPEIS = [["pendente","Pendente (sem acesso)"],["visualizador","Visualizador"],["editor","Editor"],["admin","Administrador"]];
+let papel = null, canEdit = false, canDelete = false, canImport = false, signup = false, me = null;
+const PAPEIS = [["pendente","Pendente (sem acesso)"],["visualizador","Visualizador"],["visualizador_editor","Colaborador"],["editor","Editor"],["admin","Administrador"]];
 async function boot() {
   const { data } = await sb.auth.getSession();
   enter(data.session);
@@ -212,8 +212,12 @@ async function enter(session) {
   const { data } = await sb.from("perfis").select("papel").eq("id", me).maybeSingle();
   papel = data?.papel || "pendente";
   if (papel === "pendente") return $("#wait").classList.remove("hide");
-  canEdit = ["editor", "admin"].includes(papel);
-  $("#novo").classList.toggle("hide", !canEdit); $("#imp-card").classList.toggle("hide", !canEdit);
+  canEdit = ["visualizador_editor", "editor", "admin"].includes(papel);
+  canDelete = ["editor", "admin"].includes(papel);
+  canImport = ["editor", "admin"].includes(papel);
+  $("#novo").classList.toggle("hide", !canEdit); $("#imp-card").classList.toggle("hide", !canImport);
+  $("#del").classList.toggle("hide", !canDelete);
+  document.querySelector('nav button[data-t="t3"]').classList.toggle("hide", !canImport);
   $("#navU").classList.toggle("hide", papel !== "admin");
   $("#app").classList.remove("hide"); load();
 }
@@ -380,7 +384,7 @@ function table() {
 function edit(r, p) {
   if (!canEdit) return;
   const f = $("#f"); f.reset();
-  $("#dt").textContent = r ? "Editar ponto" : "Novo ponto"; $("#del").classList.toggle("hide", !r);
+  $("#dt").textContent = r ? "Editar ponto" : "Novo ponto"; $("#del").classList.toggle("hide", !r || !canDelete);
   f.elements.id.value = r?.id ?? "";
   if (r) for (const k in MAP) { const n = MAP[k]; if (f[n]) f[n].value = r[n] ?? ""; }
   else if (p) for (const k in p) if (f[k]) f[k].value = p[k];
@@ -399,6 +403,7 @@ $("#f").onsubmit = async e => {
   $("#dlg").close(); load();
 };
 $("#del").onclick = async () => {
+  if (!canDelete) return alert("Seu perfil não tem permissão para excluir registros.");
   if (!confirm("Excluir este ponto?")) return;
   const { error } = await sb.from("pontos").delete().eq("id", $("#f").elements.id.value);
   if (error) return alert(error.message);
@@ -477,52 +482,106 @@ $("#rp").onclick = () => {
   w.document.close();
 };
 
-$("#rpp").onclick = () => {
-  if (typeof PptxGenJS === "undefined") return alert("A biblioteca do PowerPoint não carregou. Recarregue a página (Ctrl+F5) e tente de novo.");
-  const { a, d } = repData(), s = stats(d), P = new PptxGenJS(), NAVY = "1F3864", FT = "Arial";
+$("#rpp").onclick = async () => {
+  if (typeof PptxGenJS === "undefined") return alert("A biblioteca do PowerPoint não carregou. Recarregue a página e tente de novo.");
+  const { a, d } = repData(), s = stats(d), P = new PptxGenJS();
+  const C = { navy: "1F3864", blue: "2F5FB3", gold: "F2B705", ink: "1B2430", muted: "5B6677", pale: "EEF3FB", line: "DCE2EB", white: "FFFFFF", green: "2E9E5B", purple: "7A5CC7", sky: "3B82C4", gray: "B0B7C3" };
+  const FT = "Aptos";
   P.layout = "LAYOUT_WIDE";
-  const head = (sl, t) => { sl.addShape(P.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 0.9, fill: { color: NAVY }, line: { color: NAVY } });
-    sl.addText(t, { x: 0.5, y: 0.1, w: 12.3, h: 0.7, fontFace: FT, fontSize: 24, bold: true, color: "FFFFFF" }); };
-  const th = t => ({ text: t, options: { bold: true, color: "FFFFFF", fill: { color: NAVY } } });
-  let sl = P.addSlide(); sl.background = { color: NAVY };
-  sl.addText("Adequação de Pontos de Grua Segura", { x: 0.7, y: 2.2, w: 12, h: 1, fontFace: FT, fontSize: 38, bold: true, color: "FFFFFF" });
-  sl.addText("Proteções NR12, sistemas antiqueda e acessos · Aciaria, Oficina Central e Porto", { x: 0.7, y: 3.3, w: 12, h: 0.6, fontFace: FT, fontSize: 18, color: "F2B705" });
-  sl.addText(`Relatório de acompanhamento · ${today()}${a ? " · " + a : ""}`, { x: 0.7, y: 4.1, w: 12, h: 0.5, fontFace: FT, fontSize: 16, color: "DDE3EF" });
-
-  sl = P.addSlide(); head(sl, "Resumo geral");
-  [["Linhas de projeto", String(s.n)], ["Levantados", pc(s.lev, s.n)], ["Com desenho", pc(s.des, s.n)], ["No Sphera", pc(s.sph, s.n)], ["Comprados", pc(s.comp, s.n)]].forEach(([l, v], i) => {
-    const x = 0.5 + i * 2.5;
-    sl.addShape(P.ShapeType.roundRect, { x, y: 1.3, w: 2.3, h: 1.5, fill: { color: "EEF1F7" }, line: { color: "EEF1F7" } });
-    sl.addText(v, { x, y: 1.4, w: 2.3, h: 0.9, align: "center", fontFace: FT, fontSize: 32, bold: true, color: NAVY });
-    sl.addText(l, { x, y: 2.3, w: 2.3, h: 0.4, align: "center", fontFace: FT, fontSize: 13, color: "5B6677" }); });
-  sl.addChart(P.charts.BAR, [{ name: "Linhas de projeto", labels: ["Total", "Levantados", "Desenho concluído ou além", "No Sphera ou além", "Comprados"], values: [s.n, s.lev, s.des, s.sph, s.comp] }],
-    { x: 0.5, y: 3.1, w: 12.3, h: 4, barDir: "bar", chartColors: [NAVY], showValue: true, showLegend: false, catAxisOrientation: "maxMin", catAxisLabelFontSize: 12, valAxisLabelFontSize: 11 });
-
+  P.author = "Grua Segura"; P.subject = "Acompanhamento de adequações de segurança em pontes rolantes";
+  P.title = "Grua Segura — Resumo executivo"; P.company = "Grua Segura";
+  P.lang = "pt-BR";
+  const W = 13.333, H = 7.5;
+  const addHead = (sl, title, subtitle = "Acompanhamento de adequações de segurança") => {
+    sl.background = { color: C.white };
+    sl.addShape(P.ShapeType.rect, { x: 0, y: 0, w: W, h: 0.82, line: { color: C.navy, transparency: 100 }, fill: { color: C.navy } });
+    sl.addShape(P.ShapeType.rect, { x: 0, y: 0.82, w: W, h: 0.055, line: { color: C.gold, transparency: 100 }, fill: { color: C.gold } });
+    sl.addText(title, { x: 0.48, y: 0.12, w: 8.8, h: 0.36, fontFace: FT, fontSize: 22, bold: true, color: C.white, margin: 0, breakLine: false, fit: "shrink" });
+    sl.addText(subtitle, { x: 0.5, y: 0.51, w: 9.2, h: 0.18, fontFace: FT, fontSize: 9, color: "DDE6F5", margin: 0, fit: "shrink" });
+    sl.addText(`${today()}${a ? "  |  " + a : "  |  Todas as áreas"}`, { x: 9.55, y: 0.28, w: 3.25, h: 0.22, fontFace: FT, fontSize: 10, color: C.white, align: "right", margin: 0, fit: "shrink" });
+    sl.addText("GRUA SEGURA  •  RELATÓRIO EXECUTIVO", { x: 0.5, y: 7.19, w: 7.5, h: 0.14, fontFace: FT, fontSize: 8, color: C.muted, margin: 0 });
+  };
+  const addKpi = (sl, x, y, w, value, label, accent = C.gold) => {
+    sl.addShape(P.ShapeType.roundRect, { x, y, w, h: 1.05, rectRadius: 0.08, fill: { color: C.pale }, line: { color: C.line, pt: 0.8 } });
+    sl.addShape(P.ShapeType.rect, { x, y, w: 0.07, h: 1.05, fill: { color: accent }, line: { color: accent, transparency: 100 } });
+    sl.addText(String(value), { x: x + 0.16, y: y + 0.13, w: w - 0.25, h: 0.42, fontFace: FT, fontSize: 25, bold: true, color: C.navy, align: "center", margin: 0, fit: "shrink" });
+    sl.addText(label, { x: x + 0.12, y: y + 0.64, w: w - 0.2, h: 0.22, fontFace: FT, fontSize: 10, color: C.muted, align: "center", margin: 0, fit: "shrink" });
+  };
+  const addNote = (sl, text, x, y, w, h) => {
+    sl.addShape(P.ShapeType.roundRect, { x, y, w, h, fill: { color: "FFF8DF" }, line: { color: "F4D66D", pt: 0.8 } });
+    sl.addText(text, { x: x + 0.15, y: y + 0.1, w: w - 0.3, h: h - 0.2, fontFace: FT, fontSize: 10, color: C.ink, margin: 0.02, valign: "mid", breakLine: false, fit: "shrink" });
+  };
   const ar = AREAS.filter(x => !a || x === a);
-  sl = P.addSlide(); head(sl, "Avanço por área");
-  sl.addChart(P.charts.BAR, ST.map((st, i) => ({ name: st, labels: ar, values: ar.map(x => d.filter(r => r.area === x && si(r) === i).length) })),
-    { x: 0.5, y: 1.1, w: 7.4, h: 6, barDir: "col", barGrouping: "stacked", chartColors: COL.map(c => c.slice(1)), showLegend: true, legendPos: "b", legendFontSize: 11, catAxisLabelFontSize: 12, valAxisLabelFontSize: 11 });
-  const pick = r => [r[0], r[1], r[2], r[3], r[6]];
-  sl.addTable([pick(RH).map(th), ...resumoRows(a, d).map(r => pick(r).map(t => ({ text: String(t), options: { fontSize: 11 } })))],
-    { x: 8.1, y: 1.3, w: 4.9, fontFace: FT, fontSize: 10, border: { type: "solid", color: "C9D0DC", pt: 0.5 }, rowH: 0.45 });
-
-  const mt = matrix(d, "tipo_projeto");
-  sl = P.addSlide(); head(sl, "Avanço por tipo de projeto");
-  sl.addChart(P.charts.BAR, ST.map((st, i) => ({ name: st, labels: mt.keys, values: mt.m.map(l => l[i]) })),
-    { x: 0.5, y: 1.1, w: 12.3, h: 6, barDir: "bar", barGrouping: "stacked", chartColors: COL.map(c => c.slice(1)), showLegend: true, legendPos: "b", legendFontSize: 11, catAxisOrientation: "maxMin", catAxisLabelFontSize: 11, valAxisLabelFontSize: 11 });
-
-  [["w", "Evolução semanal (12 semanas)"], ["m", "Evolução mensal (6 meses)"]].forEach(([m, t]) => {
-    const e = evo(d, m); sl = P.addSlide(); head(sl, t);
-    sl.addChart(P.charts.LINE, [["Levantados", "lev"], ["Com desenho", "des"], ["No Sphera", "sph"], ["Comprados", "comp"]].map(([n, k]) => ({ name: n, labels: e.labels, values: e.rows.map(x => x[k]) })),
-      { x: 0.5, y: 1.1, w: 12.3, h: 6, chartColors: ["F2A93B", "3B82C4", "7A5CC7", "2E9E5B"], lineSize: 3, showLegend: true, legendPos: "b", legendFontSize: 12, catAxisLabelFontSize: 12, valAxisLabelFontSize: 11 });
-  });
   const pd = pendList(d);
-  sl = P.addSlide(); head(sl, `Pendências (${pd.length})`);
+
+  // 1 — Resumo executivo: capa curta com propósito e indicadores
+  let sl = P.addSlide(); sl.background = { color: C.navy };
+  sl.addShape(P.ShapeType.rect, { x: 0, y: 0, w: 0.18, h: H, fill: { color: C.gold }, line: { color: C.gold, transparency: 100 } });
+  sl.addText("GRUA SEGURA", { x: 0.72, y: 0.62, w: 5.5, h: 0.35, fontFace: FT, fontSize: 15, bold: true, color: C.gold, charSpacing: 2, margin: 0 });
+  sl.addText("Adequação de Pontos\nde Segurança", { x: 0.72, y: 1.35, w: 11.4, h: 1.45, fontFace: FT, fontSize: 34, bold: true, color: C.white, breakLine: false, margin: 0, fit: "shrink" });
+  sl.addText("Acompanhamento executivo das adequações em pontes rolantes", { x: 0.75, y: 3.0, w: 10.8, h: 0.4, fontFace: FT, fontSize: 17, color: "DDE6F5", margin: 0, fit: "shrink" });
+  sl.addShape(P.ShapeType.line, { x: 0.75, y: 3.72, w: 5.1, h: 0, line: { color: C.gold, pt: 2.5 } });
+  sl.addText("OBJETIVO", { x: 0.75, y: 4.02, w: 2, h: 0.25, fontFace: FT, fontSize: 11, bold: true, color: C.gold, charSpacing: 1.2, margin: 0 });
+  sl.addText("Acompanhar levantamentos, desenhos, cadastro no Sphera e compras para dar visibilidade ao avanço das adequações e apoiar a priorização das próximas ações.", { x: 0.75, y: 4.4, w: 10.7, h: 0.8, fontFace: FT, fontSize: 16, color: C.white, breakLine: false, margin: 0, valign: "mid", fit: "shrink" });
+  sl.addText(`${today()}  |  ${a || "Todas as áreas"}`, { x: 0.75, y: 6.55, w: 7, h: 0.3, fontFace: FT, fontSize: 12, color: "DDE6F5", margin: 0 });
+  sl.addText("Resumo baseado nos registros disponíveis no aplicativo", { x: 0.75, y: 6.95, w: 8.5, h: 0.2, fontFace: FT, fontSize: 9, color: "B9C7DD", margin: 0 });
+
+  // 2 — Indicadores principais e gráfico único de funil
+  sl = P.addSlide(); addHead(sl, "Visão geral", "Indicadores consolidados do escopo selecionado");
+  const kpis = [[s.n, "Linhas de projeto", C.gold], [s.lev, "Levantados", C.sky], [s.des, "Com desenho", C.blue], [s.sph, "No Sphera", C.purple], [s.comp, "Comprados", C.green]];
+  kpis.forEach((k, i) => addKpi(sl, 0.5 + i * 2.55, 1.2, 2.3, k[0], k[1], k[2]));
+  sl.addText("Avanço por etapa", { x: 0.55, y: 2.62, w: 4.2, h: 0.3, fontFace: FT, fontSize: 17, bold: true, color: C.navy, margin: 0 });
+  sl.addChart(P.ChartType.bar, [{ name: "Itens", labels: ["Total no escopo", "Levantados", "Desenho concluído ou além", "Sphera ou além", "Comprados"], values: [s.n, s.lev, s.des, s.sph, s.comp] }], {
+    x: 0.55, y: 2.95, w: 7.4, h: 3.65, catAxisLabelFontFace: FT, catAxisLabelFontSize: 10, valAxisLabelFontFace: FT, valAxisLabelFontSize: 9,
+    chartColors: [C.blue], showValue: true, showLegend: false, catAxisOrientation: "maxMin", valAxisMinVal: 0, valAxisMajorGridLines: { color: C.line, width: 1 },
+    showCatName: false, showTitle: false, showBorder: false, showValAxisTitle: false, showCatAxisTitle: false, valGridLine: { color: C.line, width: 1 },
+    dataLabelPosition: "outEnd", dataLabelColor: C.ink, dataLabelFormatCode: "0"
+  });
+  addNote(sl, `Pendências identificadas: ${pd.length}. Os indicadores representam o status atual dos registros, enquanto a evolução histórica depende das movimentações registradas no aplicativo.`, 8.25, 3.1, 4.5, 1.35);
+  addNote(sl, `Com desenho: ${pc(s.des, s.n)}  |  No Sphera: ${pc(s.sph, s.n)}  |  Comprados: ${pc(s.comp, s.n)}`, 8.25, 4.72, 4.5, 1.0);
+
+  // 3 — Avanço por área, com gráfico legível
+  sl = P.addSlide(); addHead(sl, "Avanço por área", "Distribuição das linhas de projeto por etapa");
+  sl.addChart(P.ChartType.bar, ST.map((st, i) => ({ name: st, labels: ar, values: ar.map(x => d.filter(r => r.area === x && si(r) === i).length) })), {
+    x: 0.55, y: 1.2, w: 8.2, h: 5.5, catAxisLabelFontFace: FT, catAxisLabelFontSize: 12, valAxisLabelFontFace: FT, valAxisLabelFontSize: 10,
+    barDir: "col", grouping: "stacked", barGrouping: "stacked", chartColors: [C.gray, "F2A93B", C.sky, C.purple, C.green],
+    showLegend: true, legendPos: "b", legendFontFace: FT, legendFontSize: 10, showValue: false, catAxisOrientation: "minMax",
+    valAxisMinVal: 0, valAxisMajorGridLines: { color: C.line, width: 1 }, showBorder: false, showTitle: false
+  });
+  const areaSummary = ar.map(name => { const z = stats(d.filter(r => r.area === name)); return `${name}: ${z.n} linhas · ${z.comp} comprados`; }).join("\n");
+  sl.addText("Resumo por área", { x: 9.0, y: 1.55, w: 3.4, h: 0.3, fontFace: FT, fontSize: 16, bold: true, color: C.navy, margin: 0 });
+  sl.addText(areaSummary || "Sem registros para o filtro selecionado.", { x: 9.0, y: 2.0, w: 3.4, h: 1.5, fontFace: FT, fontSize: 13, color: C.ink, breakLine: false, margin: 0.05, valign: "top", fit: "shrink" });
+  addNote(sl, "Use este quadro para identificar onde estão concentradas as etapas em aberto e direcionar o acompanhamento.", 9.0, 4.0, 3.45, 1.25);
+
+  // 4 — Evolução semanal e mensal em um único slide
+  sl = P.addSlide(); addHead(sl, "Evolução do projeto", "Tendência dos principais marcos registrados no histórico");
+  const addEvolution = (mode, title, x, y, w, h) => {
+    const e = evo(d, mode);
+    sl.addText(title, { x, y, w, h: 0.28, fontFace: FT, fontSize: 15, bold: true, color: C.navy, margin: 0 });
+    sl.addChart(P.ChartType.line, [["Levantados", "lev", C.gold], ["Com desenho", "des", C.sky], ["No Sphera", "sph", C.purple], ["Comprados", "comp", C.green]].map(([name, key]) => ({ name, labels: e.labels, values: e.rows.map(r => r[key]) })), {
+      x, y: y + 0.35, w, h: h - 0.35, chartColors: [C.gold, C.sky, C.purple, C.green], lineSize: 2,
+      showLegend: true, legendPos: "b", legendFontFace: FT, legendFontSize: 8, catAxisLabelFontFace: FT, catAxisLabelFontSize: 8,
+      valAxisLabelFontFace: FT, valAxisLabelFontSize: 8, valAxisMinVal: 0, valAxisMajorGridLines: { color: C.line, width: 1 },
+      showTitle: false, showBorder: false, showValue: false, catAxisLabelRotate: 0
+    });
+  };
+  addEvolution("w", "Semanal · últimas 12 semanas", 0.5, 1.2, 6.1, 4.95);
+  addEvolution("m", "Mensal · últimos 6 meses", 6.85, 1.2, 6.0, 4.95);
+  addNote(sl, "Importante: o histórico é contabilizado a partir da ativação dessa função. Períodos anteriores sem movimento não significam necessariamente ausência de trabalho.", 0.6, 6.35, 12.1, 0.48);
+
+  // 5 — Pendências prioritárias (máximo 8 linhas)
+  sl = P.addSlide(); addHead(sl, `Próximas ações · ${pd.length} pendência(s)`, "Lista resumida para orientar o acompanhamento");
   if (pd.length) {
-    const top = pd.slice(0, 14).map(([r, t]) => [r.area, r.equipamento, r.tipo_projeto, t].map(x => ({ text: String(x), options: { fontSize: 11 } })));
-    sl.addTable([["Área", "Equipamento", "Tipo de projeto", "Pendência"].map(th), ...top], { x: 0.5, y: 1.2, w: 12.3, colW: [2.2, 1.9, 4.6, 3.6], fontFace: FT, border: { type: "solid", color: "C9D0DC", pt: 0.5 }, rowH: 0.36 });
-    if (pd.length > 14) sl.addText(`+ ${pd.length - 14} pendências no relatório completo.`, { x: 0.5, y: 6.9, w: 12, h: 0.4, fontFace: FT, fontSize: 12, color: "5B6677" });
-  } else sl.addText("Nenhuma pendência no momento.", { x: 0.5, y: 2, w: 12, h: 1, fontFace: FT, fontSize: 20, color: NAVY });
+    const top = pd.slice(0, 8).map(([r, t]) => [r.area, r.equipamento, r.tipo_projeto || "—", t].map(x => ({ text: String(x ?? "—"), options: { fontFace: FT, fontSize: 10, color: C.ink, margin: 0.06 } })));
+    sl.addTable([["Área", "Equipamento", "Tipo de projeto", "Situação"].map(text => ({ text, options: { bold: true, color: C.white, fill: C.navy, fontFace: FT, fontSize: 10, margin: 0.06 } })), ...top], {
+      x: 0.55, y: 1.25, w: 12.2, h: 4.3, colW: [2.0, 2.0, 4.6, 3.6],
+      border: { type: "solid", color: C.line, pt: 0.7 }, rowH: 0.42, fontFace: FT, fontSize: 10, color: C.ink,
+      autoFit: false, margin: 0.06, fill: C.white
+    });
+    if (pd.length > 8) addNote(sl, `Exibindo 8 de ${pd.length} pendências. Consulte o dashboard para a lista completa.`, 0.6, 5.85, 12.1, 0.55);
+  } else {
+    sl.addText("Nenhuma pendência identificada com os critérios atuais.", { x: 0.8, y: 2.4, w: 11.7, h: 0.8, fontFace: FT, fontSize: 22, bold: true, color: C.green, align: "center", margin: 0.05, fit: "shrink" });
+  }
   P.writeFile({ fileName: `apresentacao_grua_segura_${stamp()}.pptx` });
 };
 
@@ -550,6 +609,7 @@ $("#fi").onchange = async e => {
   $("#imp").classList.toggle("hide", !pending.length);
 };
 $("#imp").onclick = async () => {
+  if (!canImport) return alert("Seu perfil não tem permissão para importar dados.");
   if ($("#rep").checked && !confirm("Isso APAGA todos os pontos atuais antes de importar. Continuar?")) return;
   if ($("#rep").checked) { const { error } = await sb.from("pontos").delete().gt("id", 0); if (error) return alert(error.message); }
   for (let i = 0; i < pending.length; i += 200) {
