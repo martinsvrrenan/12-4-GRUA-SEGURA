@@ -39,6 +39,9 @@ main{padding:22px;max-width:1400px;margin-left:var(--sb)}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}
 .kpi{padding:14px 16px}.kpi::before{content:"";display:block;width:20px;height:4px;border-radius:2px;background:var(--amber);margin-bottom:10px}
 .kpi b{display:block;font-size:28px;line-height:1.1;font-weight:800;letter-spacing:-.8px;color:var(--navy)}.kpi span{font-size:12px;color:var(--mut);font-weight:600}
+.kpi small{display:block;margin-top:6px;font-size:11.5px;line-height:1.35;color:var(--mut);font-weight:600}.kpi small em{font-style:normal;color:#2e9e5b;font-weight:700}.kpi small i{font-style:normal;color:#d9822b;font-weight:700}
+.kpi .pb{height:5px;border-radius:3px;background:#e9edf4;margin-top:8px;overflow:hidden}.kpi .pb u{display:block;height:100%;background:#2e9e5b;border-radius:3px}
+.seg{display:flex;gap:4px;margin-top:8px;background:#eef1f7;border-radius:9px;padding:3px}.seg button{flex:1;min-height:0;padding:5px 6px;font-size:11.5px;border:0;background:transparent;color:var(--mut);border-radius:7px}.seg button.on{background:var(--navy);color:#fff}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:14px}
 .ch{height:300px;position:relative}.ch.tall{height:380px}
 input,select,textarea,button{font:inherit;padding:9px 12px;border:1px solid #cdd4e1;border-radius:10px;max-width:100%;background:#fff;color:var(--txt);transition:border-color .15s,box-shadow .15s,background .15s}
@@ -309,22 +312,29 @@ const pct = (x, n) => `${Math.round(100 * x / n)}%`;
 const tk = { callback(v) { const l = this.getLabelForValue(v); return l.length > 26 ? l.slice(0, 25) + "…" : l; } };
 function stack(id, field, d, horiz) {
   const keys = [...new Set(d.map(r => r[field] || "—"))].sort();
-  const ds = ST.map((s, i) => ({ label: s, backgroundColor: COL[i], data: keys.map(k => d.filter(r => (r[field] || "—") === k && si(r) === i).length) }));
+  const ds = ST.map((s, i) => ({ label: s, backgroundColor: COL[i], data: keys.map(k => wsum(d.filter(r => (r[field] || "—") === k && si(r) === i))) }));
   charts[id]?.destroy();
   charts[id] = new Chart($("#" + id), { type: "bar", data: { labels: keys, datasets: ds },
     options: { indexAxis: horiz ? "y" : "x", responsive: true, maintainAspectRatio: false,
       scales: { x: { stacked: true, beginAtZero: true, ticks: horiz ? {} : tk }, y: { stacked: true, beginAtZero: true, ticks: horiz ? tk : {} } }, plugins: { legend: { position: "bottom" } } } });
 }
+let unit = "l"; // "l" = linhas de projeto | "p" = pontos de adequação (soma das quantidades)
+const wt = r => unit === "p" ? (Number(r.qtd) > 0 ? Number(r.qtd) : 1) : 1;
+const wsum = a => a.reduce((t, r) => t + wt(r), 0);
+const fmt = x => Number.isInteger(x) ? String(x) : x.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
 function dash() {
-  const a = $("#dA").value, d = a ? rows.filter(r => r.area === a) : rows, n = d.length || 1;
-  const lev = d.filter(r => r.status_levantamento === "Levantado").length;
-  const c = k => d.filter(r => si(r) >= k).length;
-  const k = [["Linhas de projeto", d.length], ["Levantados", pct(lev, n)], ["Com desenho", pct(c(2), n)], ["Cadastrados no Sphera", pct(c(3), n)], ["Cadastrados no SAP", pct(c(4), n)], ["Comprados", pct(c(5), n)]];
-  $("#kpis").innerHTML = k.map(([l, v]) => `<div class="card kpi" style="margin:0"><b>${v}</b><span>${l}</span></div>`).join("");
+  const a = $("#dA").value, d = a ? rows.filter(r => r.area === a) : rows;
+  const tot = wsum(d), n = tot || 1, u = unit === "p" ? "pontos" : "linhas";
+  const lev = wsum(d.filter(r => r.status_levantamento === "Levantado"));
+  const c = k => wsum(d.filter(r => si(r) >= k));
+  const card = ([l, x]) => `<div class="card kpi" style="margin:0"><b>${pct(x, n)}</b><span>${l}</span><small><em>${fmt(x)} ${u} realizados</em><br><i>${fmt(tot - x)} faltam</i> · de ${fmt(tot)}</small><div class="pb"><u style="width:${Math.round(100 * x / n)}%"></u></div></div>`;
+  const first = `<div class="card kpi" style="margin:0"><b>${fmt(tot)}</b><span>${unit === "p" ? "Pontos de adequação" : "Linhas de projeto"}</span><div class="seg"><button data-u="l" class="${unit === "l" ? "on" : ""}">Linhas</button><button data-u="p" class="${unit === "p" ? "on" : ""}">Pontos</button></div></div>`;
+  $("#kpis").innerHTML = first + [["Levantados", lev], ["Com desenho", c(2)], ["Cadastrados no Sphera", c(3)], ["Cadastrados no SAP", c(4)], ["Comprados", c(5)]].map(card).join("");
+  document.querySelectorAll("#kpis .seg button").forEach(b => b.onclick = () => { unit = b.dataset.u; dash(); });
   stack("c1", "area", d); stack("c3", "tipo_projeto", d, true); evoDash(d);
   charts.c2?.destroy();
   charts.c2 = new Chart($("#c2"), { type: "bar", data: { labels: ["Total", "Levantados", "Desenho concluído+", "No Sphera+", "No SAP+", "Comprados"],
-    datasets: [{ data: [d.length, lev, c(2), c(3), c(4), c(5)], backgroundColor: ["#b0b7c3", "#f2a93b", "#3b82c4", "#7a5cc7", "#0e9aa7", "#2e9e5b"] }] },
+    datasets: [{ data: [tot, lev, c(2), c(3), c(4), c(5)], backgroundColor: ["#b0b7c3", "#f2a93b", "#3b82c4", "#7a5cc7", "#0e9aa7", "#2e9e5b"] }] },
     options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
   const p1 = d.filter(r => r.status_levantamento === "Levantado" && si(r) < 2).map(r => [r, "Levantado, sem desenho"]);
   const p2 = d.filter(r => si(r) === 2).map(r => [r, "Desenho pronto, falta Sphera"]);
@@ -460,28 +470,40 @@ $("#del").onclick = async () => {
 const lv = r => r.status_levantamento === "Levantado";
 const today = () => new Date().toLocaleDateString("pt-BR");
 const stamp = () => new Date().toISOString().slice(0, 10);
-function stats(d) { const c = k => d.filter(r => si(r) >= k).length; return { n: d.length, lev: d.filter(lv).length, des: c(2), sph: c(3), sap: c(4), comp: c(5) }; }
+const pw = r => Number(r.qtd) > 0 ? Number(r.qtd) : 1; // pontos de adequação da linha (qtd vazia/0 conta 1)
+const psum = a => a.reduce((t, r) => t + pw(r), 0);
+function stats(d) {
+  const c = k => d.filter(r => si(r) >= k);
+  return { n: d.length, lev: d.filter(lv).length, des: c(2).length, sph: c(3).length, sap: c(4).length, comp: c(5).length,
+    p: { n: psum(d), lev: psum(d.filter(lv)), des: psum(c(2)), sph: psum(c(3)), sap: psum(c(4)), comp: psum(c(5)) } };
+}
+const ETP = [["Levantados", "lev"], ["Com desenho", "des"], ["No Sphera", "sph"], ["No SAP", "sap"], ["Comprados", "comp"]];
+const EFH = ["Etapa", "Linhas realizadas", "Linhas faltam", "% linhas", "Pontos realizados", "Pontos faltam", "% pontos"];
+const etapaRows = s => [["Total no escopo", s.n, "", "", s.p.n, "", ""], ...ETP.map(([l, k]) => [l, s[k], s.n - s[k], pc(s[k], s.n), s.p[k], s.p.n - s.p[k], pc(s.p[k], s.p.n)])];
 const pc = (x, n) => n ? Math.round(100 * x / n) + "%" : "0%";
 function repData() { const a = $("#rA").value; return { a, d: a ? rows.filter(r => r.area === a) : rows }; }
 function pendList(d) { return [...d.filter(r => lv(r) && si(r) < 2).map(r => [r, "Levantado, sem desenho"]), ...d.filter(r => si(r) === 2).map(r => [r, "Desenho pronto, falta Sphera"]), ...d.filter(r => si(r) === 3).map(r => [r, "No Sphera, falta SAP"])]; }
-function matrix(d, field) {
+function matrix(d, field, pts) {
   const keys = [...new Set(d.map(r => r[field] || "—"))].sort();
-  return { keys, m: keys.map(k => ST.map((s, i) => d.filter(r => (r[field] || "—") === k && si(r) === i).length)) };
+  const cnt = a => pts ? psum(a) : a.length;
+  return { keys, m: keys.map(k => ST.map((s, i) => cnt(d.filter(r => (r[field] || "—") === k && si(r) === i)))) };
 }
 function resumoRows(a, d) {
   const rs = AREAS.filter(x => !a || x === a).map(ar => [ar, stats(d.filter(r => r.area === ar))]);
   rs.push(["Total", stats(d)]);
-  return rs.map(([n, s]) => [n, s.n, s.lev, s.des, s.sph, s.sap, s.comp, pc(s.des, s.n)]);
+  return rs.map(([n, s]) => [n, s.n, s.p.n, s.lev, s.p.lev, s.des, s.p.des, s.sph, s.p.sph, s.sap, s.p.sap, s.comp, s.p.comp, pc(s.des, s.n), pc(s.p.des, s.p.n)]);
 }
-const RH = ["Área", "Linhas de projeto", "Levantados", "Com desenho", "No Sphera", "No SAP", "Comprados", "% com desenho"];
+const RH = ["Área", "Linhas de projeto", "Pontos de adequação", "Levantados (linhas)", "Levantados (pontos)", "Com desenho (linhas)", "Com desenho (pontos)", "No Sphera (linhas)", "No Sphera (pontos)", "No SAP (linhas)", "No SAP (pontos)", "Comprados (linhas)", "Comprados (pontos)", "% com desenho (linhas)", "% com desenho (pontos)"];
 
 $("#rx").onclick = () => {
   const { a, d } = repData(), wb = XLSX.utils.book_new();
   const add = (nome, head, linhas) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([head, ...linhas]), nome);
   add("Resumo", RH, resumoRows(a, d));
-  const mt = matrix(d, "tipo_projeto");
-  add("Por tipo de projeto", ["Tipo de projeto", ...ST], mt.keys.map((k, i) => [k, ...mt.m[i]]));
-  add("Pendências", ["Área", "Equipamento", "Tipo de projeto", "Pendência"], pendList(d).map(([r, t]) => [r.area, r.equipamento, r.tipo_projeto, t]));
+  add("Realizado x Faltam", EFH, etapaRows(stats(d)));
+  const mt = matrix(d, "tipo_projeto"), mp = matrix(d, "tipo_projeto", true);
+  add("Por tipo (linhas)", ["Tipo de projeto", ...ST], mt.keys.map((k, i) => [k, ...mt.m[i]]));
+  add("Por tipo (pontos)", ["Tipo de projeto", ...ST], mp.keys.map((k, i) => [k, ...mp.m[i]]));
+  add("Pendências", ["Área", "Equipamento", "Tipo de projeto", "Pontos (qtd.)", "Pendência"], pendList(d).map(([r, t]) => [r.area, r.equipamento, r.tipo_projeto, pw(r), t]));
   add("Evolução semanal", EH, evoLines(evo(d, "w")));
   add("Evolução mensal", EH, evoLines(evo(d, "m")));
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(d.map(expRow)), "Dados");
@@ -493,7 +515,7 @@ $("#rp").onclick = () => {
   const w = window.open("", "_blank");
   if (!w) return alert("Permita pop-ups para este site e tente de novo.");
   const esc2 = x => esc(String(x ?? ""));
-  const kpis = [["Linhas de projeto", s.n], ["Levantados", pc(s.lev, s.n)], ["Com desenho", pc(s.des, s.n)], ["No Sphera", pc(s.sph, s.n)], ["No SAP", pc(s.sap, s.n)], ["Comprados", pc(s.comp, s.n)]];
+  const kpis = [["Linhas / Pontos de adequação", `${s.n} / ${s.p.n}`, "linhas de projeto / pontos"], ...ETP.map(([l, k]) => [l, pc(s[k], s.n), `Linhas: ${s[k]} de ${s.n} · faltam ${s.n - s[k]}<br>Pontos: ${s.p[k]} de ${s.p.n} · faltam ${s.p.n - s.p[k]}`])];
   const chartSvg = (e, title) => {
     const W=520,H=172,L=34,R=12,T=24,B=34, pw=W-L-R, ph=H-T-B;
     const keys=[["Levantados","lev","#f2a93b"],["Com desenho","des","#3b82c4"],["No Sphera","sph","#7a5cc7"],["No SAP","sap","#0e9aa7"],["Comprados","comp","#2e9e5b"]];
@@ -512,14 +534,14 @@ $("#rp").onclick = () => {
     let lx=L; keys.forEach(([name,key,color])=>{g+=`<line x1="${lx}" y1="${H-5}" x2="${lx+12}" y2="${H-5}" stroke="${color}" stroke-width="3"/><text x="${lx+16}" y="${H-2}" font-size="9" fill="#4d596b">${name}</text>`;lx += name.length*5.1+34;});
     return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${title}" xmlns="http://www.w3.org/2000/svg">${g}</svg>`;
   };
-  const resumo = `No período apresentado, o sistema reúne ${s.n} linhas de projeto. Foram registrados ${s.lev} levantamentos, ${s.des} itens com desenho, ${s.sph} cadastros no Sphera, ${s.sap} no SAP e ${s.comp} itens comprados. A evolução considera o histórico disponível no aplicativo; períodos sem registros não representam necessariamente ausência de atividade.`;
+  const resumo = `No período apresentado, o sistema reúne ${s.n} linhas de projeto (${s.p.n} pontos de adequação). Em pontos: ${s.p.lev} levantados, ${s.p.des} com desenho, ${s.p.sph} no Sphera, ${s.p.sap} no SAP e ${s.p.comp} comprados. A evolução considera o histórico disponível no aplicativo; períodos sem registros não representam necessariamente ausência de atividade.`;
   w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Relatório executivo – Grua Segura</title>
 <style>
-@page{size:A4 landscape;margin:7mm}*{box-sizing:border-box}html,body{margin:0;padding:0;color:#1b2430;font:9px Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}.sheet{width:100%;height:195mm;overflow:hidden;padding:2mm 1mm}.head{display:flex;align-items:center;gap:10px;background:#1f3864;color:#fff;padding:9px 12px;border-radius:7px}.head img{width:42px;height:42px;object-fit:contain;border-radius:7px;background:#fff}.head h1{font-size:18px;margin:0 0 3px}.sub{font-size:9px;color:#e2e8f0}.date{margin-left:auto;text-align:right;font-size:9px}.intro{display:grid;grid-template-columns:1.05fr 1fr;gap:10px;margin:9px 0}.panel{border:1px solid #dce2eb;border-radius:6px;padding:8px;background:#fff}.panel h2{font-size:11px;color:#1f3864;margin:0 0 5px}.panel p{margin:0;line-height:1.4;font-size:9px}.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin:0 0 9px}.kpi{border:1px solid #dce2eb;border-top:3px solid #f2b705;border-radius:6px;padding:7px;text-align:center;background:#f8faff}.kpi strong{display:block;color:#1f3864;font-size:20px;margin-bottom:2px}.kpi span{font-size:8px;color:#5b6677}.charts{display:grid;grid-template-columns:1fr 1fr;gap:9px}.chart{border:1px solid #dce2eb;border-radius:6px;padding:5px 7px;min-width:0}.chart svg{width:100%;height:auto;display:block}.foot{display:flex;justify-content:space-between;margin-top:7px;padding-top:5px;border-top:1px solid #dce2eb;color:#657084;font-size:8px}.note{margin-top:7px;padding:7px 9px;background:#eef3fb;border-left:3px solid #f2b705;border-radius:4px;line-height:1.35}@media screen{body{background:#e8edf5;padding:12px}.sheet{max-width:1100px;height:auto;min-height:180mm;margin:auto;background:#fff;box-shadow:0 2px 12px #0002}.printbtn{display:block;margin:0 auto 10px;padding:9px 16px;background:#1f3864;color:white;border:0;border-radius:5px;font-size:14px}}@media print{.printbtn{display:none}.sheet{height:195mm;page-break-after:avoid}}
+@page{size:A4 landscape;margin:7mm}*{box-sizing:border-box}html,body{margin:0;padding:0;color:#1b2430;font:9px Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}.sheet{width:100%;height:195mm;overflow:hidden;padding:2mm 1mm}.head{display:flex;align-items:center;gap:10px;background:#1f3864;color:#fff;padding:9px 12px;border-radius:7px}.head img{width:42px;height:42px;object-fit:contain;border-radius:7px;background:#fff}.head h1{font-size:18px;margin:0 0 3px}.sub{font-size:9px;color:#e2e8f0}.date{margin-left:auto;text-align:right;font-size:9px}.intro{display:grid;grid-template-columns:1.05fr 1fr;gap:10px;margin:9px 0}.panel{border:1px solid #dce2eb;border-radius:6px;padding:8px;background:#fff}.panel h2{font-size:11px;color:#1f3864;margin:0 0 5px}.panel p{margin:0;line-height:1.4;font-size:9px}.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin:0 0 9px}.kpi{border:1px solid #dce2eb;border-top:3px solid #f2b705;border-radius:6px;padding:7px;text-align:center;background:#f8faff}.kpi strong{display:block;color:#1f3864;font-size:20px;margin-bottom:2px}.kpi span{font-size:8px;color:#5b6677}.kpi em{display:block;font-style:normal;font-size:7px;line-height:1.35;color:#4d596b;margin-top:3px}.charts{display:grid;grid-template-columns:1fr 1fr;gap:9px}.chart{border:1px solid #dce2eb;border-radius:6px;padding:5px 7px;min-width:0}.chart svg{width:100%;height:auto;display:block}.foot{display:flex;justify-content:space-between;margin-top:7px;padding-top:5px;border-top:1px solid #dce2eb;color:#657084;font-size:8px}.note{margin-top:7px;padding:7px 9px;background:#eef3fb;border-left:3px solid #f2b705;border-radius:4px;line-height:1.35}@media screen{body{background:#e8edf5;padding:12px}.sheet{max-width:1100px;height:auto;min-height:180mm;margin:auto;background:#fff;box-shadow:0 2px 12px #0002}.printbtn{display:block;margin:0 auto 10px;padding:9px 16px;background:#1f3864;color:white;border:0;border-radius:5px;font-size:14px}}@media print{.printbtn{display:none}.sheet{height:195mm;page-break-after:avoid}}
 </style></head><body><button class="printbtn" onclick="window.print()">Imprimir / Salvar como PDF</button><main class="sheet">
 <header class="head"><img src="${location.origin}/icon-192.png" alt="Ícone Grua Segura"><div><h1>Adequação de Pontos de Grua Segura</h1><div class="sub">Acompanhamento de adequações de segurança em pontes rolantes</div></div><div class="date"><b>RELATÓRIO EXECUTIVO</b><br>Emitido em ${today()}<br>${esc2(a || "Todas as áreas")}</div></header>
 <section class="intro"><div class="panel"><h2>Objetivo do projeto</h2><p>Acompanhar o levantamento, a definição e a implementação das adequações dos pontos de segurança das pontes rolantes, organizando o avanço dos desenhos, cadastros no Sphera e compras para apoiar o planejamento e a tomada de decisão.</p></div><div class="panel"><h2>Evolução no período</h2><p>${esc2(resumo)}</p></div></section>
-<section class="kpis">${kpis.map(([l,v])=>`<div class="kpi"><strong>${esc2(v)}</strong><span>${esc2(l)}</span></div>`).join("")}</section>
+<section class="kpis">${kpis.map(([l,v,sub])=>`<div class="kpi"><strong>${esc2(v)}</strong><span>${esc2(l)}</span><em>${sub}</em></div>`).join("")}</section>
 <section class="charts"><div class="chart">${chartSvg(ew,"Evolução semanal · últimas 12 semanas")}</div><div class="chart">${chartSvg(em,"Evolução mensal · últimos 6 meses")}</div></section>
 <div class="note"><b>Leitura dos gráficos:</b> as linhas mostram a quantidade acumulada de itens em cada etapa, conforme o histórico registrado no aplicativo. O histórico é registrado a partir da ativação desta função; datas anteriores podem aparecer sem movimento.</div>
 <footer class="foot"><span>Grua Segura · Acompanhamento de pontos de segurança</span><span>Dados conforme registros disponíveis no aplicativo · ${today()}</span></footer>
@@ -546,11 +568,12 @@ $("#rpp").onclick = async () => {
     sl.addText(`${today()}${a ? "  |  " + a : "  |  Todas as áreas"}`, { x: 9.55, y: 0.28, w: 3.25, h: 0.22, fontFace: FT, fontSize: 10, color: C.white, align: "right", margin: 0, fit: "shrink" });
     sl.addText("GRUA SEGURA  •  RELATÓRIO EXECUTIVO", { x: 0.5, y: 7.19, w: 7.5, h: 0.14, fontFace: FT, fontSize: 8, color: C.muted, margin: 0 });
   };
-  const addKpi = (sl, x, y, w, value, label, accent = C.gold) => {
-    sl.addShape(P.ShapeType.roundRect, { x, y, w, h: 1.05, rectRadius: 0.08, fill: { color: C.pale }, line: { color: C.line, pt: 0.8 } });
-    sl.addShape(P.ShapeType.rect, { x, y, w: 0.07, h: 1.05, fill: { color: accent }, line: { color: accent, transparency: 100 } });
+  const addKpi = (sl, x, y, w, value, label, accent = C.gold, sub = "") => {
+    sl.addShape(P.ShapeType.roundRect, { x, y, w, h: 1.4, rectRadius: 0.08, fill: { color: C.pale }, line: { color: C.line, pt: 0.8 } });
+    sl.addShape(P.ShapeType.rect, { x, y, w: 0.07, h: 1.4, fill: { color: accent }, line: { color: accent, transparency: 100 } });
     sl.addText(String(value), { x: x + 0.16, y: y + 0.13, w: w - 0.25, h: 0.42, fontFace: FT, fontSize: 25, bold: true, color: C.navy, align: "center", margin: 0, fit: "shrink" });
-    sl.addText(label, { x: x + 0.12, y: y + 0.64, w: w - 0.2, h: 0.22, fontFace: FT, fontSize: 10, color: C.muted, align: "center", margin: 0, fit: "shrink" });
+    sl.addText(label, { x: x + 0.12, y: y + 0.6, w: w - 0.2, h: 0.2, fontFace: FT, fontSize: 10, color: C.muted, align: "center", margin: 0, fit: "shrink" });
+    if (sub) sl.addText(sub, { x: x + 0.1, y: y + 0.84, w: w - 0.16, h: 0.5, fontFace: FT, fontSize: 8, color: C.ink, align: "center", valign: "top", margin: 0, fit: "shrink" });
   };
   const addNote = (sl, text, x, y, w, h) => {
     sl.addShape(P.ShapeType.roundRect, { x, y, w, h, fill: { color: "FFF8DF" }, line: { color: "F4D66D", pt: 0.8 } });
@@ -573,17 +596,18 @@ $("#rpp").onclick = async () => {
 
   // 2 — Indicadores principais e gráfico único de funil
   sl = P.addSlide(); addHead(sl, "Visão geral", "Indicadores consolidados do escopo selecionado");
-  const kpis = [[s.n, "Linhas de projeto", C.gold], [s.lev, "Levantados", C.sky], [s.des, "Com desenho", C.blue], [s.sph, "No Sphera", C.purple], [s.sap, "No SAP", "0E9AA7"], [s.comp, "Comprados", C.green]];
-  kpis.forEach((k, i) => addKpi(sl, 0.5 + i * 2.1, 1.2, 1.95, k[0], k[1], k[2]));
-  sl.addText("Avanço por etapa", { x: 0.55, y: 2.62, w: 4.2, h: 0.3, fontFace: FT, fontSize: 17, bold: true, color: C.navy, margin: 0 });
-  sl.addChart(P.ChartType.bar, [{ name: "Itens", labels: ["Total no escopo", "Levantados", "Desenho concluído ou além", "Sphera ou além", "SAP ou além", "Comprados"], values: [s.n, s.lev, s.des, s.sph, s.sap, s.comp] }], {
-    x: 0.55, y: 2.95, w: 7.4, h: 3.65, catAxisLabelFontFace: FT, catAxisLabelFontSize: 10, valAxisLabelFontFace: FT, valAxisLabelFontSize: 9,
-    chartColors: [C.blue], showValue: true, showLegend: false, catAxisOrientation: "maxMin", valAxisMinVal: 0, valAxisMajorGridLines: { color: C.line, width: 1 },
+  const kpis = [[`${s.n} / ${s.p.n}`, "Linhas / Pontos", C.gold, "linhas de projeto / pontos de adequação"], ...[["Levantados", "lev", C.sky], ["Com desenho", "des", C.blue], ["No Sphera", "sph", C.purple], ["No SAP", "sap", "0E9AA7"], ["Comprados", "comp", C.green]].map(([l, k, col]) =>
+    [`${pc(s[k], s.n)} | ${pc(s.p[k], s.p.n)}`, l, col, `Linhas: ${s[k]} de ${s.n} · faltam ${s.n - s[k]}\nPontos: ${s.p[k]} de ${s.p.n} · faltam ${s.p.n - s.p[k]}`])];
+  kpis.forEach((k, i) => addKpi(sl, 0.5 + i * 2.1, 1.15, 1.95, k[0], k[1], k[2], k[3]));
+  sl.addText("Avanço por etapa (linhas e pontos)", { x: 0.55, y: 2.72, w: 4.2, h: 0.3, fontFace: FT, fontSize: 17, bold: true, color: C.navy, margin: 0 });
+  sl.addChart(P.ChartType.bar, [{ name: "Linhas", labels: ["Total no escopo", "Levantados", "Desenho concluído ou além", "Sphera ou além", "SAP ou além", "Comprados"], values: [s.n, s.lev, s.des, s.sph, s.sap, s.comp] }, { name: "Pontos de adequação", labels: ["Total no escopo", "Levantados", "Desenho concluído ou além", "Sphera ou além", "SAP ou além", "Comprados"], values: [s.p.n, s.p.lev, s.p.des, s.p.sph, s.p.sap, s.p.comp] }], {
+    x: 0.55, y: 3.05, w: 7.4, h: 3.95, catAxisLabelFontFace: FT, catAxisLabelFontSize: 10, valAxisLabelFontFace: FT, valAxisLabelFontSize: 9,
+    chartColors: [C.blue, C.gold], showValue: true, showLegend: true, legendPos: "b", legendFontFace: FT, legendFontSize: 10, catAxisOrientation: "maxMin", valAxisMinVal: 0, valAxisMajorGridLines: { color: C.line, width: 1 },
     showCatName: false, showTitle: false, showBorder: false, showValAxisTitle: false, showCatAxisTitle: false, valGridLine: { color: C.line, width: 1 },
     dataLabelPosition: "outEnd", dataLabelColor: C.ink, dataLabelFormatCode: "0"
   });
-  addNote(sl, `Pendências identificadas: ${pd.length}. Os indicadores representam o status atual dos registros, enquanto a evolução histórica depende das movimentações registradas no aplicativo.`, 8.25, 3.1, 4.5, 1.35);
-  addNote(sl, `Com desenho: ${pc(s.des, s.n)}  |  No Sphera: ${pc(s.sph, s.n)}  |  No SAP: ${pc(s.sap, s.n)}  |  Comprados: ${pc(s.comp, s.n)}`, 8.25, 4.72, 4.5, 1.0);
+  addNote(sl, `Pendências identificadas: ${pd.length}. Os indicadores representam o status atual dos registros, enquanto a evolução histórica depende das movimentações registradas no aplicativo.`, 8.25, 3.2, 4.5, 1.35);
+  addNote(sl, `Em pontos de adequação — Com desenho: ${pc(s.p.des, s.p.n)}  |  No Sphera: ${pc(s.p.sph, s.p.n)}  |  No SAP: ${pc(s.p.sap, s.p.n)}  |  Comprados: ${pc(s.p.comp, s.p.n)}`, 8.25, 4.75, 4.5, 1.1);
 
   // 3 — Avanço por área, com gráfico legível
   sl = P.addSlide(); addHead(sl, "Avanço por área", "Distribuição das linhas de projeto por etapa");
@@ -593,10 +617,21 @@ $("#rpp").onclick = async () => {
     showLegend: true, legendPos: "b", legendFontFace: FT, legendFontSize: 10, showValue: false, catAxisOrientation: "minMax",
     valAxisMinVal: 0, valAxisMajorGridLines: { color: C.line, width: 1 }, showBorder: false, showTitle: false
   });
-  const areaSummary = ar.map(name => { const z = stats(d.filter(r => r.area === name)); return `${name}: ${z.n} linhas · ${z.comp} comprados`; }).join("\n");
+  const areaSummary = ar.map(name => { const z = stats(d.filter(r => r.area === name)); return `${name}: ${z.n} linhas · ${z.p.n} pontos · ${z.comp} comprados`; }).join("\n");
   sl.addText("Resumo por área", { x: 9.0, y: 1.55, w: 3.4, h: 0.3, fontFace: FT, fontSize: 16, bold: true, color: C.navy, margin: 0 });
   sl.addText(areaSummary || "Sem registros para o filtro selecionado.", { x: 9.0, y: 2.0, w: 3.4, h: 1.5, fontFace: FT, fontSize: 13, color: C.ink, breakLine: false, margin: 0.05, valign: "top", fit: "shrink" });
   addNote(sl, "Use este quadro para identificar onde estão concentradas as etapas em aberto e direcionar o acompanhamento.", 9.0, 4.0, 3.45, 1.25);
+
+  // 3b — Avanço por área em pontos de adequação
+  sl = P.addSlide(); addHead(sl, "Avanço por área · pontos de adequação", "Distribuição dos pontos (soma das quantidades) por etapa");
+  sl.addChart(P.ChartType.bar, ST.map((st, i) => ({ name: st, labels: ar, values: ar.map(x => psum(d.filter(r => r.area === x && si(r) === i))) })), {
+    x: 0.55, y: 1.2, w: 8.2, h: 5.5, catAxisLabelFontFace: FT, catAxisLabelFontSize: 12, valAxisLabelFontFace: FT, valAxisLabelFontSize: 10,
+    barDir: "col", grouping: "stacked", barGrouping: "stacked", chartColors: [C.gray, "F2A93B", C.sky, C.purple, "0E9AA7", C.green],
+    showLegend: true, legendPos: "b", legendFontFace: FT, legendFontSize: 10, showValue: false, catAxisOrientation: "minMax",
+    valAxisMinVal: 0, valAxisMajorGridLines: { color: C.line, width: 1 }, showBorder: false, showTitle: false
+  });
+  sl.addText("Realizado x faltam (pontos)", { x: 9.0, y: 1.4, w: 3.9, h: 0.3, fontFace: FT, fontSize: 16, bold: true, color: C.navy, margin: 0 });
+  sl.addText(ETP.map(([l, k]) => `${l}: ${s.p[k]} de ${s.p.n} · faltam ${s.p.n - s.p[k]}`).join("\n"), { x: 9.0, y: 1.85, w: 3.9, h: 2.4, fontFace: FT, fontSize: 12, color: C.ink, breakLine: false, margin: 0.05, valign: "top", fit: "shrink" });
 
   // 4 — Evolução semanal e mensal em um único slide
   sl = P.addSlide(); addHead(sl, "Evolução do projeto", "Tendência dos principais marcos registrados no histórico");
