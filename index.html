@@ -2,11 +2,15 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f3864">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>Grua Segura – Acompanhamento</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="config.js"></script>
 <style>
 *{box-sizing:border-box}body{margin:0;font:14px Arial,sans-serif;background:#f3f5f9;color:#1b2430}
 header{background:#1f3864;color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px}
@@ -15,30 +19,58 @@ nav button{border:0;background:#e8ecf4;padding:8px 14px;border-radius:6px;cursor
 main{padding:14px;max-width:1200px;margin:auto}.card{background:#fff;border-radius:8px;padding:12px;box-shadow:0 1px 3px #0001;margin-bottom:12px}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
 .kpi b{display:block;font-size:22px;color:#1f3864}.kpi span{font-size:12px;color:#5b6677}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}.ch{height:300px;position:relative}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:12px}.ch{height:300px;position:relative}
 input,select,textarea,button{font:inherit;padding:8px;border:1px solid #c5ccd8;border-radius:6px;max-width:100%}
 button.p{background:#1f3864;color:#fff;border:0;cursor:pointer}button.d{background:#b3261e;color:#fff;border:0;cursor:pointer}
 .bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}.tw{overflow-x:auto}
 table{border-collapse:collapse;width:100%;min-width:760px}th,td{padding:7px 8px;border-bottom:1px solid #e3e7ef;text-align:left;vertical-align:top}
-th{background:#eef1f7;position:sticky;top:0}tr.r{cursor:pointer}tr.r:hover{background:#f0f4fb}
+th{background:#eef1f7;position:sticky;top:0}.ce{cursor:pointer;padding:3px 4px;white-space:nowrap;border-radius:4px}.ce:hover{background:#e6edf8}.add{cursor:pointer;color:#1f3864;font-weight:bold;padding:1px 8px;border:1px dashed #9aa6bd;border-radius:4px}
 .tag{padding:2px 8px;border-radius:10px;font-size:12px;background:#e8ecf4;white-space:nowrap}
 dialog{border:0;border-radius:10px;padding:16px;width:min(560px,94vw)}dialog::backdrop{background:#0006}
 label{display:block;font-size:12px;color:#5b6677;margin-top:8px}label input,label select,label textarea{width:100%}
 #login{max-width:340px;margin:12vh auto}#login input{width:100%;margin-bottom:8px}.err{color:#b3261e}.hide{display:none!important}
+html{-webkit-text-size-adjust:100%}
+main{max-width:1400px}header{padding-top:max(10px,env(safe-area-inset-top))}
+nav{position:sticky;top:0;z-index:5}.v{display:block}.ch.tall{height:380px}
+#f .g{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}#f .g .w{grid-column:1/-1}
+dialog{width:min(680px,94vw);max-height:92vh;overflow:auto}
+@media(max-width:760px){
+ body{font-size:15px}header h1{font-size:14px}main{padding:10px}
+ input,select,textarea,button{font-size:16px;min-height:42px}
+ nav button{padding:10px 14px}.bar>*{flex:1 1 100%}
+ .ch{height:260px}.ch.tall{height:340px}
+ #f .g{grid-template-columns:1fr}
+ dialog{width:100vw;max-width:100vw;margin:auto 0 0 0;border-radius:14px 14px 0 0;max-height:94vh;padding-bottom:max(16px,env(safe-area-inset-bottom))}
+ table.st{min-width:0!important}table.st thead{display:none}
+ table.st,table.st tbody,table.st td{display:block;width:100%}
+ table.st tr{display:flex;flex-direction:column;width:100%;background:#fff;border:1px solid #dfe4ee;border-radius:8px;margin-bottom:10px;padding:6px 10px}
+ table.st td{border:0;padding:5px 0;display:flex;gap:10px;justify-content:space-between;align-items:flex-start}
+ table.st td::before{content:attr(data-l);font-size:12px;color:#5b6677;flex:0 0 34%}
+ table.st td.h{order:-1;font-size:16px;border-bottom:1px solid #e3e7ef;padding-bottom:6px;margin-bottom:2px}table.st td.h::before{content:none}
+ table.st td.em{display:none}table.st .v{flex:1;text-align:right}
+ .ce{padding:6px 4px;white-space:normal}
+}
 </style>
 </head>
 <body>
 <div id="login" class="card hide">
-  <h2>Grua Segura</h2>
+  <h2 id="lt">Grua Segura</h2>
   <input id="em" type="email" placeholder="E-mail" autocomplete="username">
   <input id="pw" type="password" placeholder="Senha" autocomplete="current-password">
+  <input id="pw2" type="password" class="hide" placeholder="Repita a senha" autocomplete="new-password">
   <button class="p" id="go" style="width:100%">Entrar</button>
+  <p><a href="#" id="tg">Criar nova conta</a></p>
   <p class="err" id="lerr"></p>
+</div>
+<div id="wait" class="card hide" style="max-width:420px;margin:12vh auto">
+  <h3>Conta criada</h3>
+  <p>Seu acesso está aguardando liberação do administrador. Depois de liberado, entre novamente.</p>
+  <button id="wout">Sair</button>
 </div>
 
 <div id="app" class="hide">
 <header><h1>Adequação de Pontos de Grua Segura</h1><button id="out">Sair</button></header>
-<nav><button data-t="t1" class="on">Dashboard</button><button data-t="t2">Cadastro</button><button data-t="t3">Importar / Exportar</button></nav>
+<nav><button data-t="t1" class="on">Dashboard</button><button data-t="t2">Cadastro</button><button data-t="t3">Importar / Exportar</button><button data-t="t4" id="navU" class="hide">Usuários</button></nav>
 <main>
  <section id="t1">
   <div class="bar"><select id="dA"><option value="">Todas as áreas</option></select></div>
@@ -46,7 +78,7 @@ label{display:block;font-size:12px;color:#5b6677;margin-top:8px}label input,labe
   <div class="grid">
    <div class="card"><b>Por área e status</b><div class="ch"><canvas id="c1"></canvas></div></div>
    <div class="card"><b>Funil do projeto</b><div class="ch"><canvas id="c2"></canvas></div></div>
-   <div class="card" style="grid-column:1/-1"><b>Por tipo de projeto e status</b><div class="ch" style="height:380px"><canvas id="c3"></canvas></div></div>
+   <div class="card" style="grid-column:1/-1"><b>Por tipo de projeto e status</b><div class="ch tall"><canvas id="c3"></canvas></div></div>
   </div>
   <div class="card"><b>Pendências</b><div class="tw" id="pend"></div></div>
  </section>
@@ -58,12 +90,12 @@ label{display:block;font-size:12px;color:#5b6677;margin-top:8px}label input,labe
    <input id="fQ" placeholder="Buscar equipamento, tipo, file name…">
    <button class="p" id="novo">+ Novo ponto</button>
   </div>
-  <div class="card tw"><table><thead><tr><th>Área</th><th>Equipamento</th><th>Tipo de projeto</th><th>Qtd</th><th>Levant.</th><th>Status</th><th>file_name</th><th>Sphera</th></tr></thead><tbody id="tb"></tbody></table></div>
+  <div class="card tw"><table class="st"><thead id="th"></thead><tbody id="tb"></tbody></table></div>
   <small id="cnt"></small>
  </section>
 
  <section id="t3" class="hide">
-  <div class="card">
+  <div class="card" id="imp-card">
    <b>Importar planilha (.xlsx)</b>
    <p>Use o arquivo <i>pontos_grua_segura_importacao.xlsx</i> (aba “Pontos”).</p>
    <input type="file" id="fi" accept=".xlsx,.xls,.csv">
@@ -72,31 +104,35 @@ label{display:block;font-size:12px;color:#5b6677;margin-top:8px}label input,labe
   </div>
   <div class="card"><b>Exportar</b><p>Baixa todos os pontos cadastrados em Excel.</p><button class="p" id="exp">Exportar para Excel</button></div>
  </section>
+
+ <section id="t4" class="hide">
+  <div class="card tw"><b>Usuários</b>
+   <p>Contas novas entram como “Pendente” e só veem os dados depois que você liberar.</p>
+   <table class="st" style="min-width:480px"><thead><tr><th>E-mail</th><th>Acesso</th><th>Criada em</th></tr></thead><tbody id="ub"></tbody></table>
+  </div>
+ </section>
 </main>
 </div>
 
 <dialog id="dlg"><form id="f">
- <h3 id="dt">Ponto</h3><input type="hidden" name="id">
+ <h3 id="dt">Ponto</h3><input type="hidden" name="id"><div class="g">
  <label>Área<select name="area" id="fArea" required></select></label>
  <label>Equipamento (tag)<input name="equipamento" required></label>
  <label>Tipo de equipamento<input name="tipo_equipamento"></label>
- <label>Tipo de projeto<input name="tipo_projeto" list="tps" required></label><datalist id="tps"></datalist>
+ <label class="w">Tipo de projeto<input name="tipo_projeto" list="tps" required></label><datalist id="tps"></datalist>
  <label>Quantidade<input name="qtd" type="number" step="any"></label>
- <label>Detalhe / local<textarea name="detalhe" rows="2"></textarea></label>
+ <label class="w">Detalhe / local<textarea name="detalhe" rows="2"></textarea></label>
  <label>Status do levantamento<select name="status_levantamento"><option>Pendente</option><option>Levantado</option></select></label>
  <label>Status do projeto<select name="status_projeto" id="fSt"></select></label>
- <label>file_name (nome do desenho)<input name="file_name"></label>
+ <label class="w">file_name (nome do desenho)<input name="file_name"></label>
  <label>Nº requisição Sphera<input name="sphera"></label>
  <label>Responsável<input name="responsavel"></label>
- <label>Observações<textarea name="observacoes" rows="2"></textarea></label>
+ <label class="w">Observações<textarea name="observacoes" rows="2"></textarea></label>
+ </div>
  <div class="bar" style="margin-top:14px"><button class="p">Salvar</button><button type="button" id="cx">Cancelar</button><button type="button" class="d hide" id="del">Excluir</button></div>
 </form></dialog>
 
 <script>
-// ====== CONFIGURE AQUI (Supabase > Project Settings > API) ======
-const SUPABASE_URL = "https://zfuywlkhshrmrqwhfrwc.supabase.co";
-const SUPABASE_KEY = "sb_publishable_2fuc9-7Jn0oRM6LznlSGYw_4gGqWf_Y";
-// ================================================================
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const AREAS = ["Aciaria","Oficina Central","Porto"];
 const ST = ["A projetar","Em projeto","Desenho concluído","Cadastrado no Sphera","Comprado"];
@@ -114,21 +150,58 @@ function fillSelect(el, items, first) {
 fillSelect($("#dA"), AREAS, "Todas as áreas"); fillSelect($("#fA"), AREAS, "Área");
 fillSelect($("#fS"), ST, "Status do projeto"); fillSelect($("#fArea"), AREAS); fillSelect($("#fSt"), ST);
 
-// ---------- Login ----------
+// ---------- Login e acesso ----------
+let papel = null, canEdit = false, signup = false, me = null;
+const PAPEIS = [["pendente","Pendente (sem acesso)"],["visualizador","Visualizador"],["editor","Editor"],["admin","Administrador"]];
 async function boot() {
   const { data } = await sb.auth.getSession();
-  showApp(!!data.session);
+  enter(data.session);
 }
-function showApp(ok) {
-  $("#login").classList.toggle("hide", ok); $("#app").classList.toggle("hide", !ok);
-  if (ok) load();
+async function enter(session) {
+  ["login", "app", "wait"].forEach(i => $("#" + i).classList.add("hide"));
+  if (!session) return $("#login").classList.remove("hide");
+  me = session.user.id;
+  const { data } = await sb.from("perfis").select("papel").eq("id", me).maybeSingle();
+  papel = data?.papel || "pendente";
+  if (papel === "pendente") return $("#wait").classList.remove("hide");
+  canEdit = ["editor", "admin"].includes(papel);
+  $("#novo").classList.toggle("hide", !canEdit); $("#imp-card").classList.toggle("hide", !canEdit);
+  $("#navU").classList.toggle("hide", papel !== "admin");
+  $("#app").classList.remove("hide"); load();
 }
-$("#go").onclick = async () => {
-  $("#lerr").textContent = "";
-  const { error } = await sb.auth.signInWithPassword({ email: $("#em").value.trim(), password: $("#pw").value });
-  if (error) $("#lerr").textContent = "Não foi possível entrar: " + error.message; else showApp(true);
+$("#tg").onclick = e => {
+  e.preventDefault(); signup = !signup;
+  $("#pw2").classList.toggle("hide", !signup);
+  $("#go").textContent = signup ? "Criar conta" : "Entrar";
+  $("#tg").textContent = signup ? "Já tenho conta" : "Criar nova conta";
+  $("#lt").textContent = signup ? "Criar conta" : "Grua Segura"; $("#lerr").textContent = "";
 };
-$("#out").onclick = async () => { await sb.auth.signOut(); showApp(false); };
+$("#go").onclick = async () => {
+  const err = $("#lerr"); err.textContent = ""; err.className = "err";
+  const email = $("#em").value.trim(), password = $("#pw").value;
+  if (signup) {
+    if (password.length < 6) { err.textContent = "A senha precisa ter pelo menos 6 caracteres."; return; }
+    if (password !== $("#pw2").value) { err.textContent = "As senhas não conferem."; return; }
+    const { data, error } = await sb.auth.signUp({ email, password });
+    if (error) { err.textContent = "Não foi possível criar a conta: " + error.message; return; }
+    if (data.session) return enter(data.session);
+    err.className = ""; err.textContent = "Conta criada. Confirme pelo link enviado ao seu e-mail e depois entre."; return;
+  }
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) { err.textContent = "Não foi possível entrar: " + error.message; return; }
+  enter(data.session);
+};
+$("#out").onclick = $("#wout").onclick = async () => { await sb.auth.signOut(); enter(null); };
+
+async function users() {
+  const { data, error } = await sb.from("perfis").select("*").order("created_at");
+  if (error) return;
+  $("#ub").innerHTML = data.map(u => `<tr ${u.papel === "pendente" ? 'style="background:#fff7e0"' : ""}><td class="h"><b>${esc(u.email)}</b></td><td data-l="Acesso"><div class="v"><select data-id="${u.id}" ${u.id === me ? "disabled" : ""}>${PAPEIS.map(p => `<option value="${p[0]}" ${p[0] === u.papel ? "selected" : ""}>${p[1]}</option>`).join("")}</select></div></td><td data-l="Criada em"><div class="v">${new Date(u.created_at).toLocaleDateString("pt-BR")}</div></td></tr>`).join("");
+  document.querySelectorAll("#ub select").forEach(sel => sel.onchange = async () => {
+    const { error } = await sb.from("perfis").update({ papel: sel.value }).eq("id", sel.dataset.id);
+    if (error) alert(error.message);
+  });
+}
 
 // ---------- Dados ----------
 async function load() {
@@ -138,23 +211,25 @@ async function load() {
   const tps = [...new Set([...TIPOS, ...rows.map(r => r.tipo_projeto)])];
   $("#tps").innerHTML = tps.map(t => `<option value="${esc(t)}">`).join("");
   dash(); table();
+  if (papel === "admin") users();
 }
 
 // ---------- Abas ----------
 document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
   document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
-  ["t1","t2","t3"].forEach(t => $("#" + t).classList.toggle("hide", t !== b.dataset.t));
+  ["t1","t2","t3","t4"].forEach(t => $("#" + t).classList.toggle("hide", t !== b.dataset.t));
 });
 
 // ---------- Dashboard ----------
 const pct = (x, n) => `${Math.round(100 * x / n)}%`;
+const tk = { callback(v) { const l = this.getLabelForValue(v); return l.length > 26 ? l.slice(0, 25) + "…" : l; } };
 function stack(id, field, d, horiz) {
   const keys = [...new Set(d.map(r => r[field] || "—"))].sort();
   const ds = ST.map((s, i) => ({ label: s, backgroundColor: COL[i], data: keys.map(k => d.filter(r => (r[field] || "—") === k && si(r) === i).length) }));
   charts[id]?.destroy();
   charts[id] = new Chart($("#" + id), { type: "bar", data: { labels: keys, datasets: ds },
     options: { indexAxis: horiz ? "y" : "x", responsive: true, maintainAspectRatio: false,
-      scales: { x: { stacked: true, beginAtZero: true }, y: { stacked: true, beginAtZero: true } }, plugins: { legend: { position: "bottom" } } } });
+      scales: { x: { stacked: true, beginAtZero: true, ticks: horiz ? {} : tk }, y: { stacked: true, beginAtZero: true, ticks: horiz ? tk : {} } }, plugins: { legend: { position: "bottom" } } } });
 }
 function dash() {
   const a = $("#dA").value, d = a ? rows.filter(r => r.area === a) : rows, n = d.length || 1;
@@ -170,26 +245,46 @@ function dash() {
   const p1 = d.filter(r => r.status_levantamento === "Levantado" && si(r) < 2).map(r => [r, "Levantado, sem desenho"]);
   const p2 = d.filter(r => si(r) === 2).map(r => [r, "Desenho pronto, falta Sphera"]);
   const p = [...p1, ...p2];
-  $("#pend").innerHTML = p.length ? `<table style="min-width:520px"><tr><th>Área</th><th>Equipamento</th><th>Tipo</th><th>Pendência</th></tr>${p.slice(0, 80).map(([r, t]) =>
-    `<tr><td>${esc(r.area)}</td><td>${esc(r.equipamento)}</td><td>${esc(r.tipo_projeto)}</td><td>${t}</td></tr>`).join("")}</table>` + (p.length > 80 ? `<small>+${p.length - 80} itens</small>` : "") : "Nenhuma pendência.";
+  $("#pend").innerHTML = p.length ? `<table class="st" style="min-width:520px"><thead><tr><th>Área</th><th>Equipamento</th><th>Tipo</th><th>Pendência</th></tr></thead><tbody>${p.slice(0, 80).map(([r, t]) =>
+    `<tr><td data-l="Área"><div class="v">${esc(r.area)}</div></td><td class="h"><b>${esc(r.equipamento)}</b></td><td data-l="Tipo"><div class="v">${esc(r.tipo_projeto)}</div></td><td data-l="Pendência"><div class="v">${t}</div></td></tr>`).join("")}</tbody></table>` + (p.length > 80 ? `<small>+${p.length - 80} itens</small>` : "") : "Nenhuma pendência.";
 }
 $("#dA").onchange = dash;
 
 // ---------- Cadastro ----------
+const COLS = [
+  ["Proteção NR12", /nr.?12/i, "Proteção NR12 (partes girantes)"],
+  ["Antiqueda", /antiqueda/i, "Sistema antiqueda"],
+  ["Portão", /port[ãa]o/i, "Portão para escada de acesso à viga de rolamento"],
+  ["Linha de vida", /linha de vida/i, "Linha de vida"],
+  ["Plataforma", /plataforma/i, "Plataforma de acesso"],
+  ["Grade de piso", /grade/i, "Grade de piso (garagem de manutenção)"],
+  ["Outros", null, ""]];
+const colOf = r => { const i = COLS.findIndex(c => c[1] && c[1].test(r.tipo_projeto || "")); return i < 0 ? COLS.length - 1 : i; };
+const cell = r => `<div class="ce" data-id="${r.id}" title="${esc(r.tipo_projeto)}"><b>${r.qtd ?? "•"}</b> <span class="tag" style="border-left:4px solid ${COL[si(r)]}">${esc(r.status_projeto)}</span>${r.status_levantamento === "Levantado" ? " ✓" : ""}${r.file_name ? ` <span title="${esc(r.file_name)}">📄</span>` : ""}</div>`;
 function table() {
   const a = $("#fA").value, s = $("#fS").value, q = $("#fQ").value.toLowerCase();
   const d = rows.filter(r => (!a || r.area === a) && (!s || ST[si(r)] === s) &&
     (!q || [r.equipamento, r.tipo_projeto, r.file_name, r.sphera, r.responsavel].join(" ").toLowerCase().includes(q)));
-  $("#tb").innerHTML = d.map(r => `<tr class="r" data-id="${r.id}"><td>${esc(r.area)}</td><td>${esc(r.equipamento)}</td><td>${esc(r.tipo_projeto)}</td><td>${r.qtd ?? ""}</td><td>${esc(r.status_levantamento)}</td><td><span class="tag">${esc(r.status_projeto)}</span></td><td>${esc(r.file_name)}</td><td>${esc(r.sphera)}</td></tr>`).join("");
-  $("#cnt").textContent = `${d.length} de ${rows.length} linhas`;
-  document.querySelectorAll("tr.r").forEach(tr => tr.onclick = () => edit(rows.find(r => r.id == tr.dataset.id)));
+  const g = {};
+  d.forEach(r => { const k = r.area + "|" + r.equipamento;
+    (g[k] = g[k] || { area: r.area, eq: r.equipamento, te: r.tipo_equipamento, c: COLS.map(() => []) }).c[colOf(r)].push(r); });
+  const list = Object.values(g);
+  const used = COLS.map((c, i) => c[1] || list.some(x => x.c[i].length));
+  $("#th").innerHTML = "<tr><th>Área</th><th>Equipamento</th>" + COLS.map((c, i) => used[i] ? `<th>${c[0]}</th>` : "").join("") + "</tr>";
+  $("#tb").innerHTML = list.map(x => `<tr><td data-l="Área"><div class="v">${esc(x.area)}</div></td><td class="h"><b>${esc(x.eq)}</b></td>` +
+    x.c.map((l, i) => !used[i] ? "" : `<td data-l="${COLS[i][0]}"${l.length || canEdit ? "" : ' class="em"'}><div class="v">${l.length ? l.map(cell).join("") : (canEdit ? `<a class="add" data-a="${esc(x.area)}" data-e="${esc(x.eq)}" data-t="${esc(x.te || "")}" data-c="${i}">+</a>` : "–")}</div></td>`).join("") + "</tr>").join("");
+  $("#cnt").textContent = `${d.length} de ${rows.length} registros em ${list.length} equipamentos · ✓ levantado · 📄 desenho informado`;
+  document.querySelectorAll(".ce").forEach(el => el.onclick = () => edit(rows.find(r => r.id == el.dataset.id)));
+  document.querySelectorAll(".add").forEach(el => el.onclick = () => edit(null, { area: el.dataset.a, equipamento: el.dataset.e, tipo_equipamento: el.dataset.t, tipo_projeto: COLS[el.dataset.c][2] }));
 }
 ["fA", "fS"].forEach(i => $("#" + i).onchange = table); $("#fQ").oninput = table;
-function edit(r) {
+function edit(r, p) {
+  if (!canEdit) return;
   const f = $("#f"); f.reset();
   $("#dt").textContent = r ? "Editar ponto" : "Novo ponto"; $("#del").classList.toggle("hide", !r);
   f.elements.id.value = r?.id ?? "";
   if (r) for (const k in MAP) { const n = MAP[k]; if (f[n]) f[n].value = r[n] ?? ""; }
+  else if (p) for (const k in p) if (f[k]) f[k].value = p[k];
   $("#dlg").showModal();
 }
 $("#novo").onclick = () => edit(null); $("#cx").onclick = () => $("#dlg").close();
