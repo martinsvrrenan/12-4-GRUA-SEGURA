@@ -189,7 +189,8 @@ a{color:var(--blue);font-weight:600}small{color:var(--mut)}.err{color:#c0362c}.h
  <label class="w">file_name (nome do desenho)<input name="file_name" autocomplete="off" placeholder="ex.: pr01-abc-001"></label>
  <label>Quantidade de folhas<input name="folhas" type="number" min="1" step="1" value="1" inputmode="numeric"></label>
  <div class="w" id="fnPrev"></div>
- <label>Nº requisição Sphera<input name="sphera"></label>
+ <label>Nº mestre SF (Sphera)<input name="sphera"></label>
+ <label>Código SAP<input name="codigo_sap"></label>
  <label>Responsável<input name="responsavel"></label>
  <label class="w">Observações<textarea name="observacoes" rows="2"></textarea></label>
  </div>
@@ -200,10 +201,10 @@ a{color:var(--blue);font-weight:600}small{color:var(--mut)}.err{color:#c0362c}.h
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 Chart.defaults.font.family = 'Manrope, system-ui, "Segoe UI", Arial, sans-serif'; Chart.defaults.color = "#5b6677"; Chart.defaults.elements.bar.borderRadius = 4;
 const AREAS = ["Aciaria","Oficina Central","Porto"];
-const ST = ["A projetar","Em projeto","Desenho concluído","Cadastrado no Sphera","Comprado"];
-const COL = ["#b0b7c3","#f2a93b","#3b82c4","#7a5cc7","#2e9e5b"];
+const ST = ["A projetar","Em projeto","Desenho concluído","Cadastrado no Sphera","Cadastrado no SAP","Comprado"];
+const COL = ["#b0b7c3","#f2a93b","#3b82c4","#7a5cc7","#0e9aa7","#2e9e5b"];
 const TIPOS = ["Proteção NR12 (partes girantes)","Sistema antiqueda","Linha de vida","Plataforma de acesso","Portão para escada de acesso à viga de rolamento","Grade de piso (garagem de manutenção)"];
-const MAP = {"Área":"area","Equipamento":"equipamento","Tipo de equipamento":"tipo_equipamento","Tipo de projeto":"tipo_projeto","Qtd. no escopo":"qtd","Detalhe do escopo":"detalhe","Status do levantamento":"status_levantamento","Status do projeto":"status_projeto","file_name (desenho)":"file_name","Qtd. de folhas":"folhas","Nº requisição Sphera":"sphera","Responsável":"responsavel","Observações":"observacoes"};
+const MAP = {"Área":"area","Equipamento":"equipamento","Tipo de equipamento":"tipo_equipamento","Tipo de projeto":"tipo_projeto","Qtd. no escopo":"qtd","Detalhe do escopo":"detalhe","Status do levantamento":"status_levantamento","Status do projeto":"status_projeto","file_name (desenho)":"file_name","Qtd. de folhas":"folhas","Nº requisição Sphera":"sphera","Código SAP":"codigo_sap","Responsável":"responsavel","Observações":"observacoes"};
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 let rows = [], charts = {}, pending = [];
@@ -219,7 +220,8 @@ function sheetNames(fn, n) {
 const fnHtml = r => { if (!r.file_name) return ""; const n = Math.max(1, parseInt(r.folhas) || 1), ns = sheetNames(r.file_name, n);
   return `<span class="fn"><span class="n">${esc(ns[0] || r.file_name)}</span><span class="c">${n} ${n > 1 ? "folhas" : "folha"}</span>${ns.slice(1).map(x => `<span class="n x">${esc(x)}</span>`).join("")}</span>`; };
 const expRow = r => { const o = {}; for (const k in MAP) o[k] = r[MAP[k]]; if (r.file_name) o["Nomes das folhas"] = sheetNames(r.file_name, r.folhas).join(", "); return o; };
-let hasF = true;
+let hasF = true, hasS = true;
+const SQLS = "Para salvar o código SAP, crie a coluna no Supabase (SQL Editor):\nalter table pontos add column codigo_sap text;";
 const SQLF = "Para salvar a quantidade de folhas, crie a coluna no Supabase (SQL Editor):\nalter table pontos add column folhas integer default 1;";
 
 function fillSelect(el, items, first) {
@@ -289,7 +291,7 @@ async function users() {
 async function load() {
   const { data, error } = await sb.from("pontos").select("*").order("area").order("equipamento").limit(5000);
   if (error) return alert("Erro ao carregar: " + error.message);
-  rows = data; hasF = !rows.length || "folhas" in rows[0]; hist = await fetchAll("historico");
+  rows = data; hasF = !rows.length || "folhas" in rows[0]; hasS = !rows.length || "codigo_sap" in rows[0]; hist = await fetchAll("historico");
   const tps = [...new Set([...TIPOS, ...rows.map(r => r.tipo_projeto)])];
   $("#tps").innerHTML = tps.map(t => `<option value="${esc(t)}">`).join("");
   dash(); table();
@@ -317,16 +319,17 @@ function dash() {
   const a = $("#dA").value, d = a ? rows.filter(r => r.area === a) : rows, n = d.length || 1;
   const lev = d.filter(r => r.status_levantamento === "Levantado").length;
   const c = k => d.filter(r => si(r) >= k).length;
-  const k = [["Linhas de projeto", d.length], ["Levantados", pct(lev, n)], ["Com desenho", pct(c(2), n)], ["Cadastrados no Sphera", pct(c(3), n)], ["Comprados", pct(c(4), n)]];
+  const k = [["Linhas de projeto", d.length], ["Levantados", pct(lev, n)], ["Com desenho", pct(c(2), n)], ["Cadastrados no Sphera", pct(c(3), n)], ["Cadastrados no SAP", pct(c(4), n)], ["Comprados", pct(c(5), n)]];
   $("#kpis").innerHTML = k.map(([l, v]) => `<div class="card kpi" style="margin:0"><b>${v}</b><span>${l}</span></div>`).join("");
   stack("c1", "area", d); stack("c3", "tipo_projeto", d, true); evoDash(d);
   charts.c2?.destroy();
-  charts.c2 = new Chart($("#c2"), { type: "bar", data: { labels: ["Total", "Levantados", "Desenho concluído+", "No Sphera+", "Comprados"],
-    datasets: [{ data: [d.length, lev, c(2), c(3), c(4)], backgroundColor: ["#b0b7c3", "#f2a93b", "#3b82c4", "#7a5cc7", "#2e9e5b"] }] },
+  charts.c2 = new Chart($("#c2"), { type: "bar", data: { labels: ["Total", "Levantados", "Desenho concluído+", "No Sphera+", "No SAP+", "Comprados"],
+    datasets: [{ data: [d.length, lev, c(2), c(3), c(4), c(5)], backgroundColor: ["#b0b7c3", "#f2a93b", "#3b82c4", "#7a5cc7", "#0e9aa7", "#2e9e5b"] }] },
     options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
   const p1 = d.filter(r => r.status_levantamento === "Levantado" && si(r) < 2).map(r => [r, "Levantado, sem desenho"]);
   const p2 = d.filter(r => si(r) === 2).map(r => [r, "Desenho pronto, falta Sphera"]);
-  const p = [...p1, ...p2];
+  const p3 = d.filter(r => si(r) === 3).map(r => [r, "No Sphera, falta SAP"]);
+  const p = [...p1, ...p2, ...p3];
   $("#pend").innerHTML = p.length ? `<table class="st" style="min-width:520px"><thead><tr><th>Área</th><th>Equipamento</th><th>Tipo</th><th>Pendência</th></tr></thead><tbody>${p.slice(0, 80).map(([r, t]) =>
     `<tr><td data-l="Área"><div class="v">${esc(r.area)}</div></td><td class="h"><b>${esc(r.equipamento)}</b></td><td data-l="Tipo"><div class="v">${esc(r.tipo_projeto)}</div></td><td data-l="Pendência"><div class="v">${t}</div></td></tr>`).join("")}</tbody></table>` + (p.length > 80 ? `<small>+${p.length - 80} itens</small>` : "") : "Nenhuma pendência.";
 }
@@ -355,26 +358,26 @@ function evo(d, mode) {
     }
   }
   const rowsOut = ends.map(T => {
-    const t = T.getTime(); let lev = 0, des = 0, sph = 0, comp = 0;
+    const t = T.getTime(); let lev = 0, des = 0, sph = 0, sap = 0, comp = 0;
     for (const id of set) {
       let l = "Pendente", st = 0;
       for (const e of (by[id] || [])) { if (e.t <= t) { l = e.l; st = Math.max(0, e.s); } else break; }
-      if (l === "Levantado") lev++; if (st >= 2) des++; if (st >= 3) sph++; if (st >= 4) comp++;
+      if (l === "Levantado") lev++; if (st >= 2) des++; if (st >= 3) sph++; if (st >= 4) sap++; if (st >= 5) comp++;
     }
     const prev = mode === "w" ? new Date(T.getFullYear(), T.getMonth(), T.getDate() - 7, 23, 59, 59, 999) : new Date(T.getFullYear(), T.getMonth(), 0, 23, 59, 59, 999);
-    return { lev, des, sph, comp, mov: ts.filter(x => x > prev.getTime() && x <= t).length };
+    return { lev, des, sph, sap, comp, mov: ts.filter(x => x > prev.getTime() && x <= t).length };
   });
   return { labels, rows: rowsOut, mode };
 }
-const EH = ["Período", "Levantados", "Com desenho", "No Sphera", "Comprados", "Movimentações"];
-const evoLines = e => e.rows.map((x, i) => [(e.mode === "w" ? "Semana de " : "") + e.labels[i], x.lev, x.des, x.sph, x.comp, x.mov]).reverse();
+const EH = ["Período", "Levantados", "Com desenho", "No Sphera", "No SAP", "Comprados", "Movimentações"];
+const evoLines = e => e.rows.map((x, i) => [(e.mode === "w" ? "Semana de " : "") + e.labels[i], x.lev, x.des, x.sph, x.sap, x.comp, x.mov]).reverse();
 function evoDash(d) {
-  const mode = $("#evP").value, e = evo(d, mode), R = e.rows, last = R[R.length - 1], prev = R[R.length - 2] || { lev: 0, des: 0, sph: 0, comp: 0 };
+  const mode = $("#evP").value, e = evo(d, mode), R = e.rows, last = R[R.length - 1], prev = R[R.length - 2] || { lev: 0, des: 0, sph: 0, sap: 0, comp: 0 };
   const dl = (a, b) => (a >= b ? "+" : "") + (a - b), per = mode === "w" ? "Nesta semana" : "Neste mês";
-  $("#evk").innerHTML = [["Levantados", dl(last.lev, prev.lev)], ["Com desenho", dl(last.des, prev.des)], ["No Sphera", dl(last.sph, prev.sph)], ["Comprados", dl(last.comp, prev.comp)], ["Movimentações", String(last.mov)]]
+  $("#evk").innerHTML = [["Levantados", dl(last.lev, prev.lev)], ["Com desenho", dl(last.des, prev.des)], ["No Sphera", dl(last.sph, prev.sph)], ["No SAP", dl(last.sap, prev.sap)], ["Comprados", dl(last.comp, prev.comp)], ["Movimentações", String(last.mov)]]
     .map(([l, v]) => `<div class="card kpi" style="margin:0"><b>${v}</b><span>${per}: ${l}</span></div>`).join("");
   charts.c4?.destroy();
-  charts.c4 = new Chart($("#c4"), { type: "line", data: { labels: e.labels, datasets: [["Levantados", "lev", "#f2a93b"], ["Com desenho", "des", "#3b82c4"], ["No Sphera", "sph", "#7a5cc7"], ["Comprados", "comp", "#2e9e5b"]]
+  charts.c4 = new Chart($("#c4"), { type: "line", data: { labels: e.labels, datasets: [["Levantados", "lev", "#f2a93b"], ["Com desenho", "des", "#3b82c4"], ["No Sphera", "sph", "#7a5cc7"], ["No SAP", "sap", "#0e9aa7"], ["Comprados", "comp", "#2e9e5b"]]
     .map(([n, k, c]) => ({ label: n, data: R.map(x => x[k]), borderColor: c, backgroundColor: c, tension: .25 })) },
     options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } }, plugins: { legend: { position: "bottom" } } } });
   $("#evt").innerHTML = `<table class="st" style="min-width:560px"><thead><tr>${EH.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${evoLines(e).map(l =>
@@ -397,7 +400,7 @@ const cell = r => `<div class="ce" data-id="${r.id}" title="${esc(r.tipo_projeto
 function table() {
   const a = $("#fA").value, s = $("#fS").value, q = $("#fQ").value.toLowerCase();
   const d = rows.filter(r => (!a || r.area === a) && (!s || ST[si(r)] === s) &&
-    (!q || [r.equipamento, r.tipo_projeto, r.file_name, sheetNames(r.file_name, r.folhas).join(" "), r.sphera, r.responsavel].join(" ").toLowerCase().includes(q)));
+    (!q || [r.equipamento, r.tipo_projeto, r.file_name, sheetNames(r.file_name, r.folhas).join(" "), r.sphera, r.codigo_sap, r.responsavel].join(" ").toLowerCase().includes(q)));
   const g = {};
   d.forEach(r => { const k = r.area + "|" + r.equipamento;
     (g[k] = g[k] || { area: r.area, eq: r.equipamento, te: r.tipo_equipamento, c: COLS.map(() => []) }).c[colOf(r)].push(r); });
@@ -438,9 +441,10 @@ $("#f").onsubmit = async e => {
   o.folhas = o.file_name ? Math.max(1, parseInt(o.folhas) || 1) : null;
   if (o.file_name && sheetNames(o.file_name, o.folhas).length < o.folhas) return alert("Para gerar mais de uma folha, o file_name precisa terminar em número (ex.: pr01-abc-001).");
   if (!hasF) { if (o.folhas > 1) return alert(SQLF); delete o.folhas; }
+  if (!hasS) { if (o.codigo_sap) return alert(SQLS); delete o.codigo_sap; }
   const id = o.id; delete o.id;
   const { error } = await (id ? sb.from("pontos").update(o).eq("id", id) : sb.from("pontos").insert(o));
-  if (error) return alert("Erro ao salvar: " + error.message + (/folhas/.test(error.message) ? "\n\n" + SQLF : ""));
+  if (error) return alert("Erro ao salvar: " + error.message + (/folhas/.test(error.message) ? "\n\n" + SQLF : /codigo_sap/.test(error.message) ? "\n\n" + SQLS : ""));
   $("#dlg").close(); load();
 };
 $("#del").onclick = async () => {
@@ -456,10 +460,10 @@ $("#del").onclick = async () => {
 const lv = r => r.status_levantamento === "Levantado";
 const today = () => new Date().toLocaleDateString("pt-BR");
 const stamp = () => new Date().toISOString().slice(0, 10);
-function stats(d) { const c = k => d.filter(r => si(r) >= k).length; return { n: d.length, lev: d.filter(lv).length, des: c(2), sph: c(3), comp: c(4) }; }
+function stats(d) { const c = k => d.filter(r => si(r) >= k).length; return { n: d.length, lev: d.filter(lv).length, des: c(2), sph: c(3), sap: c(4), comp: c(5) }; }
 const pc = (x, n) => n ? Math.round(100 * x / n) + "%" : "0%";
 function repData() { const a = $("#rA").value; return { a, d: a ? rows.filter(r => r.area === a) : rows }; }
-function pendList(d) { return [...d.filter(r => lv(r) && si(r) < 2).map(r => [r, "Levantado, sem desenho"]), ...d.filter(r => si(r) === 2).map(r => [r, "Desenho pronto, falta Sphera"])]; }
+function pendList(d) { return [...d.filter(r => lv(r) && si(r) < 2).map(r => [r, "Levantado, sem desenho"]), ...d.filter(r => si(r) === 2).map(r => [r, "Desenho pronto, falta Sphera"]), ...d.filter(r => si(r) === 3).map(r => [r, "No Sphera, falta SAP"])]; }
 function matrix(d, field) {
   const keys = [...new Set(d.map(r => r[field] || "—"))].sort();
   return { keys, m: keys.map(k => ST.map((s, i) => d.filter(r => (r[field] || "—") === k && si(r) === i).length)) };
@@ -467,9 +471,9 @@ function matrix(d, field) {
 function resumoRows(a, d) {
   const rs = AREAS.filter(x => !a || x === a).map(ar => [ar, stats(d.filter(r => r.area === ar))]);
   rs.push(["Total", stats(d)]);
-  return rs.map(([n, s]) => [n, s.n, s.lev, s.des, s.sph, s.comp, pc(s.des, s.n)]);
+  return rs.map(([n, s]) => [n, s.n, s.lev, s.des, s.sph, s.sap, s.comp, pc(s.des, s.n)]);
 }
-const RH = ["Área", "Linhas de projeto", "Levantados", "Com desenho", "No Sphera", "Comprados", "% com desenho"];
+const RH = ["Área", "Linhas de projeto", "Levantados", "Com desenho", "No Sphera", "No SAP", "Comprados", "% com desenho"];
 
 $("#rx").onclick = () => {
   const { a, d } = repData(), wb = XLSX.utils.book_new();
@@ -489,10 +493,10 @@ $("#rp").onclick = () => {
   const w = window.open("", "_blank");
   if (!w) return alert("Permita pop-ups para este site e tente de novo.");
   const esc2 = x => esc(String(x ?? ""));
-  const kpis = [["Linhas de projeto", s.n], ["Levantados", pc(s.lev, s.n)], ["Com desenho", pc(s.des, s.n)], ["No Sphera", pc(s.sph, s.n)], ["Comprados", pc(s.comp, s.n)]];
+  const kpis = [["Linhas de projeto", s.n], ["Levantados", pc(s.lev, s.n)], ["Com desenho", pc(s.des, s.n)], ["No Sphera", pc(s.sph, s.n)], ["No SAP", pc(s.sap, s.n)], ["Comprados", pc(s.comp, s.n)]];
   const chartSvg = (e, title) => {
     const W=520,H=172,L=34,R=12,T=24,B=34, pw=W-L-R, ph=H-T-B;
-    const keys=[["Levantados","lev","#f2a93b"],["Com desenho","des","#3b82c4"],["No Sphera","sph","#7a5cc7"],["Comprados","comp","#2e9e5b"]];
+    const keys=[["Levantados","lev","#f2a93b"],["Com desenho","des","#3b82c4"],["No Sphera","sph","#7a5cc7"],["No SAP","sap","#0e9aa7"],["Comprados","comp","#2e9e5b"]];
     const max=Math.max(1,...e.rows.flatMap(r=>keys.map(k=>r[k[1]])));
     const x=i=>L+(e.rows.length<2?pw/2:i*pw/(e.rows.length-1));
     const y=v=>T+ph-(v/max)*ph;
@@ -508,10 +512,10 @@ $("#rp").onclick = () => {
     let lx=L; keys.forEach(([name,key,color])=>{g+=`<line x1="${lx}" y1="${H-5}" x2="${lx+12}" y2="${H-5}" stroke="${color}" stroke-width="3"/><text x="${lx+16}" y="${H-2}" font-size="9" fill="#4d596b">${name}</text>`;lx += name.length*5.1+34;});
     return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${title}" xmlns="http://www.w3.org/2000/svg">${g}</svg>`;
   };
-  const resumo = `No período apresentado, o sistema reúne ${s.n} linhas de projeto. Foram registrados ${s.lev} levantamentos, ${s.des} itens com desenho, ${s.sph} cadastros no Sphera e ${s.comp} itens comprados. A evolução considera o histórico disponível no aplicativo; períodos sem registros não representam necessariamente ausência de atividade.`;
+  const resumo = `No período apresentado, o sistema reúne ${s.n} linhas de projeto. Foram registrados ${s.lev} levantamentos, ${s.des} itens com desenho, ${s.sph} cadastros no Sphera, ${s.sap} no SAP e ${s.comp} itens comprados. A evolução considera o histórico disponível no aplicativo; períodos sem registros não representam necessariamente ausência de atividade.`;
   w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Relatório executivo – Grua Segura</title>
 <style>
-@page{size:A4 landscape;margin:7mm}*{box-sizing:border-box}html,body{margin:0;padding:0;color:#1b2430;font:9px Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}.sheet{width:100%;height:195mm;overflow:hidden;padding:2mm 1mm}.head{display:flex;align-items:center;gap:10px;background:#1f3864;color:#fff;padding:9px 12px;border-radius:7px}.head img{width:42px;height:42px;object-fit:contain;border-radius:7px;background:#fff}.head h1{font-size:18px;margin:0 0 3px}.sub{font-size:9px;color:#e2e8f0}.date{margin-left:auto;text-align:right;font-size:9px}.intro{display:grid;grid-template-columns:1.05fr 1fr;gap:10px;margin:9px 0}.panel{border:1px solid #dce2eb;border-radius:6px;padding:8px;background:#fff}.panel h2{font-size:11px;color:#1f3864;margin:0 0 5px}.panel p{margin:0;line-height:1.4;font-size:9px}.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin:0 0 9px}.kpi{border:1px solid #dce2eb;border-top:3px solid #f2b705;border-radius:6px;padding:7px;text-align:center;background:#f8faff}.kpi strong{display:block;color:#1f3864;font-size:20px;margin-bottom:2px}.kpi span{font-size:8px;color:#5b6677}.charts{display:grid;grid-template-columns:1fr 1fr;gap:9px}.chart{border:1px solid #dce2eb;border-radius:6px;padding:5px 7px;min-width:0}.chart svg{width:100%;height:auto;display:block}.foot{display:flex;justify-content:space-between;margin-top:7px;padding-top:5px;border-top:1px solid #dce2eb;color:#657084;font-size:8px}.note{margin-top:7px;padding:7px 9px;background:#eef3fb;border-left:3px solid #f2b705;border-radius:4px;line-height:1.35}@media screen{body{background:#e8edf5;padding:12px}.sheet{max-width:1100px;height:auto;min-height:180mm;margin:auto;background:#fff;box-shadow:0 2px 12px #0002}.printbtn{display:block;margin:0 auto 10px;padding:9px 16px;background:#1f3864;color:white;border:0;border-radius:5px;font-size:14px}}@media print{.printbtn{display:none}.sheet{height:195mm;page-break-after:avoid}}
+@page{size:A4 landscape;margin:7mm}*{box-sizing:border-box}html,body{margin:0;padding:0;color:#1b2430;font:9px Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}.sheet{width:100%;height:195mm;overflow:hidden;padding:2mm 1mm}.head{display:flex;align-items:center;gap:10px;background:#1f3864;color:#fff;padding:9px 12px;border-radius:7px}.head img{width:42px;height:42px;object-fit:contain;border-radius:7px;background:#fff}.head h1{font-size:18px;margin:0 0 3px}.sub{font-size:9px;color:#e2e8f0}.date{margin-left:auto;text-align:right;font-size:9px}.intro{display:grid;grid-template-columns:1.05fr 1fr;gap:10px;margin:9px 0}.panel{border:1px solid #dce2eb;border-radius:6px;padding:8px;background:#fff}.panel h2{font-size:11px;color:#1f3864;margin:0 0 5px}.panel p{margin:0;line-height:1.4;font-size:9px}.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin:0 0 9px}.kpi{border:1px solid #dce2eb;border-top:3px solid #f2b705;border-radius:6px;padding:7px;text-align:center;background:#f8faff}.kpi strong{display:block;color:#1f3864;font-size:20px;margin-bottom:2px}.kpi span{font-size:8px;color:#5b6677}.charts{display:grid;grid-template-columns:1fr 1fr;gap:9px}.chart{border:1px solid #dce2eb;border-radius:6px;padding:5px 7px;min-width:0}.chart svg{width:100%;height:auto;display:block}.foot{display:flex;justify-content:space-between;margin-top:7px;padding-top:5px;border-top:1px solid #dce2eb;color:#657084;font-size:8px}.note{margin-top:7px;padding:7px 9px;background:#eef3fb;border-left:3px solid #f2b705;border-radius:4px;line-height:1.35}@media screen{body{background:#e8edf5;padding:12px}.sheet{max-width:1100px;height:auto;min-height:180mm;margin:auto;background:#fff;box-shadow:0 2px 12px #0002}.printbtn{display:block;margin:0 auto 10px;padding:9px 16px;background:#1f3864;color:white;border:0;border-radius:5px;font-size:14px}}@media print{.printbtn{display:none}.sheet{height:195mm;page-break-after:avoid}}
 </style></head><body><button class="printbtn" onclick="window.print()">Imprimir / Salvar como PDF</button><main class="sheet">
 <header class="head"><img src="${location.origin}/icon-192.png" alt="Ícone Grua Segura"><div><h1>Adequação de Pontos de Grua Segura</h1><div class="sub">Acompanhamento de adequações de segurança em pontes rolantes</div></div><div class="date"><b>RELATÓRIO EXECUTIVO</b><br>Emitido em ${today()}<br>${esc2(a || "Todas as áreas")}</div></header>
 <section class="intro"><div class="panel"><h2>Objetivo do projeto</h2><p>Acompanhar o levantamento, a definição e a implementação das adequações dos pontos de segurança das pontes rolantes, organizando o avanço dos desenhos, cadastros no Sphera e compras para apoiar o planejamento e a tomada de decisão.</p></div><div class="panel"><h2>Evolução no período</h2><p>${esc2(resumo)}</p></div></section>
@@ -569,23 +573,23 @@ $("#rpp").onclick = async () => {
 
   // 2 — Indicadores principais e gráfico único de funil
   sl = P.addSlide(); addHead(sl, "Visão geral", "Indicadores consolidados do escopo selecionado");
-  const kpis = [[s.n, "Linhas de projeto", C.gold], [s.lev, "Levantados", C.sky], [s.des, "Com desenho", C.blue], [s.sph, "No Sphera", C.purple], [s.comp, "Comprados", C.green]];
-  kpis.forEach((k, i) => addKpi(sl, 0.5 + i * 2.55, 1.2, 2.3, k[0], k[1], k[2]));
+  const kpis = [[s.n, "Linhas de projeto", C.gold], [s.lev, "Levantados", C.sky], [s.des, "Com desenho", C.blue], [s.sph, "No Sphera", C.purple], [s.sap, "No SAP", "0E9AA7"], [s.comp, "Comprados", C.green]];
+  kpis.forEach((k, i) => addKpi(sl, 0.5 + i * 2.1, 1.2, 1.95, k[0], k[1], k[2]));
   sl.addText("Avanço por etapa", { x: 0.55, y: 2.62, w: 4.2, h: 0.3, fontFace: FT, fontSize: 17, bold: true, color: C.navy, margin: 0 });
-  sl.addChart(P.ChartType.bar, [{ name: "Itens", labels: ["Total no escopo", "Levantados", "Desenho concluído ou além", "Sphera ou além", "Comprados"], values: [s.n, s.lev, s.des, s.sph, s.comp] }], {
+  sl.addChart(P.ChartType.bar, [{ name: "Itens", labels: ["Total no escopo", "Levantados", "Desenho concluído ou além", "Sphera ou além", "SAP ou além", "Comprados"], values: [s.n, s.lev, s.des, s.sph, s.sap, s.comp] }], {
     x: 0.55, y: 2.95, w: 7.4, h: 3.65, catAxisLabelFontFace: FT, catAxisLabelFontSize: 10, valAxisLabelFontFace: FT, valAxisLabelFontSize: 9,
     chartColors: [C.blue], showValue: true, showLegend: false, catAxisOrientation: "maxMin", valAxisMinVal: 0, valAxisMajorGridLines: { color: C.line, width: 1 },
     showCatName: false, showTitle: false, showBorder: false, showValAxisTitle: false, showCatAxisTitle: false, valGridLine: { color: C.line, width: 1 },
     dataLabelPosition: "outEnd", dataLabelColor: C.ink, dataLabelFormatCode: "0"
   });
   addNote(sl, `Pendências identificadas: ${pd.length}. Os indicadores representam o status atual dos registros, enquanto a evolução histórica depende das movimentações registradas no aplicativo.`, 8.25, 3.1, 4.5, 1.35);
-  addNote(sl, `Com desenho: ${pc(s.des, s.n)}  |  No Sphera: ${pc(s.sph, s.n)}  |  Comprados: ${pc(s.comp, s.n)}`, 8.25, 4.72, 4.5, 1.0);
+  addNote(sl, `Com desenho: ${pc(s.des, s.n)}  |  No Sphera: ${pc(s.sph, s.n)}  |  No SAP: ${pc(s.sap, s.n)}  |  Comprados: ${pc(s.comp, s.n)}`, 8.25, 4.72, 4.5, 1.0);
 
   // 3 — Avanço por área, com gráfico legível
   sl = P.addSlide(); addHead(sl, "Avanço por área", "Distribuição das linhas de projeto por etapa");
   sl.addChart(P.ChartType.bar, ST.map((st, i) => ({ name: st, labels: ar, values: ar.map(x => d.filter(r => r.area === x && si(r) === i).length) })), {
     x: 0.55, y: 1.2, w: 8.2, h: 5.5, catAxisLabelFontFace: FT, catAxisLabelFontSize: 12, valAxisLabelFontFace: FT, valAxisLabelFontSize: 10,
-    barDir: "col", grouping: "stacked", barGrouping: "stacked", chartColors: [C.gray, "F2A93B", C.sky, C.purple, C.green],
+    barDir: "col", grouping: "stacked", barGrouping: "stacked", chartColors: [C.gray, "F2A93B", C.sky, C.purple, "0E9AA7", C.green],
     showLegend: true, legendPos: "b", legendFontFace: FT, legendFontSize: 10, showValue: false, catAxisOrientation: "minMax",
     valAxisMinVal: 0, valAxisMajorGridLines: { color: C.line, width: 1 }, showBorder: false, showTitle: false
   });
@@ -599,8 +603,8 @@ $("#rpp").onclick = async () => {
   const addEvolution = (mode, title, x, y, w, h) => {
     const e = evo(d, mode);
     sl.addText(title, { x, y, w, h: 0.28, fontFace: FT, fontSize: 15, bold: true, color: C.navy, margin: 0 });
-    sl.addChart(P.ChartType.line, [["Levantados", "lev", C.gold], ["Com desenho", "des", C.sky], ["No Sphera", "sph", C.purple], ["Comprados", "comp", C.green]].map(([name, key]) => ({ name, labels: e.labels, values: e.rows.map(r => r[key]) })), {
-      x, y: y + 0.35, w, h: h - 0.35, chartColors: [C.gold, C.sky, C.purple, C.green], lineSize: 2,
+    sl.addChart(P.ChartType.line, [["Levantados", "lev", C.gold], ["Com desenho", "des", C.sky], ["No Sphera", "sph", C.purple], ["No SAP", "sap", "0E9AA7"], ["Comprados", "comp", C.green]].map(([name, key]) => ({ name, labels: e.labels, values: e.rows.map(r => r[key]) })), {
+      x, y: y + 0.35, w, h: h - 0.35, chartColors: [C.gold, C.sky, C.purple, "0E9AA7", C.green], lineSize: 2,
       showLegend: true, legendPos: "b", legendFontFace: FT, legendFontSize: 8, catAxisLabelFontFace: FT, catAxisLabelFontSize: 8,
       valAxisLabelFontFace: FT, valAxisLabelFontSize: 8, valAxisMinVal: 0, valAxisMajorGridLines: { color: C.line, width: 1 },
       showTitle: false, showBorder: false, showValue: false, catAxisLabelRotate: 0
@@ -640,6 +644,8 @@ $("#fi").onchange = async e => {
     if (o.sphera !== null) o.sphera = String(o.sphera);
     if (o.folhas !== null) o.folhas = Math.max(1, parseInt(o.folhas) || 1);
     if (!hasF) delete o.folhas;
+    if (o.codigo_sap !== null) o.codigo_sap = String(o.codigo_sap);
+    if (!hasS) delete o.codigo_sap;
     if (!AREAS.includes(o.area)) errs.push(`Linha ${i + 2}: área inválida (${o.area})`);
     else if (!o.equipamento || !o.tipo_projeto) errs.push(`Linha ${i + 2}: falta equipamento ou tipo de projeto`);
     else {
