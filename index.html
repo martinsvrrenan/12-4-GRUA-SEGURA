@@ -390,7 +390,7 @@ async function logAcao(acao, detalhe = "") { try { await sb.rpc("registrar_acao"
 async function presenca(login) { try { await sb.rpc("registrar_presenca", { p_login: !!login, p_online: true }); } catch (e) {} }
 
 const dtf = (x, seg) => x ? new Date(x).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: seg ? "medium" : "short" }) : "—";
-const SQLU = "Execute o arquivo usuarios_logs.sql no SQL Editor do Supabase e tente novamente.";
+const SQLU = "Execute os arquivos usuarios_logs_parte1.sql e usuarios_logs_parte2.sql (nessa ordem) no SQL Editor do Supabase e tente novamente.";
 fillSelect($("#uPap"), PAPEIS.map(p => p[0]));
 document.querySelectorAll("#uPap option").forEach((o, i) => { o.textContent = PAPEIS[i][1]; }); $("#uPap").value = "visualizador";
 async function users() {
@@ -416,8 +416,9 @@ async function users() {
   });
   document.querySelectorAll("#ub button[data-del]").forEach(bt => bt.onclick = async () => {
     if (!confirm(`Excluir a conta ${bt.dataset.em}?\nEssa ação não pode ser desfeita e o usuário perde o acesso.`)) return;
-    const { error } = await sb.rpc("admin_excluir_usuario", { p_id: bt.dataset.del });
+    const { data, error } = await sb.rpc("admin_excluir_usuario", { p_id: bt.dataset.del });
     if (error) return alert("Não foi possível excluir: " + error.message + (/function|schema cache/i.test(error.message) ? "\n\n" + SQLU : ""));
+    if (data === false) return alert("Não foi possível excluir: apenas administradores podem excluir contas, e não é possível excluir a própria.");
     logAcao("Excluiu conta", bt.dataset.em); users();
   });
   const cur = $("#lgU").value;
@@ -428,7 +429,7 @@ async function lgLoad() {
   const uid = $("#lgU").value;
   let q = sb.from("logs_acao").select("*").order("created_at", { ascending: false }).limit(200); if (uid) q = q.eq("user_id", uid);
   const { data, error } = await q;
-  $("#lgt").innerHTML = error ? `<small>Log indisponível. ${SQLU}</small>` : !data.length ? "Nenhuma ação registrada." :
+  $("#lgt").innerHTML = error ? `<small>Log indisponível (${esc(error.message || "erro desconhecido")}). ${SQLU}</small>` : !data.length ? "Nenhuma ação registrada." :
     `<table class="st" style="min-width:620px"><thead><tr><th>Data/hora</th><th>Usuário</th><th>Ação</th><th>Detalhe</th></tr></thead><tbody>${data.map(l =>
     `<tr><td class="h"><b>${dtf(l.created_at, true)}</b></td><td data-l="Usuário"><div class="v">${esc(l.email || "—")}</div></td><td data-l="Ação"><div class="v">${esc(l.acao)}</div></td><td data-l="Detalhe"><div class="v">${esc(l.detalhe || "")}</div></td></tr>`).join("")}</tbody></table>`;
 }
