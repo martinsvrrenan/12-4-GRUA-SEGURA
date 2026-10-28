@@ -184,7 +184,7 @@ html[data-theme=dark] .ce{color:var(--txt)}
   </div>
   <div class="card">
    <div class="evh"><b>Evolução e andamento</b>
-    <div class="bar"><select id="evS" title="O que acompanhar no gráfico"><option value="tot" selected>Andamento total</option><option value="lev">Levantados</option><option value="des">Com desenho</option><option value="sph">No Sphera</option><option value="sap">No SAP</option><option value="comp">Comprados</option></select><select id="evP"><option value="p">Ano fiscal 2026/2027</option><option value="w">Semanal (12 semanas)</option><option value="m">Mensal (6 meses)</option></select></div></div>
+    <div class="bar"><select id="evS" title="O que acompanhar no gráfico"><option value="tot" selected>Andamento total</option><option value="lev">Levantados</option><option value="des">Com desenho</option><option value="sph">No Sphera</option><option value="sap">No SAP</option></select><select id="evP"><option value="p">Ano fiscal 2026/2027</option><option value="w">Semanal (12 semanas)</option><option value="m">Mensal (6 meses)</option></select></div></div>
    <div class="cards" id="evk"></div>
    <div class="ch"><canvas id="c4"></canvas></div>
    <small id="evn"></small>
@@ -483,7 +483,7 @@ const pct = (x, n) => `${Math.round(100 * x / n)}%`;
 const tk = { callback(v) { const l = this.getLabelForValue(v); return l.length > 26 ? l.slice(0, 25) + "…" : l; } };
 function stack(id, field, d, horiz) {
   const keys = [...new Set(d.map(r => r[field] || "—"))].sort();
-  const ds = ST.map((s, i) => ({ label: s, backgroundColor: COL[i], data: keys.map(k => wsum(d.filter(r => (r[field] || "—") === k && si(r) === i))) }));
+  const ds = ST.slice(0, 5).map((s, i) => ({ label: s, backgroundColor: COL[i], data: keys.map(k => wsum(d.filter(r => (r[field] || "—") === k && (i === 4 ? si(r) >= 4 : si(r) === i)))) })); // "Comprado" fica agrupado em "Cadastrado no SAP"
   charts[id]?.destroy();
   charts[id] = new Chart($("#" + id), { type: "bar", data: { labels: keys, datasets: ds },
     options: { indexAxis: horiz ? "y" : "x", responsive: true, maintainAspectRatio: false,
@@ -500,14 +500,19 @@ function dash() {
   const c = k => wsum(d.filter(r => si(r) >= k));
   const card = ([l, x]) => `<div class="card kpi" style="margin:0"><b>${pct(x, n)}</b><span>${l}</span><small><em>${fmt(x)} ${u} realizados</em><br><i>${fmt(tot - x)} faltam</i> · de ${fmt(tot)}</small><div class="pb"><u style="width:${Math.round(100 * x / n)}%"></u></div></div>`;
   const first = `<div class="card kpi" style="margin:0"><b>${fmt(tot)}</b><span>${unit === "p" ? "Pontos de adequação" : "Linhas de projeto"}</span><div class="seg"><button data-u="l" class="${unit === "l" ? "on" : ""}">Linhas</button><button data-u="p" class="${unit === "p" ? "on" : ""}">Pontos</button></div></div>`;
-  const tp = Math.round(100 * (lev + c(2) + c(3) + c(4) + c(5)) / (5 * n));
-  const andam = `<div class="card kpi" style="margin:0"><b>${tp}%</b><span>Andamento total</span><small><em>média das 5 etapas</em><br><i>faltam ${100 - tp}%</i></small><div class="pb"><u style="width:${tp}%"></u></div></div>`;
-  $("#kpis").innerHTML = first + andam + [["Levantados", lev], ["Com desenho", c(2)], ["Cadastrados no Sphera", c(3)], ["Cadastrados no SAP", c(4)], ["Comprados", c(5)]].map(card).join("");
+  const tp = Math.round(100 * (lev + c(2) + c(3) + c(4)) / (4 * n));
+  const andam = `<div class="card kpi" style="margin:0"><b>${tp}%</b><span>Andamento total</span><small><em>média das 4 etapas (levantamento, desenho, Sphera e SAP)</em><br><i>faltam ${100 - tp}%</i></small><div class="pb"><u style="width:${tp}%"></u></div></div>`;
+  // Equipamentos (pontes etc.): levantado = todas as linhas do equipamento levantadas
+  const eqm = {}; d.forEach(r => { const k = `${r.area}|${String(r.equipamento || "").trim().toLowerCase()}`; (eqm[k] = eqm[k] || []).push(r); });
+  const eqs = Object.values(eqm), eqT = eqs.length, isLev = r => r.status_levantamento === "Levantado";
+  const eqOk = eqs.filter(g => g.every(isLev)).length, eqPar = eqs.filter(g => !g.every(isLev) && g.some(isLev)).length, eqP = eqT ? Math.round(100 * eqOk / eqT) : 0;
+  const equip = `<div class="card kpi" style="margin:0"><b>${eqP}%</b><span>Equipamentos levantados</span><small><em>${eqOk} de ${eqT} equipamentos</em><br><i>${eqT - eqOk} faltam</i>${eqPar ? ` · ${eqPar} parciais` : ""}</small><div class="pb"><u style="width:${eqP}%"></u></div></div>`;
+  $("#kpis").innerHTML = first + andam + card(["Levantados", lev]) + equip + [["Com desenho", c(2)], ["Cadastrados no Sphera", c(3)], ["Cadastrados no SAP", c(4)]].map(card).join("");
   document.querySelectorAll("#kpis .seg button").forEach(b => b.onclick = () => { unit = b.dataset.u; dash(); });
   stack("c1", "area", d); stack("c3", "tipo_projeto", d, true); evoDash(d);
   charts.c2?.destroy();
-  charts.c2 = new Chart($("#c2"), { type: "bar", data: { labels: ["Total", "Levantados", "Desenho concluído+", "No Sphera+", "No SAP+", "Comprados"],
-    datasets: [{ data: [tot, lev, c(2), c(3), c(4), c(5)], backgroundColor: ["#b0b7c3", "#f2a93b", "#3b82c4", "#7a5cc7", "#0e9aa7", "#2e9e5b"] }] },
+  charts.c2 = new Chart($("#c2"), { type: "bar", data: { labels: ["Total", "Levantados", "Desenho concluído+", "No Sphera+", "No SAP+"],
+    datasets: [{ data: [tot, lev, c(2), c(3), c(4)], backgroundColor: ["#b0b7c3", "#f2a93b", "#3b82c4", "#7a5cc7", "#0e9aa7"] }] },
     options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
   const p1 = d.filter(r => r.status_levantamento === "Levantado" && si(r) < 2).map(r => [r, "Levantado, sem desenho"]);
   const p2 = d.filter(r => si(r) === 2).map(r => [r, "Desenho pronto, falta Sphera"]);
@@ -555,21 +560,21 @@ function evo(d, mode) {
 }
 const EH = ["Período", "Levantados", "Com desenho", "No Sphera", "No SAP", "Comprados", "Movimentações"];
 const evoLines = e => e.rows.map((x, i) => [(e.mode === "w" ? "Semana de " : "") + e.labels[i], x.lev, x.des, x.sph, x.sap, x.comp, x.mov]).reverse();
-const PROJ = { ini: new Date(2026, 6, 1), fim: new Date(2027, 5, 30, 23, 59, 59, 999) }; // 01/07/2026 → 30/06/2027
-const STG = [["Andamento total", "tot", "#14284b"], ["Levantados", "lev", "#f2a93b"], ["Com desenho", "des", "#3b82c4"], ["No Sphera", "sph", "#7a5cc7"], ["No SAP", "sap", "#0e9aa7"], ["Comprados", "comp", "#2e9e5b"]];
+const PROJ = { ini: new Date(2026, 7, 1), fim: new Date(2027, 5, 30, 23, 59, 59, 999) }; // agosto/2026 (01/08/2026) → junho/2027 (30/06/2027)
+const STG = [["Andamento total", "tot", "#14284b"], ["Levantados", "lev", "#f2a93b"], ["Com desenho", "des", "#3b82c4"], ["No Sphera", "sph", "#7a5cc7"], ["No SAP", "sap", "#0e9aa7"]];
 const MES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 function evoProj(d, key, pts) {
   const wf = r => pts ? (Number(r.qtd) > 0 ? Number(r.qtd) : 1) : 1, now = new Date(), tn = now.getTime(), DAY = 864e5, T0 = PROJ.ini.getTime(), T1 = PROJ.fim.getTime(), r1 = x => Math.round(x * 10) / 10;
-  const keys = key === "tot" ? ["lev", "des", "sph", "sap", "comp"] : [key], LV = { des: 2, sph: 3, sap: 4, comp: 5 };
-  const okk = (k, l, st) => k === "lev" ? l === "Levantado" : st >= LV[k]; // andamento total = média das 5 etapas
+  const keys = key === "tot" ? ["lev", "des", "sph", "sap"] : [key], LV = { des: 2, sph: 3, sap: 4, comp: 5 };
+  const okk = (k, l, st) => k === "lev" ? l === "Levantado" : st >= LV[k]; // andamento total = média das 4 etapas (levantamento, desenho, Sphera e SAP)
   const ids = new Map(d.map(r => [r.id, r])), by = {};
   hist.forEach(h => { if (ids.has(h.ponto_id)) (by[h.ponto_id] = by[h.ponto_id] || []).push({ t: new Date(h.created_at).getTime(), l: h.status_levantamento, s: ST.indexOf(h.status_projeto) }); });
   const at = t => { let n = 0; ids.forEach((r, id) => { let l = "Pendente", st = 0; for (const e of (by[id] || [])) { if (e.t <= t) { l = e.l; st = Math.max(0, e.s); } else break; } keys.forEach(k => { if (okk(k, l, st)) n += wf(r); }); }); return n / keys.length; };
   const cur = d.reduce((t, r) => t + keys.filter(k => okk(k, r.status_levantamento, si(r))).length * wf(r), 0) / keys.length, tot = d.reduce((t, r) => t + wf(r), 0);
   const rate = tn <= T0 ? 0 : cur / Math.max(1, (Math.min(tn, T1) - T0) / DAY); // ritmo médio por dia desde o início do projeto
   const labels = ["Início"], real = [0], proj = [null], plan = [0];
-  for (let m = 0; m < 12; m++) {
-    const end = new Date(2026, 7 + m, 0, 23, 59, 59, 999), st = new Date(2026, 6 + m, 1).getTime(), et = end.getTime();
+  for (let m = 0; m < 11; m++) {
+    const end = new Date(2026, 8 + m, 0, 23, 59, 59, 999), st = new Date(2026, 7 + m, 1).getTime(), et = end.getTime();
     labels.push(`${MES[end.getMonth()]}/${String(end.getFullYear()).slice(2)}`);
     plan.push(r1(tot * Math.min(1, (et - T0) / (T1 - T0))));
     if (et <= tn) { real.push(r1(at(et))); proj.push(null); }
@@ -595,7 +600,7 @@ function evoDashProj(d) {
   $("#evs").textContent = "Ver tabela do cronograma";
   $("#evt").innerHTML = `<table class="st" style="min-width:480px"><thead><tr><th>Período</th><th>Realizado</th><th>Projeção</th><th>Meta linear</th></tr></thead><tbody>${pr.labels.map((l, i) =>
     `<tr><td class="h"><b>${l}</b></td><td data-l="Realizado"><div class="v">${pr.real[i] ?? "—"}</div></td><td data-l="Projeção"><div class="v">${pr.proj[i] ?? "—"}</div></td><td data-l="Meta linear"><div class="v">${pr.plan[i]}</div></td></tr>`).join("")}</tbody></table>`;
-  $("#evn").textContent = "Ano fiscal 2026/2027 (01/07/2026 a 30/06/2027). Andamento total = média das 5 etapas. Projeção: ritmo médio desde o início do projeto mantido até o prazo (limitado ao total). Meta linear: avanço constante do início ao fim. O realizado dos meses anteriores depende do histórico registrado no app.";
+  $("#evn").textContent = "Ano fiscal 2026/2027 (01/08/2026 a 30/06/2027). Andamento total = média das 4 etapas (levantamento, desenho, Sphera e SAP). Projeção: ritmo médio desde o início do projeto mantido até o prazo (limitado ao total). Meta linear: avanço constante do início ao fim. O realizado dos meses anteriores depende do histórico registrado no app.";
 }
 function evoDash(d) {
   const m0 = $("#evP").value; $("#evS").classList.toggle("hide", m0 !== "p");
@@ -607,10 +612,10 @@ function evoDash(d) {
 function evoDashHist(d) {
   const mode = $("#evP").value, e = evo(d, mode), R = e.rows, last = R[R.length - 1], prev = R[R.length - 2] || { lev: 0, des: 0, sph: 0, sap: 0, comp: 0 };
   const dl = (a, b) => (a >= b ? "+" : "") + (a - b), per = mode === "w" ? "Nesta semana" : "Neste mês";
-  $("#evk").innerHTML = [["Levantados", dl(last.lev, prev.lev)], ["Com desenho", dl(last.des, prev.des)], ["No Sphera", dl(last.sph, prev.sph)], ["No SAP", dl(last.sap, prev.sap)], ["Comprados", dl(last.comp, prev.comp)], ["Movimentações", String(last.mov)]]
+  $("#evk").innerHTML = [["Levantados", dl(last.lev, prev.lev)], ["Com desenho", dl(last.des, prev.des)], ["No Sphera", dl(last.sph, prev.sph)], ["No SAP", dl(last.sap, prev.sap)], ["Movimentações", String(last.mov)]]
     .map(([l, v]) => `<div class="card kpi" style="margin:0"><b>${v}</b><span>${per}: ${l}</span></div>`).join("");
   charts.c4?.destroy();
-  charts.c4 = new Chart($("#c4"), { type: "line", data: { labels: e.labels, datasets: [["Levantados", "lev", "#f2a93b"], ["Com desenho", "des", "#3b82c4"], ["No Sphera", "sph", "#7a5cc7"], ["No SAP", "sap", "#0e9aa7"], ["Comprados", "comp", "#2e9e5b"]]
+  charts.c4 = new Chart($("#c4"), { type: "line", data: { labels: e.labels, datasets: [["Levantados", "lev", "#f2a93b"], ["Com desenho", "des", "#3b82c4"], ["No Sphera", "sph", "#7a5cc7"], ["No SAP", "sap", "#0e9aa7"]]
     .map(([n, k, c]) => ({ label: n, data: R.map(x => x[k]), borderColor: c, backgroundColor: c, tension: .25 })) },
     options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } }, plugins: { legend: { position: "bottom" } } } });
   $("#evt").innerHTML = `<table class="st" style="min-width:560px"><thead><tr>${EH.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${evoLines(e).map(l =>
@@ -705,7 +710,7 @@ function stats(d) {
 }
 const ETP = [["Levantados", "lev"], ["Com desenho", "des"], ["No Sphera", "sph"], ["No SAP", "sap"], ["Comprados", "comp"]];
 const EFH = ["Etapa", "Linhas realizadas", "Linhas faltam", "% linhas", "Pontos realizados", "Pontos faltam", "% pontos"];
-const etapaRows = s => { const m = a => Math.round(a * 10) / 10, sl = (s.lev + s.des + s.sph + s.sap + s.comp) / 5, sp = (s.p.lev + s.p.des + s.p.sph + s.p.sap + s.p.comp) / 5;
+const etapaRows = s => { const m = a => Math.round(a * 10) / 10, sl = (s.lev + s.des + s.sph + s.sap) / 4, sp = (s.p.lev + s.p.des + s.p.sph + s.p.sap) / 4;
   return [["Total no escopo", s.n, "", "", s.p.n, "", ""], ...ETP.map(([l, k]) => [l, s[k], s.n - s[k], pc(s[k], s.n), s.p[k], s.p.n - s.p[k], pc(s.p[k], s.p.n)]),
     ["Andamento total", m(sl), m(s.n - sl), pc(sl, s.n), m(sp), m(s.p.n - sp), pc(sp, s.p.n)]]; };
 const pc = (x, n) => n ? Math.round(100 * x / n) + "%" : "0%";
@@ -742,12 +747,13 @@ $("#rx").onclick = () => {
 // ---------- Identidade visual Ternium (relatórios em PDF e PowerPoint) ----------
 const TC = { orange: "FF9900", gray: "666666", mid: "7F7F7F", light: "D3D3D3", foot: "999999", soft: "F4F4F4", blue: "01688A", navy: "003366", green: "00B351" };
 const TSTAGE = ["BFBFBF", "FF9900", "01688A", "003366", "666666", "00B351"]; // A projetar → Comprado
+const TCH = () => TKEYS.slice(0, 4); // séries dos gráficos (sem Comprados)
 const TKEYS = [["Levantados", "lev", "FF9900"], ["Com desenho", "des", "01688A"], ["No Sphera", "sph", "003366"], ["No SAP", "sap", "666666"], ["Comprados", "comp", "00B351"]];
 const TFOOT = "Ternium  |  Manutenção Central";
 const tdash = x => (x === "" || x === null || x === undefined) ? "—" : String(x);
 const areaRows = (d, ar, pts) => ar.map(name => { const z = stats(d.filter(r => r.area === name)), q = pts ? z.p : z; return [name, q.n, q.comp, q.n - q.comp]; });
 const areaHead = pts => ["Área", pts ? "Pontos" : "Linhas", "Comprados", "Faltam comprar"];
-const kpiList = s => [["Andamento total", pc(s.lev + s.des + s.sph + s.sap + s.comp, 5 * s.n), `Linhas: ${pc(s.lev + s.des + s.sph + s.sap + s.comp, 5 * s.n)} · Pontos: ${pc(s.p.lev + s.p.des + s.p.sph + s.p.sap + s.p.comp, 5 * s.p.n)}\nmédia das 5 etapas`, "003366"], ["Linhas / Pontos", `${s.n} / ${s.p.n}`, "linhas de projeto / pontos de adequação", "FF9900"],
+const kpiList = s => [["Andamento total", pc(s.lev + s.des + s.sph + s.sap, 4 * s.n), `Linhas: ${pc(s.lev + s.des + s.sph + s.sap, 4 * s.n)} · Pontos: ${pc(s.p.lev + s.p.des + s.p.sph + s.p.sap, 4 * s.p.n)}\nmédia das 4 etapas (levantamento, desenho, Sphera e SAP)`, "003366"], ["Linhas / Pontos", `${s.n} / ${s.p.n}`, "linhas de projeto / pontos de adequação", "FF9900"],
   ...TKEYS.map(([l, k, col]) => [l, pc(s[k], s.n), `Linhas: ${s[k]} de ${s.n} · faltam ${s.n - s[k]}\nPontos: ${s.p[k]} de ${s.p.n} · faltam ${s.p.n - s.p[k]}`, col])];
 
 $("#rp").onclick = () => {
@@ -759,18 +765,18 @@ $("#rp").onclick = () => {
   const scope = a || "Todas as áreas";
   const chartSvg = (e, title) => {
     const W = 520, H = 300, L = 34, R = 12, T = 30, B = 46, pw2 = W - L - R, ph = H - T - B;
-    const max = Math.max(1, ...e.rows.flatMap(r => TKEYS.map(k => r[k[1]])));
+    const max = Math.max(1, ...e.rows.flatMap(r => TCH().map(k => r[k[1]])));
     const x = i => L + (e.rows.length < 2 ? pw2 / 2 : i * pw2 / (e.rows.length - 1));
     const y = v => T + ph - (v / max) * ph;
     let g = `<text x="${L}" y="16" font-size="13" font-weight="700" fill="#666666">${esc2(title)}</text>`;
     for (let j = 0; j <= 4; j++) { const val = Math.round(max * j / 4), yy = y(val); g += `<line x1="${L}" y1="${yy}" x2="${W - R}" y2="${yy}" stroke="#d3d3d3"/><text x="${L - 7}" y="${yy + 3.5}" text-anchor="end" font-size="10" fill="#7f7f7f">${val}</text>`; }
-    TKEYS.forEach(([name, key, color]) => {
+    TCH().forEach(([name, key, color]) => {
       g += `<polyline points="${e.rows.map((r, i) => `${x(i)},${y(r[key])}`).join(" ")}" fill="none" stroke="#${color}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`;
       e.rows.forEach((r, i) => { g += `<circle cx="${x(i)}" cy="${y(r[key])}" r="2.6" fill="#${color}"/>`; });
     });
     const step = Math.max(1, Math.ceil(e.labels.length / 6));
     e.labels.forEach((lab, i) => { if (i % step === 0 || i === e.labels.length - 1) g += `<text x="${x(i)}" y="${H - 28}" text-anchor="middle" font-size="10" fill="#7f7f7f">${esc2(lab)}</text>`; });
-    let lx = L; TKEYS.forEach(([name, key, color]) => { g += `<line x1="${lx}" y1="${H - 9}" x2="${lx + 14}" y2="${H - 9}" stroke="#${color}" stroke-width="3.5"/><text x="${lx + 19}" y="${H - 5.5}" font-size="10" fill="#666666">${name}</text>`; lx += name.length * 5.6 + 40; });
+    let lx = L; TCH().forEach(([name, key, color]) => { g += `<line x1="${lx}" y1="${H - 9}" x2="${lx + 14}" y2="${H - 9}" stroke="#${color}" stroke-width="3.5"/><text x="${lx + 19}" y="${H - 5.5}" font-size="10" fill="#666666">${name}</text>`; lx += name.length * 5.6 + 40; });
     return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc2(title)}" xmlns="http://www.w3.org/2000/svg">${g}</svg>`;
   };
   const pj = evoProj(d, "tot", true);
@@ -802,9 +808,9 @@ $("#rp").onclick = () => {
 <p class="note">Linha = ponto levantado com projeto próprio. Ponto de adequação = soma das quantidades de cada linha. Pendências identificadas: ${pd.length}.</p>${ft(2)}</section>`,
     `<section class="page">${hd("Evolução do projeto", "Marcos acumulados registrados no histórico do aplicativo")}<div class="charts"><div>${chartSvg(ew, "Semanal · últimas 12 semanas")}</div><div>${chartSvg(em, "Mensal · últimos 6 meses")}</div></div>
 <p class="note">As linhas mostram a quantidade acumulada de itens em cada etapa. O histórico é registrado a partir da ativação desta função; períodos anteriores podem aparecer sem movimento, o que não significa ausência de atividade.</p>${ft(3)}</section>`,
-    `<section class="page">${hd("Ano fiscal 2026/2027", "01/07/2026 a 30/06/2027 · andamento total em pontos de adequação (média das 5 etapas)")}<div class="kpis k5">${projKpis(pj, "pontos", "Andamento total").map(([v, l]) => `<div class="kpi"><strong>${esc2(v)}</strong><em>${esc2(l)}</em></div>`).join("")}</div>
+    `<section class="page">${hd("Ano fiscal 2026/2027", "01/08/2026 a 30/06/2027 · andamento total em pontos de adequação (média das 4 etapas: levantamento, desenho, Sphera e SAP)")}<div class="kpis k5">${projKpis(pj, "pontos", "Andamento total").map(([v, l]) => `<div class="kpi"><strong>${esc2(v)}</strong><em>${esc2(l)}</em></div>`).join("")}</div>
 <div class="proj">${projSvg()}</div>
-<p class="note">Projeção: ritmo médio desde 01/07/2026 mantido até 30/06/2027 (limitada ao total de pontos). Meta linear: avanço constante do início ao fim do prazo. O realizado dos meses anteriores depende do histórico registrado no aplicativo.</p>${ft(4)}</section>`,
+<p class="note">Projeção: ritmo médio desde 01/08/2026 mantido até 30/06/2027 (limitada ao total de pontos). Meta linear: avanço constante do início ao fim do prazo. O realizado dos meses anteriores depende do histórico registrado no aplicativo.</p>${ft(4)}</section>`,
     `<section class="page">${hd(`Próximas ações · ${pd.length} pendência(s)`, "Lista resumida para orientar o acompanhamento")}${pd.length ? tbl(["Área", "Equipamento", "Tipo de projeto", "Situação"], pd.slice(0, 12).map(([r, t]) => [r.area, r.equipamento, r.tipo_projeto || "—", t])) + (pd.length > 12 ? `<p class="note">Exibindo 12 de ${pd.length} pendências. Consulte o aplicativo para a lista completa.</p>` : "") : `<p class="ok">Nenhuma pendência identificada com os critérios atuais.</p>`}${ft(5)}</section>`
   ];
   w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Relatório – Adequação de Pontos de Grua Segura</title>
@@ -886,8 +892,8 @@ $("#rpp").onclick = async () => {
   sl = content("Visão geral do projeto", `Indicadores consolidados · ${scope}`);
   kpiList(s).forEach((k, i) => kpi(sl, 0.527 + i * 1.77, 1.4, 1.67, k));
   h2(sl, "Avanço por etapa", 0.527, 3.35, 6);
-  const labs = ["Total no escopo", "Levantados", "Desenho concluído ou além", "Sphera ou além", "SAP ou além", "Comprados"];
-  sl.addChart(P.ChartType.bar, [{ name: "Linhas", labels: labs, values: [s.n, s.lev, s.des, s.sph, s.sap, s.comp] }, { name: "Pontos de adequação", labels: labs, values: [s.p.n, s.p.lev, s.p.des, s.p.sph, s.p.sap, s.p.comp] }], {
+  const labs = ["Total no escopo", "Levantados", "Desenho concluído ou além", "Sphera ou além", "SAP ou além"];
+  sl.addChart(P.ChartType.bar, [{ name: "Linhas", labels: labs, values: [s.n, s.lev, s.des, s.sph, s.sap] }, { name: "Pontos de adequação", labels: labs, values: [s.p.n, s.p.lev, s.p.des, s.p.sph, s.p.sap] }], {
     x: 0.527, y: 3.7, w: 6.4, h: 3.4, barDir: "bar", barGrouping: "clustered", chartColors: [TC.gray, TC.orange], catAxisOrientation: "maxMin",
     catAxisLabelFontFace: FT, catAxisLabelFontSize: 10, catAxisLabelColor: TC.gray, valAxisLabelFontFace: FT, valAxisLabelFontSize: 9, valAxisLabelColor: TC.mid, valAxisMinVal: 0,
     valGridLine: { color: TC.light, size: 0.75 }, catGridLine: { style: "none" }, showValue: true, dataLabelPosition: "outEnd", dataLabelFontFace: FT, dataLabelFontSize: 9, dataLabelColor: TC.gray, dataLabelFormatCode: "0",
@@ -900,8 +906,8 @@ $("#rpp").onclick = async () => {
   // 3 e 4 — Avanço por área (linhas e pontos)
   [[false, "Avanço por área · linhas de projeto", "Distribuição das linhas por etapa"], [true, "Avanço por área · pontos de adequação", "Distribuição dos pontos (soma das quantidades) por etapa"]].forEach(([pts, t, sub]) => {
     sl = content(t, sub);
-    sl.addChart(P.ChartType.bar, ST.map((st, i) => ({ name: st, labels: ar, values: ar.map(x => { const z = d.filter(r => r.area === x && si(r) === i); return pts ? psum(z) : z.length; }) })), {
-      x: 0.527, y: 1.4, w: 7.6, h: 5.6, barDir: "col", barGrouping: "stacked", chartColors: TSTAGE,
+    sl.addChart(P.ChartType.bar, ST.slice(0, 5).map((st, i) => ({ name: st, labels: ar, values: ar.map(x => { const z = d.filter(r => r.area === x && (i === 4 ? si(r) >= 4 : si(r) === i)); return pts ? psum(z) : z.length; }) })), {
+      x: 0.527, y: 1.4, w: 7.6, h: 5.6, barDir: "col", barGrouping: "stacked", chartColors: TSTAGE.slice(0, 5),
       catAxisLabelFontFace: FT, catAxisLabelFontSize: 12, catAxisLabelColor: TC.gray, valAxisLabelFontFace: FT, valAxisLabelFontSize: 10, valAxisLabelColor: TC.mid, valAxisMinVal: 0,
       valGridLine: { color: TC.light, size: 0.75 }, catGridLine: { style: "none" }, showValue: false, showLegend: true, legendPos: "b", legendFontFace: FT, legendFontSize: 10, legendColor: TC.gray, showTitle: false, showBorder: false });
     h2(sl, "Resumo por área", 8.5, 1.5, 4.3);
@@ -913,15 +919,15 @@ $("#rpp").onclick = async () => {
   sl = content("Evolução do projeto", "Marcos acumulados registrados no histórico do aplicativo");
   [["w", "Semanal · últimas 12 semanas", 0.527], ["m", "Mensal · últimos 6 meses", 6.9]].forEach(([mode, t, x]) => {
     const e = evo(d, mode); h2(sl, t, x, 1.4, 5.9);
-    sl.addChart(P.ChartType.line, TKEYS.map(([name, key]) => ({ name, labels: e.labels, values: e.rows.map(r => r[key]) })), {
-      x, y: 1.8, w: 5.9, h: 4.5, chartColors: TKEYS.map(k => k[2]), lineSize: 2.25, lineDataSymbolSize: 6,
+    sl.addChart(P.ChartType.line, TCH().map(([name, key]) => ({ name, labels: e.labels, values: e.rows.map(r => r[key]) })), {
+      x, y: 1.8, w: 5.9, h: 4.5, chartColors: TCH().map(k => k[2]), lineSize: 2.25, lineDataSymbolSize: 6,
       catAxisLabelFontFace: FT, catAxisLabelFontSize: 9, catAxisLabelColor: TC.mid, valAxisLabelFontFace: FT, valAxisLabelFontSize: 9, valAxisLabelColor: TC.mid, valAxisMinVal: 0,
       valGridLine: { color: TC.light, size: 0.75 }, catGridLine: { style: "none" }, showLegend: true, legendPos: "b", legendFontFace: FT, legendFontSize: 9, legendColor: TC.gray, showTitle: false, showBorder: false, showValue: false });
   });
   note(sl, "O histórico é contabilizado a partir da ativação da função. Períodos anteriores sem movimento não significam, necessariamente, ausência de atividade.", 0.527, 6.5, 12.2, 0.5);
 
-  // 5b — Cronograma do projeto (01/07/2026 a 30/06/2027)
-  sl = content("Ano fiscal 2026/2027", "01/07/2026 a 30/06/2027 · andamento total em pontos de adequação (média das 5 etapas)");
+  // 5b — Cronograma do projeto (01/08/2026 a 30/06/2027)
+  sl = content("Ano fiscal 2026/2027", "01/08/2026 a 30/06/2027 · andamento total em pontos de adequação (média das 4 etapas: levantamento, desenho, Sphera e SAP)");
   const pj = evoProj(d, "tot", true);
   projKpis(pj, "pontos", "Andamento total").forEach(([v, l], i) => {
     const x = 0.527 + i * 2.47;
@@ -942,7 +948,7 @@ $("#rpp").onclick = async () => {
     const url = cv.toDataURL("image/png"); ch.destroy(); return url;
   };
   sl.addImage({ data: U(projImg()), x: 0.527, y: 2.65, w: 12.2, h: 3.95, altText: "Gráfico do ano fiscal 2026/2027 com andamento total realizado, projeção e meta linear" });
-  note(sl, "Projeção: ritmo médio desde 01/07/2026 mantido até 30/06/2027. Meta linear: avanço constante do início ao fim do prazo.", 0.527, 6.68, 12.2, 0.4);
+  note(sl, "Projeção: ritmo médio desde 01/08/2026 mantido até 30/06/2027. Meta linear: avanço constante do início ao fim do prazo.", 0.527, 6.68, 12.2, 0.4);
 
   // 6 — Próximas ações
   sl = content(`Próximas ações · ${pd.length} pendência(s)`, "Lista resumida para orientar o acompanhamento");
