@@ -4,10 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#14284b">
-<link rel="manifest" href="manifest.json">
-<link rel="icon" type="image/svg+xml" href="logo.svg">
-<link rel="icon" href="icon-192.png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script>try{var t=localStorage.getItem("gs-tema");if(!t&&window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)t="dark";if(t==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script>
+<link rel="manifest" href="manifest.json?v=2">
+<link rel="icon" type="image/svg+xml" href="<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='15' fill='#14284b'/><path d='M32 33 43 37v8c0 7-5 11-11 14-6-3-11-7-11-14v-8z' fill='#ffc21a'/><path d='m26.5 45.5 4 4 7.5-8' stroke='#14284b' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/><rect x='9' y='13' width='46' height='6' rx='3' fill='#ffc21a'/><rect x='9' y='10' width='5' height='12' rx='2' fill='#fff'/><rect x='50' y='10' width='5' height='12' rx='2' fill='#fff'/><rect x='25' y='19' width='14' height='6' rx='2' fill='#fff'/><path d='M32 25v8' stroke='#fff' stroke-width='2.4' stroke-linecap='round'/></svg>">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=2">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
 <meta name="apple-mobile-web-app-title" content="Grua Segura">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -65,7 +66,7 @@ button.d{background:#d64545;color:#fff;border-color:#d64545}button.d:hover{backg
 table{border-collapse:separate;border-spacing:0;width:100%;min-width:760px}
 th{background:#f7f8fb;color:var(--mut);font-size:12px;font-weight:700;letter-spacing:.2px;position:sticky;top:0}
 th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
-tbody tr:hover td{background:#fafbfd}
+tbody tr:hover td{background:#fafbfd}tr.pend,table.st tr.pend{background:#fff7e0}
 .ce{cursor:pointer;padding:5px 7px;white-space:nowrap;border-radius:8px;transition:background .12s}.ce:hover{background:#eef2fb}.ce+.ce{margin-top:4px}
 .fn{display:block;margin-top:5px}.fn span{display:block;line-height:1.35}
 .fn .n{font:700 12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--navy)}.fn .c{font-size:11.5px;font-weight:700;color:var(--mut);margin:1px 0}.fn .x{font-weight:500;color:var(--mut)}
@@ -99,9 +100,45 @@ a{color:var(--blue);font-weight:600}small{color:var(--mut)}.err{color:#c0362c}.h
  table.st td{border:0;padding:5px 0;display:flex;gap:10px;justify-content:space-between;align-items:flex-start}
  table.st td::before{content:attr(data-l);font-size:12px;color:var(--mut);flex:0 0 34%}
  table.st td.h{order:-1;font-size:16px;border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:2px}table.st td.h::before{content:none}
- table.st td.em{display:none}table.st .v{flex:1;text-align:right}
+ table.st td.em{display:none}table.st .v{flex:1;text-align:right;min-width:0;word-break:break-word}
+ table.st td{min-width:0}table.st td select{width:100%;max-width:100%;min-width:0}table.st td .v button{max-width:100%}
  tbody tr:hover td{background:transparent}.ce{padding:6px 4px;white-space:normal}
 }
+/* ===== Modo escuro ===== */
+html[data-theme=dark]{color-scheme:dark;--ink:#eef2fa;--navy:#2c4f94;--blue:#8fb2ff;--bg:#0d121c;--line:#27314a;--txt:#dfe5f1;--mut:#98a4bc}
+html[data-theme=dark] header{background:#0f1a30}
+html[data-theme=dark] .card,html[data-theme=dark] dialog{background:#151c2b}
+html[data-theme=dark] input,html[data-theme=dark] select,html[data-theme=dark] textarea,html[data-theme=dark] button{background:#1a2336;border-color:#34405c;color:var(--txt)}
+html[data-theme=dark] button:hover{background:#222d45}
+html[data-theme=dark] button.p{background:var(--navy);border-color:var(--navy);color:#fff}
+html[data-theme=dark] button.p:hover{background:#3a62ad}
+html[data-theme=dark] button.d{background:#c23a3a;border-color:#c23a3a;color:#fff}
+html[data-theme=dark] header button{background:transparent;border-color:#ffffff40;color:#fff}
+html[data-theme=dark] nav{background:#121927}
+html[data-theme=dark] nav button{background:transparent;border:0;color:var(--mut)}
+html[data-theme=dark] nav button:hover{background:#1b2540;color:#fff}
+html[data-theme=dark] nav button.on{background:var(--navy);color:#fff}
+html[data-theme=dark] th{background:#1a2336}
+html[data-theme=dark] tbody tr:hover td{background:#1a2336}
+html[data-theme=dark] .card>b,html[data-theme=dark] .kpi b,html[data-theme=dark] .fn .n,html[data-theme=dark] .chip{color:var(--ink)}
+html[data-theme=dark] .ce:hover{background:#1f2a45}
+html[data-theme=dark] .tag{background:#222d45;color:#cdd6ea}
+html[data-theme=dark] .add{border-color:#4a5a80}
+html[data-theme=dark] .add:hover{background:#1f2a45}
+html[data-theme=dark] .seg{background:#1a2336}
+html[data-theme=dark] .seg button{background:transparent;border:0;color:var(--mut)}
+html[data-theme=dark] .seg button.on{background:var(--navy);color:#fff}
+html[data-theme=dark] .kpi .pb{background:#27314a}
+html[data-theme=dark] details.dt>summary{background:#1a2336;border-color:#34405c;color:var(--ink)}
+html[data-theme=dark] .uf{background:#121927;border-color:#34405c}
+html[data-theme=dark] #fnPrev{background:#2a2412;border-color:#5a4b1c}
+html[data-theme=dark] .chip{background:#1a2336;border-color:#5a4b1c}
+html[data-theme=dark] table.st tr{background:#151c2b}
+html[data-theme=dark] tr.pend,html[data-theme=dark] table.st tr.pend{background:#33290f}
+html[data-theme=dark] .err{color:#ff8a80}
+html[data-theme=dark] .ce{color:var(--txt)}
+@media(max-width:440px){#login,#wait,#reset{width:calc(100% - 24px)}}
+.hb{display:flex;gap:8px;align-items:center}header .hb button{min-height:38px}.lnk{text-align:center;margin:6px 0 0}
 </style>
 </head>
 <body>
@@ -113,8 +150,18 @@ a{color:var(--blue);font-weight:600}small{color:var(--mut)}.err{color:#c0362c}.h
   <input id="pw" type="password" placeholder="Senha" autocomplete="current-password">
   <input id="pw2" type="password" class="hide" placeholder="Repita a senha" autocomplete="new-password">
   <button class="p" id="go" style="width:100%">Entrar</button>
-  <p><a href="#" id="tg">Criar nova conta</a></p>
+  <p class="lnk"><a href="#" id="fg">Esqueci minha senha</a></p>
+  <p class="lnk"><a href="#" id="tg">Criar nova conta</a></p>
+  <p class="lnk"><a href="#" class="tema" data-txt="1" id="tema2"></a></p>
   <p class="err" id="lerr"></p>
+</div>
+<div id="reset" class="card hide" style="max-width:400px;margin:9vh auto;padding:32px 28px;border-radius:20px">
+  <svg class="logo" aria-hidden="true" style="width:72px;height:72px;margin:0 auto 14px"><use href="#lg"/></svg>
+  <h2 style="margin:0 0 4px;text-align:center;font-size:22px">Nova senha</h2><p class="sub" style="text-align:center;color:var(--mut);margin:0 0 18px;font-size:13px">Escolha uma nova senha para entrar no app.</p>
+  <input id="rs1" type="password" placeholder="Nova senha (mín. 6 caracteres)" autocomplete="new-password" style="width:100%;margin-bottom:10px">
+  <input id="rs2" type="password" placeholder="Repita a nova senha" autocomplete="new-password" style="width:100%;margin-bottom:10px">
+  <button class="p" id="rsGo" style="width:100%">Salvar nova senha</button>
+  <p class="err" id="rsErr"></p>
 </div>
 <div id="wait" class="card hide" style="max-width:420px;margin:12vh auto">
   <h3>Conta criada</h3>
@@ -123,7 +170,7 @@ a{color:var(--blue);font-weight:600}small{color:var(--mut)}.err{color:#c0362c}.h
 </div>
 
 <div id="app" class="hide">
-<header><div class="brand"><svg class="logo" aria-hidden="true"><use href="#lg"/></svg><div><h1>Grua Segura</h1><small>Adequação de pontos de segurança</small></div></div><button id="out">Sair</button></header>
+<header><div class="brand"><svg class="logo" aria-hidden="true"><use href="#lg"/></svg><div><h1>Grua Segura</h1><small>Adequação de pontos de segurança</small></div></div><div class="hb"><button id="tema" class="tema" title="Alternar modo escuro" aria-label="Alternar modo escuro"></button><button id="out">Sair</button></div></header>
 <nav><button data-t="t1" class="on"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z"/></svg><span>Dashboard</span></button><button data-t="t2"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Cadastro</span></button><button data-t="t5"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 17v-3M12 17v-6M16 17v-2"/></svg><span>Relatórios</span></button><button data-t="t3"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v13M3 13l4 4 4-4M17 20V7M13 11l4-4 4 4"/></svg><span class="lg">Importar / Exportar</span><span class="sh">Dados</span></button><button data-t="t4" id="navU" class="hide"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c2 .6 3.3 2.2 3.5 5.2"/></svg><span>Usuários</span></button></nav>
 <main>
  <section id="t1">
@@ -224,6 +271,7 @@ a{color:var(--blue);font-weight:600}small{color:var(--mut)}.err{color:#c0362c}.h
 </form></dialog>
 
 <script>
+let recovering = /type=recovery/.test(location.hash); // link de "esqueci minha senha"
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 Chart.defaults.font.family = 'Manrope, system-ui, "Segoe UI", Arial, sans-serif'; Chart.defaults.color = "#5b6677"; Chart.defaults.elements.bar.borderRadius = 4;
 const AREAS = ["Aciaria","Oficina Central","Porto"];
@@ -264,7 +312,8 @@ async function boot() {
   enter(data.session);
 }
 async function enter(session) {
-  ["login", "app", "wait"].forEach(i => $("#" + i).classList.add("hide"));
+  ["login", "app", "wait", "reset"].forEach(i => $("#" + i).classList.add("hide"));
+  if (recovering) { if (session) return $("#reset").classList.remove("hide"); recovering = false; }
   if (!session) return $("#login").classList.remove("hide");
   me = session.user.id; myEmail = session.user.email || "";
   const { data } = await sb.from("perfis").select("papel").eq("id", me).maybeSingle();
@@ -280,8 +329,28 @@ async function enter(session) {
   $("#app").classList.remove("hide"); load();
   clearInterval(hb); presenca(false); hb = setInterval(() => { if (!document.hidden) presenca(false); }, 60000);
 }
+sb.auth.onAuthStateChange(ev => { if (ev === "PASSWORD_RECOVERY") { recovering = true; ["login", "app", "wait"].forEach(i => $("#" + i).classList.add("hide")); $("#reset").classList.remove("hide"); } });
+$("#fg").onclick = async e => {
+  e.preventDefault(); const err = $("#lerr"), email = $("#em").value.trim(); err.className = "err";
+  if (!/^\S+@\S+\.\S+$/.test(email)) { err.textContent = "Digite seu e-mail no campo acima e toque em “Esqueci minha senha”."; return; }
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+  if (error) { err.textContent = "Não foi possível enviar: " + error.message; return; }
+  err.className = ""; err.textContent = "Se este e-mail tiver conta, enviamos um link para redefinir a senha. Confira também a caixa de spam.";
+};
+$("#rsGo").onclick = async () => {
+  const e = $("#rsErr"); e.className = "err"; e.textContent = "";
+  const a = $("#rs1").value, b = $("#rs2").value;
+  if (a.length < 6) { e.textContent = "A senha precisa ter pelo menos 6 caracteres."; return; }
+  if (a !== b) { e.textContent = "As senhas não conferem."; return; }
+  const { error } = await sb.auth.updateUser({ password: a });
+  if (error) { e.textContent = "Não foi possível alterar: " + error.message; return; }
+  await logAcao("Redefiniu a senha"); recovering = false;
+  await sb.auth.signOut(); history.replaceState(null, "", location.pathname + location.search);
+  $("#rs1").value = ""; $("#rs2").value = ""; await enter(null);
+  const l = $("#lerr"); l.className = ""; l.textContent = "Senha alterada. Entre com a nova senha.";
+};
 $("#tg").onclick = e => {
-  e.preventDefault(); signup = !signup;
+  e.preventDefault(); signup = !signup; $("#fg").parentElement.classList.toggle("hide", signup);
   $("#pw2").classList.toggle("hide", !signup);
   $("#go").textContent = signup ? "Criar conta" : "Entrar";
   $("#tg").textContent = signup ? "Já tenho conta" : "Criar nova conta";
@@ -303,6 +372,18 @@ $("#go").onclick = async () => {
   await enter(data.session); presenca(true); logAcao("Login");
 };
 $("#out").onclick = $("#wout").onclick = async () => { clearInterval(hb); await logAcao("Logout"); await sb.rpc("registrar_presenca", { p_login: false, p_online: false }); await sb.auth.signOut(); enter(null); };
+// ---------- Modo escuro ----------
+function aplicaTema(t, salvar) {
+  const dark = t === "dark";
+  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+  document.querySelector('meta[name="theme-color"]').setAttribute("content", dark ? "#0f1a30" : "#14284b");
+  document.querySelectorAll(".tema").forEach(el => { el.textContent = el.dataset.txt ? (dark ? "☀️ Modo claro" : "🌙 Modo escuro") : (dark ? "☀️" : "🌙"); });
+  Chart.defaults.color = dark ? "#b3bfd6" : "#5b6677"; Chart.defaults.borderColor = dark ? "#2b3550" : "rgba(0,0,0,0.1)";
+  if (salvar) { try { localStorage.setItem("gs-tema", t); } catch (e) {} }
+  try { if (rows.length) dash(); } catch (e) {}
+}
+document.querySelectorAll(".tema").forEach(el => el.onclick = e => { e.preventDefault(); aplicaTema(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark", true); });
+aplicaTema(document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light", false);
 // Registro de ações e presença (funções criadas pelo arquivo usuarios_logs.sql)
 async function logAcao(acao, detalhe = "") { try { await sb.rpc("registrar_acao", { p_acao: acao, p_detalhe: detalhe }); } catch (e) {} }
 async function presenca(login) { try { await sb.rpc("registrar_presenca", { p_login: !!login, p_online: true }); } catch (e) {} }
@@ -319,7 +400,7 @@ async function users() {
   const now = Date.now();
   $("#ub").innerHTML = pr.data.map(u => {
     const on = u.id === me || (u.online_ate && new Date(u.online_ate).getTime() > now), l = last[u.id];
-    return `<tr ${u.papel === "pendente" ? 'style="background:#fff7e0"' : ""}><td class="h"><b>${esc(u.email)}</b>${u.id === me ? " <small>(você)</small>" : ""}</td>
+    return `<tr ${u.papel === "pendente" ? 'class="pend"' : ""}><td class="h"><b>${esc(u.email)}</b>${u.id === me ? " <small>(você)</small>" : ""}</td>
     <td data-l="Status"><div class="v"><span class="dot ${on ? "on" : ""}"></span>${on ? "Online" : "Offline"}</div></td>
     <td data-l="Acesso"><div class="v"><select data-id="${u.id}" data-em="${esc(u.email)}" ${u.id === me ? "disabled" : ""}>${PAPEIS.map(p => `<option value="${p[0]}" ${p[0] === u.papel ? "selected" : ""}>${p[1]}</option>`).join("")}</select></div></td>
     <td data-l="Último login"><div class="v">${dtf(u.ultimo_login)}</div></td>
