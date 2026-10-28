@@ -138,6 +138,7 @@ html[data-theme=dark] tr.pend,html[data-theme=dark] table.st tr.pend{background:
 html[data-theme=dark] .err{color:#ff8a80}
 html[data-theme=dark] .ce{color:var(--txt)}
 @media(max-width:440px){#login,#wait,#reset{width:calc(100% - 24px)}}
+.kpi b{overflow-wrap:anywhere}.kpi b.sm{font-size:20px;letter-spacing:-.3px;line-height:1.25;padding:3px 0}@media(min-width:700px){.kpi b.sm{font-size:24px}}
 .hb{display:flex;gap:8px;align-items:center}header .hb button{min-height:38px}.lnk{text-align:center;margin:6px 0 0}
 </style>
 </head>
@@ -581,10 +582,10 @@ function evoProj(d, key, pts) {
 const projKpis = (pr, u, nome) => { const f1 = x => fmt(Math.round(x * 10) / 10), diff = pr.cur - pr.planNow;
   return [[String(Math.max(0, pr.daysLeft)), "dias até 30/06/2027"], [f1(pr.cur), `${nome} hoje · ${Math.round(100 * pr.cur / (pr.tot || 1))}% de ${f1(pr.tot)} ${u}`], [f1(pr.planNow), "Meta linear para hoje"],
     [(diff >= 0 ? "+" : "") + f1(diff), diff >= 0 ? "À frente da meta linear" : "Atrás da meta linear"],
-    [pr.tot - pr.cur <= 0 ? "Concluído" : pr.finish ? pr.finish.toLocaleDateString("pt-BR") : "—", "Término previsto no ritmo atual"]]; };
+    [pr.tot - pr.cur <= 0 ? "Concluído" : pr.finish ? pr.finish.toLocaleDateString("pt-BR") : "—", "Término previsto no ritmo atual" + (pr.finish && pr.finish.getTime() > PROJ.fim.getTime() ? " (após o prazo)" : "")]]; };
 function evoDashProj(d) {
   const key = $("#evS").value, nm = STG.find(x => x[1] === key), pr = evoProj(d, key, unit === "p"), u = unit === "p" ? "pontos" : "linhas";
-  $("#evk").innerHTML = projKpis(pr, u, nm[0]).map(([v, l]) => `<div class="card kpi" style="margin:0"><b>${v}</b><span>${l}</span></div>`).join("");
+  $("#evk").innerHTML = projKpis(pr, u, nm[0]).map(([v, l]) => `<div class="card kpi" style="margin:0"><b${String(v).length > 7 ? ' class="sm"' : ""}>${v}</b><span>${l}</span></div>`).join("");
   charts.c4?.destroy();
   charts.c4 = new Chart($("#c4"), { type: "line", data: { labels: pr.labels, datasets: [
     { label: `${nm[0]} (realizado)`, data: pr.real, borderColor: nm[2], backgroundColor: nm[2], tension: .2 },
