@@ -726,14 +726,20 @@ const projKpis = (pr, u, nome) => { const f1 = x => fmt(Math.round(x * 10) / 10)
 function evoDashProj(d) {
   const key = $("#evS").value, nm0 = STG.find(x => x[1] === key), nm = [nm0[0], nm0[1], key === "tot" && document.documentElement.getAttribute("data-theme") === "dark" ? "#6aa8ff" : nm0[2]], pr = evoProj(d, key, unit === "p"), win = pr.win, u = unit === "p" ? "pontos" : "linhas";
   $("#evk").innerHTML = projKpis(pr, u, nm[0]).map(([v, l]) => `<div class="card kpi" style="margin:0"><b${String(v).length > 7 ? ' class="sm"' : ""}>${v}</b><span>${l}</span></div>`).join("");
-  const nT = pr.ends.length, step = Math.max(1, Math.ceil(nT / 12)), lab = new Map(pr.ends.map((t, i) => [t, (nT - 1 - i) % step === 0 ? pr.labels[i] : ""]));
+  // rótulos no CENTRO de cada mês e linhas de grade nas divisas entre meses: o mês de julho é a 1ª coluna e o início (01/08) cai na divisa jul|ago
+  const WA = win.a.getTime(), WB = win.b.getTime(), mm = [];
+  for (let dt = new Date(win.a.getFullYear(), win.a.getMonth(), 1); dt.getTime() <= WB; dt = new Date(dt.getFullYear(), dt.getMonth() + 1, 1)) {
+    const st = Math.max(dt.getTime(), WA), en = Math.min(new Date(dt.getFullYear(), dt.getMonth() + 1, 0, 23, 59, 59, 999).getTime(), WB);
+    mm.push({ c: Math.round((st + en) / 2), l: `${MES[dt.getMonth()]}/${String(dt.getFullYear()).slice(2)}` }); }
+  const step = Math.max(1, Math.ceil(mm.length / 12)), lab = new Map(mm.map((m, i) => [m.c, (mm.length - 1 - i) % step === 0 ? m.l : ""])), tk = [...new Set([WA, ...pr.ends, ...mm.map(m => m.c)])].sort((a, b) => a - b);
   charts.c4?.destroy();
   charts.c4 = new Chart($("#c4"), { type: "line", data: { datasets: [
     { label: `${nm[0]} (realizado)`, data: pr.pts.real, borderColor: nm[2], backgroundColor: nm[2], tension: .2 },
     { label: "Projeção no ritmo atual", data: pr.pts.proj, borderColor: nm[2], backgroundColor: nm[2], borderDash: [7, 5], pointStyle: "rectRot", tension: 0 },
     { label: "Meta linear do cronograma", data: pr.pts.plan, borderColor: "#8892a6", backgroundColor: "#8892a6", borderDash: [2, 4], pointRadius: 0, tension: 0 }] },
     options: { responsive: true, maintainAspectRatio: false,
-      scales: { x: { type: "linear", min: win.a.getTime(), max: win.b.getTime(), afterBuildTicks: s => { s.ticks = pr.ends.map(t => ({ value: t })); },
+      scales: { x: { type: "linear", min: win.a.getTime(), max: win.b.getTime(), afterBuildTicks: s => { s.ticks = tk.map(t => ({ value: t })); },
+                     grid: { color: c => lab.has(c.tick.value) ? "transparent" : Chart.defaults.borderColor },
                      ticks: { autoSkip: false, maxRotation: 60, callback: v => lab.get(v) ?? "" } },
                 y: { beginAtZero: true, suggestedMax: pr.tot } },
       plugins: { legend: { position: "bottom" }, tooltip: { callbacks: { title: it => dtBR(new Date(it[0].parsed.x)) } } } } });
