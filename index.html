@@ -29,7 +29,7 @@ body{margin:0;font:14px/1.5 Manrope,system-ui,-apple-system,"Segoe UI",Roboto,Ar
 .logo{width:36px;height:36px;flex:none;display:block}
 header{position:sticky;top:0;z-index:30;height:var(--top);padding:env(safe-area-inset-top,0px) 18px 0;display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--navy);color:#fff}
 .brand{display:flex;align-items:center;gap:12px;min-width:0}.brand>div{min-width:0}
-header h1{font-size:15px;line-height:1.2;margin:0;font-weight:800;letter-spacing:-.2px}
+header h1{font-size:15px;line-height:1.2;margin:0;font-weight:800;letter-spacing:-.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 header small{display:block;color:#9db0d3;font-size:11.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 header button{background:transparent;color:#fff;border:1px solid #ffffff40;min-height:0;padding:7px 14px}header button:hover{background:#ffffff14}
 nav{position:fixed;z-index:20;left:0;top:var(--top);bottom:0;width:var(--sb);padding:14px 12px;display:flex;flex-direction:column;gap:4px;background:#fff;border-right:1px solid var(--line);overflow-y:auto}
@@ -77,7 +77,7 @@ dialog{border:0;border-radius:18px;padding:22px;width:min(680px,94vw);max-height
 dialog::backdrop{background:#0f1b2d80;backdrop-filter:blur(3px)}dialog h3{margin:0 0 4px;font-size:18px;letter-spacing:-.2px}
 label{display:block;font-size:12px;font-weight:600;color:var(--mut);margin-top:10px}
 label input,label select,label textarea{width:100%;margin-top:4px;font-weight:400}
-#f .g{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}#f .g .w{grid-column:1/-1}
+#f .g,#pjF .g{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}#f .g .w,#pjF .g .w{grid-column:1/-1}
 #fnPrev{background:#fffaf0;border:1px solid #f3dfa4;border-radius:10px;padding:10px 12px;margin-top:10px}#fnPrev:empty{display:none}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.chip{background:#fff;border:1px solid #e8d9a8;border-radius:8px;padding:5px 9px;font:600 12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--navy)}.chip i{font-style:normal;color:var(--mut);margin-right:7px}
 #login{max-width:400px;margin:9vh auto;padding:32px 28px;border-radius:20px}#login .logo{width:72px;height:72px;margin:0 auto 14px}
@@ -92,7 +92,7 @@ a{color:var(--blue);font-weight:600}small{color:var(--mut)}.err{color:#c0362c}.h
 @media(max-width:760px){
  body{font-size:15px}header h1{font-size:14px}main{padding:14px 12px calc(92px + env(safe-area-inset-bottom,0px))}
  input,select,textarea,button{font-size:16px;min-height:44px}header button{min-height:38px}nav button{font-size:11px;min-height:0}
- .bar>*{flex:1 1 100%}.ch{height:260px}.ch.tall{height:340px}#f .g{grid-template-columns:1fr}
+ .bar>*{flex:1 1 100%}.ch{height:260px}.ch.tall{height:340px}#f .g,#pjF .g{grid-template-columns:1fr}
  dialog{width:100vw;max-width:100vw;margin:auto 0 0 0;border-radius:20px 20px 0 0;max-height:94vh;padding-bottom:max(18px,env(safe-area-inset-bottom))}
  table.st{min-width:0!important}table.st thead{display:none}
  table.st,table.st tbody,table.st td{display:block;width:100%}
@@ -140,6 +140,27 @@ html[data-theme=dark] .ce{color:var(--txt)}
 @media(max-width:440px){#login,#wait,#reset{width:calc(100% - 24px)}}
 .kpi b{overflow-wrap:anywhere}.kpi b.sm{font-size:20px;letter-spacing:-.3px;line-height:1.25;padding:3px 0}@media(min-width:700px){.kpi b.sm{font-size:24px}}
 .hb{display:flex;gap:8px;align-items:center}header .hb button{min-height:38px}.lnk{text-align:center;margin:6px 0 0}
+
+/* ===== Multi-projeto (Fase 1) ===== */
+body:not(.v-proj) nav{display:none}
+body:not(.v-proj) main{margin-left:0;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+body.v-proj #back .tx,body.v-users #back .tx{display:none}
+#back,#hUsr{display:none}body.v-proj #back,body.v-users #back{display:inline-flex}body.adm #hUsr{display:inline-flex}body.v-users #hUsr{display:none}
+#back,#hUsr{align-items:center;gap:6px}#hUsr .ic{width:18px;height:18px}.hl{display:none}@media(min-width:700px){.hl{display:inline}}
+body.v-proj .logo{display:none}
+.hh{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:14px}.hh h2{margin:0;font-size:20px;letter-spacing:-.3px;color:var(--ink)}
+.hh .bar{margin:0;flex:1 1 280px;justify-content:flex-end}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:14px}
+.pc{margin:0;cursor:pointer;display:flex;flex-direction:column;gap:6px;transition:border-color .15s,box-shadow .15s}.pc:hover{border-color:var(--blue);box-shadow:0 4px 18px #14284b1a}
+.pc .pt{display:flex;gap:8px;justify-content:space-between;align-items:flex-start}.pc h3{margin:0;font-size:16px;line-height:1.3;color:var(--ink);overflow-wrap:anywhere}
+.pc .ps{font-size:12.5px;color:var(--mut);font-weight:600;overflow-wrap:anywhere}
+.pc .pp{display:flex;align-items:baseline;gap:8px;margin-top:6px}.pc .pp b{font-size:30px;line-height:1;font-weight:800;letter-spacing:-.8px;color:var(--navy)}.pc .pp span{font-size:12px;color:var(--mut);font-weight:600}
+.pbar{height:6px;border-radius:3px;background:#e9edf4;overflow:hidden}.pbar u{display:block;height:100%;background:#2e9e5b;border-radius:3px}
+.pc .pfoot{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-top:4px;font-size:12.5px;font-weight:700;color:var(--mut)}
+.pc .pfoot .ac{display:flex;gap:6px}.pc .pfoot button{min-height:0;padding:5px 12px;font-size:12.5px}
+html[data-theme=dark] .pbar{background:#27314a}html[data-theme=dark] .pc:hover{box-shadow:0 4px 18px #0006}html[data-theme=dark] .pc .pp b{color:var(--ink)}
+body.v-proj header h1,body.v-users header h1{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:13.5px;line-height:1.2}
+@media(max-width:440px){header{padding-left:12px;padding-right:12px;gap:8px}header .hb{gap:6px}header .hb button,#back{padding:7px 10px}}
 </style>
 </head>
 <body>
@@ -171,9 +192,13 @@ html[data-theme=dark] .ce{color:var(--txt)}
 </div>
 
 <div id="app" class="hide">
-<header><div class="brand"><svg class="logo" aria-hidden="true"><use href="#lg"/></svg><div><h1>Grua Segura</h1><small>Adequação de pontos de segurança</small></div></div><div class="hb"><button id="tema" class="tema" title="Alternar modo escuro" aria-label="Alternar modo escuro"></button><button id="out">Sair</button></div></header>
-<nav><button data-t="t1" class="on"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z"/></svg><span>Dashboard</span></button><button data-t="t2"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Cadastro</span></button><button data-t="t5"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 17v-3M12 17v-6M16 17v-2"/></svg><span>Relatórios</span></button><button data-t="t3"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v13M3 13l4 4 4-4M17 20V7M13 11l4-4 4 4"/></svg><span class="lg">Importar / Exportar</span><span class="sh">Dados</span></button><button data-t="t4" id="navU" class="hide"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c2 .6 3.3 2.2 3.5 5.2"/></svg><span>Usuários</span></button></nav>
+<header><div class="brand"><button id="back" aria-label="Voltar para a lista de projetos" title="Voltar para a lista de projetos">←<span class="tx"> Projetos</span></button><svg class="logo" aria-hidden="true"><use href="#lg"/></svg><div><h1 id="hT">Grua Segura</h1><small id="hS">Gestão de projetos</small></div></div><div class="hb"><button id="hUsr" aria-label="Usuários" title="Usuários e log de ações"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c2 .6 3.3 2.2 3.5 5.2"/></svg><span class="hl">Usuários</span></button><button id="tema" class="tema" title="Alternar modo escuro" aria-label="Alternar modo escuro"></button><button id="out">Sair</button></div></header>
+<nav><button data-t="t1" data-r="dashboard" class="on"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z"/></svg><span>Dashboard</span></button><button data-t="t2" data-r="cadastro"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Cadastro</span></button><button data-t="t5" data-r="relatorios"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 17v-3M12 17v-6M16 17v-2"/></svg><span>Relatórios</span></button><button data-t="t3" data-r="dados"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v13M3 13l4 4 4-4M17 20V7M13 11l4-4 4 4"/></svg><span class="lg">Importar / Exportar</span><span class="sh">Dados</span></button></nav>
 <main>
+ <section id="home" class="hide">
+  <div class="hh"><h2>Projetos</h2><div class="bar"><input id="hQ" type="search" placeholder="Buscar projeto, cliente ou local…" aria-label="Buscar projeto"><button class="p hide" id="pNovo">+ Novo projeto</button></div></div>
+  <div class="pgrid" id="pList"></div>
+ </section>
  <section id="t1">
   <div class="bar"><select id="dA"><option value="">Todas as áreas</option></select></div>
   <div class="cards" id="kpis"></div>
@@ -207,12 +232,12 @@ html[data-theme=dark] .ce{color:var(--txt)}
  <section id="t3" class="hide">
   <div class="card" id="imp-card">
    <b>Importar planilha (.xlsx)</b>
-   <p>Use o arquivo <i>pontos_grua_segura_importacao.xlsx</i> (aba “Pontos”).</p>
+   <p>Use o arquivo <i>pontos_grua_segura_importacao.xlsx</i> (aba “Pontos”). Os dados entram no projeto aberto.</p>
    <input type="file" id="fi" accept=".xlsx,.xls,.csv">
-   <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="rep" style="width:auto"> Substituir todos os dados existentes</label>
+   <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="rep" style="width:auto"> Substituir todos os dados deste projeto</label>
    <p id="pv"></p><button class="p hide" id="imp">Importar</button>
   </div>
-  <div class="card"><b>Exportar</b><p>Baixa todos os pontos cadastrados em Excel.</p><button class="p" id="exp">Exportar para Excel</button></div>
+  <div class="card"><b>Exportar</b><p>Baixa todos os pontos cadastrados neste projeto em Excel.</p><button class="p" id="exp">Exportar para Excel</button></div>
  </section>
 
  <section id="t5" class="hide">
@@ -249,6 +274,18 @@ html[data-theme=dark] .ce{color:var(--txt)}
  </section>
 </main>
 </div>
+
+<dialog id="pjDlg"><form id="pjF">
+ <h3 id="pjT">Novo projeto</h3><input type="hidden" name="id"><div class="g">
+ <label class="w">Nome do projeto<input name="nome" required maxlength="120" autocomplete="off"></label>
+ <label>Cliente<input name="cliente" maxlength="120" autocomplete="off"></label>
+ <label>Local<input name="localidade" maxlength="120" autocomplete="off"></label>
+ <label>Data de início<input name="data_inicio" type="date" required></label>
+ <label>Data de término<input name="data_fim" type="date" required></label>
+ <small class="w" id="pjN"></small>
+ </div>
+ <div class="bar" style="margin-top:14px"><button class="p">Salvar</button><button type="button" id="pjCx">Cancelar</button></div>
+</form></dialog>
 
 <dialog id="dlg"><form id="f">
  <h3 id="dt">Ponto</h3><input type="hidden" name="id"><div class="g">
@@ -306,7 +343,8 @@ fillSelect($("#dA"), AREAS, "Todas as áreas"); fillSelect($("#rA"), AREAS, "Tod
 fillSelect($("#fS"), ST, "Status do projeto"); fillSelect($("#fArea"), AREAS); fillSelect($("#fSt"), ST);
 
 // ---------- Login e acesso ----------
-let papel = null, canEdit = false, canDelete = false, canImport = false, signup = false, me = null, myEmail = "", hb = null;
+let papel = null, canEdit = false, canDelete = false, canImport = false, canProj = false, signup = false, me = null, myEmail = "", hb = null;
+let proj = null, projs = [], navSeq = 0; // projeto aberto, lista de projetos e controle de navegação
 const PAPEIS = [["pendente","Pendente (sem acesso)"],["visualizador","Visualizador"],["colaborador","Colaborador"],["editor","Editor"],["admin","Administrador"]];
 async function boot() {
   const { data } = await sb.auth.getSession();
@@ -323,11 +361,12 @@ async function enter(session) {
   canEdit = ["colaborador", "visualizador_editor", "editor", "admin"].includes(papel);
   canDelete = ["editor", "admin"].includes(papel);
   canImport = ["editor", "admin"].includes(papel);
+  canProj = ["editor", "admin"].includes(papel); // criar/editar projeto (e, nas próximas fases, parâmetros e suprimentos)
   $("#novo").classList.toggle("hide", !canEdit); $("#imp-card").classList.toggle("hide", !canImport);
-  $("#del").classList.toggle("hide", !canDelete);
+  $("#del").classList.toggle("hide", !canDelete); $("#pNovo").classList.toggle("hide", !canProj);
   document.querySelector('nav button[data-t="t3"]').classList.toggle("hide", !canImport);
-  $("#navU").classList.toggle("hide", papel !== "admin");
-  $("#app").classList.remove("hide"); load();
+  document.body.classList.toggle("adm", papel === "admin");
+  $("#app").classList.remove("hide"); route();
   clearInterval(hb); presenca(false); hb = setInterval(() => { if (!document.hidden) presenca(false); }, 60000);
 }
 sb.auth.onAuthStateChange(ev => { if (ev === "PASSWORD_RECOVERY") { recovering = true; ["login", "app", "wait"].forEach(i => $("#" + i).classList.add("hide")); $("#reset").classList.remove("hide"); } });
@@ -372,7 +411,7 @@ $("#go").onclick = async () => {
   if (error) { err.textContent = "Não foi possível entrar: " + error.message; return; }
   await enter(data.session); presenca(true); logAcao("Login");
 };
-$("#out").onclick = $("#wout").onclick = async () => { clearInterval(hb); await logAcao("Logout"); await sb.rpc("registrar_presenca", { p_login: false, p_online: false }); await sb.auth.signOut(); enter(null); };
+$("#out").onclick = $("#wout").onclick = async () => { clearInterval(hb); await logAcao("Logout"); await sb.rpc("registrar_presenca", { p_login: false, p_online: false }); await sb.auth.signOut(); proj = null; projs = []; document.body.className = ""; enter(null); };
 // ---------- Modo escuro ----------
 function aplicaTema(t, salvar) {
   const dark = t === "dark";
@@ -381,7 +420,7 @@ function aplicaTema(t, salvar) {
   document.querySelectorAll(".tema").forEach(el => { el.textContent = el.dataset.txt ? (dark ? "☀️ Modo claro" : "🌙 Modo escuro") : (dark ? "☀️" : "🌙"); });
   Chart.defaults.color = dark ? "#b3bfd6" : "#5b6677"; Chart.defaults.borderColor = dark ? "#2b3550" : "rgba(0,0,0,0.1)";
   if (salvar) { try { localStorage.setItem("gs-tema", t); } catch (e) {} }
-  try { if (rows.length) dash(); } catch (e) {}
+  try { if (proj && rows.length) dash(); } catch (e) {}
 }
 document.querySelectorAll(".tema").forEach(el => el.onclick = e => { e.preventDefault(); aplicaTema(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark", true); });
 aplicaTema(document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light", false);
@@ -463,21 +502,17 @@ setInterval(() => { if (papel === "admin" && !$("#t4").classList.contains("hide"
 
 // ---------- Dados ----------
 async function load() {
-  const { data, error } = await sb.from("pontos").select("*").order("area").order("equipamento").limit(5000);
-  if (error) return alert("Erro ao carregar: " + error.message);
-  rows = data; hasF = !rows.length || "folhas" in rows[0]; hasS = !rows.length || "codigo_sap" in rows[0]; hist = await fetchAll("historico");
+  if (!proj) return;
+  const { data, error } = await sb.from("pontos").select("*").eq("projeto_id", proj.id).order("area").order("equipamento").limit(5000);
+  if (error) return alert("Erro ao carregar: " + error.message + (/projeto_id/.test(error.message) ? "\n\nExecute os scripts SQL da Fase 1 (fase1_01 a fase1_06) no Supabase." : ""));
+  rows = data; hasF = !rows.length || "folhas" in rows[0]; hasS = !rows.length || "codigo_sap" in rows[0]; hist = await fetchAll("historico", { projeto_id: proj.id });
   const tps = [...new Set([...TIPOS, ...rows.map(r => r.tipo_projeto)])];
   $("#tps").innerHTML = tps.map(t => `<option value="${esc(t)}">`).join("");
   dash(); table();
-  if (papel === "admin") users();
 }
 
 // ---------- Abas ----------
-document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
-  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
-  ["t1","t2","t3","t4","t5"].forEach(t => $("#" + t).classList.toggle("hide", t !== b.dataset.t));
-  if (b.dataset.t === "t4" && papel === "admin") users();
-});
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => { if (proj) location.hash = `#/projeto/${proj.id}/${b.dataset.r}`; });
 
 // ---------- Dashboard ----------
 const pct = (x, n) => `${Math.round(100 * x / n)}%`;
@@ -524,10 +559,11 @@ function dash() {
     `<tr><td data-l="Área"><div class="v">${esc(r.area)}</div></td><td class="h"><b>${esc(r.equipamento)}</b></td><td data-l="Tipo"><div class="v">${esc(r.tipo_projeto)}</div></td><td data-l="Pendência"><div class="v">${t}</div></td></tr>`).join("")}</tbody></table>` + (p.length > 80 ? `<small>+${p.length - 80} itens</small>` : "") : "Nenhuma pendência.";
 }
 let hist = [];
-async function fetchAll(t) {
+async function fetchAll(t, eq) { // eq = filtros de igualdade opcionais, ex.: { projeto_id: 1 }
   let out = [], f = 0;
   for (;;) {
-    const { data, error } = await sb.from(t).select("*").order("created_at").order("id").range(f, f + 999);
+    let q = sb.from(t).select("*"); for (const k in (eq || {})) q = q.eq(k, eq[k]);
+    const { data, error } = await q.order("created_at").order("id").range(f, f + 999);
     if (error || !data) return out;
     out = out.concat(data); if (data.length < 1000) return out; f += 1000;
   }
@@ -561,7 +597,10 @@ function evo(d, mode) {
 }
 const EH = ["Período", "Levantados", "Com desenho", "No Sphera", "No SAP", "Comprados", "Movimentações"];
 const evoLines = e => e.rows.map((x, i) => [(e.mode === "w" ? "Semana de " : "") + e.labels[i], x.lev, x.des, x.sph, x.sap, x.comp, x.mov]).reverse();
-const PROJ = { ini: new Date(2026, 7, 1), fim: new Date(2027, 5, 30, 23, 59, 59, 999) }; // agosto/2026 (01/08/2026) → junho/2027 (30/06/2027)
+let PROJ = { ini: new Date(2026, 7, 1), fim: new Date(2027, 5, 30, 23, 59, 59, 999) }; // período do projeto aberto (definido em abrirProjeto)
+const dtBR = d => d.toLocaleDateString("pt-BR");
+const fyLabel = () => `Ano fiscal ${PROJ.ini.getFullYear()}/${PROJ.fim.getFullYear()}`; // ex.: "Ano fiscal 2026/2027"
+const perLabel = () => `${dtBR(PROJ.ini)} a ${dtBR(PROJ.fim)}`; // ex.: "01/08/2026 a 30/06/2027"
 const STG = [["Andamento total", "tot", "#14284b"], ["Levantados", "lev", "#f2a93b"], ["Com desenho", "des", "#3b82c4"], ["No Sphera", "sph", "#7a5cc7"], ["No SAP", "sap", "#0e9aa7"]];
 const MES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 function evoProj(d, key, pts) {
@@ -574,8 +613,9 @@ function evoProj(d, key, pts) {
   const cur = d.reduce((t, r) => t + keys.filter(k => okk(k, r.status_levantamento, si(r))).length * wf(r), 0) / keys.length, tot = d.reduce((t, r) => t + wf(r), 0);
   const rate = tn <= T0 ? 0 : cur / Math.max(1, (Math.min(tn, T1) - T0) / DAY); // ritmo médio por dia desde o início do projeto
   const labels = ["Início"], real = [0], proj = [null], plan = [0];
-  for (let m = 0; m < 11; m++) {
-    const end = new Date(2026, 8 + m, 0, 23, 59, 59, 999), st = new Date(2026, 7 + m, 1).getTime(), et = end.getTime();
+  const y0 = PROJ.ini.getFullYear(), m0 = PROJ.ini.getMonth(), NM = (PROJ.fim.getFullYear() - y0) * 12 + PROJ.fim.getMonth() - m0 + 1; // meses do projeto
+  for (let m = 0; m < NM; m++) {
+    const end = new Date(y0, m0 + 1 + m, 0, 23, 59, 59, 999), st = new Date(y0, m0 + m, 1).getTime(), et = end.getTime();
     labels.push(`${MES[end.getMonth()]}/${String(end.getFullYear()).slice(2)}`);
     plan.push(r1(tot * Math.min(1, (et - T0) / (T1 - T0))));
     if (et <= tn) { real.push(r1(at(et))); proj.push(null); }
@@ -586,7 +626,7 @@ function evoProj(d, key, pts) {
   return { labels, real, proj, plan, cur, tot, rate, finish, planNow: tot * Math.min(1, Math.max(0, (tn - T0) / (T1 - T0))), daysLeft: Math.ceil((T1 - tn) / DAY) };
 }
 const projKpis = (pr, u, nome) => { const f1 = x => fmt(Math.round(x * 10) / 10), diff = pr.cur - pr.planNow;
-  return [[String(Math.max(0, pr.daysLeft)), "dias até 30/06/2027"], [f1(pr.cur), `${nome} hoje · ${Math.round(100 * pr.cur / (pr.tot || 1))}% de ${f1(pr.tot)} ${u}`], [f1(pr.planNow), "Meta linear para hoje"],
+  return [[String(Math.max(0, pr.daysLeft)), `dias até ${dtBR(PROJ.fim)}`], [f1(pr.cur), `${nome} hoje · ${Math.round(100 * pr.cur / (pr.tot || 1))}% de ${f1(pr.tot)} ${u}`], [f1(pr.planNow), "Meta linear para hoje"],
     [(diff >= 0 ? "+" : "") + f1(diff), diff >= 0 ? "À frente da meta linear" : "Atrás da meta linear"],
     [pr.tot - pr.cur <= 0 ? "Concluído" : pr.finish ? pr.finish.toLocaleDateString("pt-BR") : "—", "Término previsto no ritmo atual" + (pr.finish && pr.finish.getTime() > PROJ.fim.getTime() ? " (após o prazo)" : "")]]; };
 function evoDashProj(d) {
@@ -601,7 +641,7 @@ function evoDashProj(d) {
   $("#evs").textContent = "Ver tabela do cronograma";
   $("#evt").innerHTML = `<table class="st" style="min-width:480px"><thead><tr><th>Período</th><th>Realizado</th><th>Projeção</th><th>Meta linear</th></tr></thead><tbody>${pr.labels.map((l, i) =>
     `<tr><td class="h"><b>${l}</b></td><td data-l="Realizado"><div class="v">${pr.real[i] ?? "—"}</div></td><td data-l="Projeção"><div class="v">${pr.proj[i] ?? "—"}</div></td><td data-l="Meta linear"><div class="v">${pr.plan[i]}</div></td></tr>`).join("")}</tbody></table>`;
-  $("#evn").textContent = "Ano fiscal 2026/2027 (01/08/2026 a 30/06/2027). Andamento total = média das 4 etapas (levantamento, desenho, Sphera e SAP). Projeção: ritmo médio desde o início do projeto mantido até o prazo (limitado ao total). Meta linear: avanço constante do início ao fim. O realizado dos meses anteriores depende do histórico registrado no app.";
+  $("#evn").textContent = `${fyLabel()} (${perLabel()}). Andamento total = média das 4 etapas (levantamento, desenho, Sphera e SAP). Projeção: ritmo médio desde o início do projeto mantido até o prazo (limitado ao total). Meta linear: avanço constante do início ao fim. O realizado dos meses anteriores depende do histórico registrado no app.`;
 }
 function evoDash(d) {
   const m0 = $("#evP").value; $("#evS").classList.toggle("hide", m0 !== "p");
@@ -681,10 +721,10 @@ $("#f").onsubmit = async e => {
   if (o.file_name && sheetNames(o.file_name, o.folhas).length < o.folhas) return alert("Para gerar mais de uma folha, o file_name precisa terminar em número (ex.: pr01-abc-001).");
   if (!hasF) { if (o.folhas > 1) return alert(SQLF); delete o.folhas; }
   if (!hasS) { if (o.codigo_sap) return alert(SQLS); delete o.codigo_sap; }
-  const id = o.id; delete o.id;
+  const id = o.id; delete o.id; if (!id) o.projeto_id = proj.id; // ponto novo nasce no projeto aberto
   const { error } = await (id ? sb.from("pontos").update(o).eq("id", id) : sb.from("pontos").insert(o));
   if (error) return alert("Erro ao salvar: " + error.message + (/folhas/.test(error.message) ? "\n\n" + SQLF : /codigo_sap/.test(error.message) ? "\n\n" + SQLS : ""));
-  logAcao(id ? "Editou ponto" : "Criou ponto", `${o.area} · ${o.equipamento} · ${o.tipo_projeto}`);
+  logP(id ? "Editou ponto" : "Criou ponto", `${o.area} · ${o.equipamento} · ${o.tipo_projeto}`);
   $("#dlg").close(); load();
 };
 $("#del").onclick = async () => {
@@ -693,7 +733,7 @@ $("#del").onclick = async () => {
   const nmDel = `${$("#f").elements.area.value} · ${$("#f").elements.equipamento.value} · ${$("#f").elements.tipo_projeto.value}`;
   const { error } = await sb.from("pontos").delete().eq("id", $("#f").elements.id.value);
   if (error) return alert(error.message);
-  logAcao("Excluiu ponto", nmDel);
+  logP("Excluiu ponto", nmDel);
   $("#dlg").close(); load();
 };
 
@@ -730,7 +770,7 @@ function resumoRows(a, d) {
 const RH = ["Área", "Linhas de projeto", "Pontos de adequação", "Levantados (linhas)", "Levantados (pontos)", "Com desenho (linhas)", "Com desenho (pontos)", "No Sphera (linhas)", "No Sphera (pontos)", "No SAP (linhas)", "No SAP (pontos)", "Comprados (linhas)", "Comprados (pontos)", "% com desenho (linhas)", "% com desenho (pontos)"];
 
 $("#rx").onclick = () => {
-  logAcao("Gerou relatório Excel", $("#rA").value || "Todas as áreas");
+  logP("Gerou relatório Excel", $("#rA").value || "Todas as áreas");
   const { a, d } = repData(), wb = XLSX.utils.book_new();
   const add = (nome, head, linhas) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([head, ...linhas]), nome);
   add("Resumo", RH, resumoRows(a, d));
@@ -758,7 +798,7 @@ const kpiList = s => [["Andamento total", pc(s.lev + s.des + s.sph + s.sap, 4 * 
   ...TKEYS.map(([l, k, col]) => [l, pc(s[k], s.n), `Linhas: ${s[k]} de ${s.n} · faltam ${s.n - s[k]}\nPontos: ${s.p[k]} de ${s.p.n} · faltam ${s.p.n - s.p[k]}`, col])];
 
 $("#rp").onclick = () => {
-  logAcao("Gerou relatório PDF", $("#rA").value || "Todas as áreas");
+  logP("Gerou relatório PDF", $("#rA").value || "Todas as áreas");
   const { a, d } = repData(), s = stats(d), ew = evo(d, "w"), em = evo(d, "m"), ar = AREAS.filter(x => !a || x === a), pd = pendList(d);
   const w = window.open("", "_blank");
   if (!w) return alert("Permita pop-ups para este site e tente de novo.");
@@ -796,7 +836,7 @@ $("#rp").onclick = () => {
     [["#00b351", "", "Andamento total (realizado)"], ["#00b351", "8 5", "Projeção no ritmo atual"], ["#7f7f7f", "2 5", "Meta linear do cronograma"]].forEach(([c, da, nm], i) => {
       const lx = L + i * 230; g += `<line x1="${lx}" y1="${H - 10}" x2="${lx + 26}" y2="${H - 10}" stroke="${c}" stroke-width="3" ${da ? `stroke-dasharray="${da}"` : ""}/><text x="${lx + 32}" y="${H - 6.5}" font-size="10.5" fill="#666666">${nm}</text>`;
     });
-    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Ano fiscal 2026/2027" xmlns="http://www.w3.org/2000/svg">${g}</svg>`;
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${fyLabel()}" xmlns="http://www.w3.org/2000/svg">${g}</svg>`;
   };
   const tbl = (head, body, boldFirst) => `<table><thead><tr>${head.map(h => `<th>${esc2(h)}</th>`).join("")}</tr></thead><tbody>${body.map((r, ri) => `<tr${boldFirst && ri === 0 ? ' class="tot"' : ""}>${r.map(c => `<td>${esc2(tdash(c))}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
   const hd = (t, sub) => `<header class="hd"><div class="bar"></div><div><h1>${esc2(t)}</h1><p>${esc2(sub)}</p></div><img class="ic" src="${TERN.icon}" alt=""></header>`;
@@ -809,9 +849,9 @@ $("#rp").onclick = () => {
 <p class="note">Linha = ponto levantado com projeto próprio. Ponto de adequação = soma das quantidades de cada linha. Pendências identificadas: ${pd.length}.</p>${ft(2)}</section>`,
     `<section class="page">${hd("Evolução do projeto", "Marcos acumulados registrados no histórico do aplicativo")}<div class="charts"><div>${chartSvg(ew, "Semanal · últimas 12 semanas")}</div><div>${chartSvg(em, "Mensal · últimos 6 meses")}</div></div>
 <p class="note">As linhas mostram a quantidade acumulada de itens em cada etapa. O histórico é registrado a partir da ativação desta função; períodos anteriores podem aparecer sem movimento, o que não significa ausência de atividade.</p>${ft(3)}</section>`,
-    `<section class="page">${hd("Ano fiscal 2026/2027", "01/08/2026 a 30/06/2027 · andamento total em pontos de adequação (média das 4 etapas: levantamento, desenho, Sphera e SAP)")}<div class="kpis k5">${projKpis(pj, "pontos", "Andamento total").map(([v, l]) => `<div class="kpi"><strong>${esc2(v)}</strong><em>${esc2(l)}</em></div>`).join("")}</div>
+    `<section class="page">${hd(fyLabel(), perLabel() + " · andamento total em pontos de adequação (média das 4 etapas: levantamento, desenho, Sphera e SAP)")}<div class="kpis k5">${projKpis(pj, "pontos", "Andamento total").map(([v, l]) => `<div class="kpi"><strong>${esc2(v)}</strong><em>${esc2(l)}</em></div>`).join("")}</div>
 <div class="proj">${projSvg()}</div>
-<p class="note">Projeção: ritmo médio desde 01/08/2026 mantido até 30/06/2027 (limitada ao total de pontos). Meta linear: avanço constante do início ao fim do prazo. O realizado dos meses anteriores depende do histórico registrado no aplicativo.</p>${ft(4)}</section>`,
+<p class="note">Projeção: ritmo médio desde ${dtBR(PROJ.ini)} mantido até ${dtBR(PROJ.fim)} (limitada ao total de pontos). Meta linear: avanço constante do início ao fim do prazo. O realizado dos meses anteriores depende do histórico registrado no aplicativo.</p>${ft(4)}</section>`,
     `<section class="page">${hd(`Próximas ações · ${pd.length} pendência(s)`, "Lista resumida para orientar o acompanhamento")}${pd.length ? tbl(["Área", "Equipamento", "Tipo de projeto", "Situação"], pd.slice(0, 12).map(([r, t]) => [r.area, r.equipamento, r.tipo_projeto || "—", t])) + (pd.length > 12 ? `<p class="note">Exibindo 12 de ${pd.length} pendências. Consulte o aplicativo para a lista completa.</p>` : "") : `<p class="ok">Nenhuma pendência identificada com os critérios atuais.</p>`}${ft(5)}</section>`
   ];
   w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Relatório – Adequação de Pontos de Grua Segura</title>
@@ -843,7 +883,7 @@ ${pages.join("\n")}
 };
 
 $("#rpp").onclick = async () => {
-  logAcao("Gerou apresentação PowerPoint", $("#rA").value || "Todas as áreas");
+  logP("Gerou apresentação PowerPoint", $("#rA").value || "Todas as áreas");
   if (typeof PptxGenJS === "undefined") return alert("A biblioteca do PowerPoint não carregou. Recarregue a página e tente de novo.");
   const { a, d } = repData(), s = stats(d), P = new PptxGenJS(), FT = "Arial", scope = a || "Todas as áreas";
   const U = u => u.replace(/^data:/, "");
@@ -927,8 +967,8 @@ $("#rpp").onclick = async () => {
   });
   note(sl, "O histórico é contabilizado a partir da ativação da função. Períodos anteriores sem movimento não significam, necessariamente, ausência de atividade.", 0.527, 6.5, 12.2, 0.5);
 
-  // 5b — Cronograma do projeto (01/08/2026 a 30/06/2027)
-  sl = content("Ano fiscal 2026/2027", "01/08/2026 a 30/06/2027 · andamento total em pontos de adequação (média das 4 etapas: levantamento, desenho, Sphera e SAP)");
+  // 5b — Cronograma do projeto (período do projeto aberto)
+  sl = content(fyLabel(), perLabel() + " · andamento total em pontos de adequação (média das 4 etapas: levantamento, desenho, Sphera e SAP)");
   const pj = evoProj(d, "tot", true);
   projKpis(pj, "pontos", "Andamento total").forEach(([v, l], i) => {
     const x = 0.527 + i * 2.47;
@@ -948,8 +988,8 @@ $("#rpp").onclick = async () => {
         plugins: { legend: { position: "bottom", labels: { font: fo(22), color: "#666666", boxWidth: 40 } } } } });
     const url = cv.toDataURL("image/png"); ch.destroy(); return url;
   };
-  sl.addImage({ data: U(projImg()), x: 0.527, y: 2.65, w: 12.2, h: 3.95, altText: "Gráfico do ano fiscal 2026/2027 com andamento total realizado, projeção e meta linear" });
-  note(sl, "Projeção: ritmo médio desde 01/08/2026 mantido até 30/06/2027. Meta linear: avanço constante do início ao fim do prazo.", 0.527, 6.68, 12.2, 0.4);
+  sl.addImage({ data: U(projImg()), x: 0.527, y: 2.65, w: 12.2, h: 3.95, altText: `Gráfico do ${fyLabel().toLowerCase()} com andamento total realizado, projeção e meta linear` });
+  note(sl, `Projeção: ritmo médio desde ${dtBR(PROJ.ini)} mantido até ${dtBR(PROJ.fim)}. Meta linear: avanço constante do início ao fim do prazo.`, 0.527, 6.68, 12.2, 0.4);
 
   // 6 — Próximas ações
   sl = content(`Próximas ações · ${pd.length} pendência(s)`, "Lista resumida para orientar o acompanhamento");
@@ -978,6 +1018,7 @@ $("#fi").onchange = async e => {
     if (!hasF) delete o.folhas;
     if (o.codigo_sap !== null) o.codigo_sap = String(o.codigo_sap);
     if (!hasS) delete o.codigo_sap;
+    o.projeto_id = proj.id; // toda linha importada pertence ao projeto aberto
     if (!AREAS.includes(o.area)) errs.push(`Linha ${i + 2}: área inválida (${o.area})`);
     else if (!o.equipamento || !o.tipo_projeto) errs.push(`Linha ${i + 2}: falta equipamento ou tipo de projeto`);
     else {
@@ -991,21 +1032,154 @@ $("#fi").onchange = async e => {
 };
 $("#imp").onclick = async () => {
   if (!canImport) return alert("Seu perfil não tem permissão para importar dados.");
-  if ($("#rep").checked && !confirm("Isso APAGA todos os pontos atuais antes de importar. Continuar?")) return;
-  if ($("#rep").checked) { const { error } = await sb.from("pontos").delete().gt("id", 0); if (error) return alert(error.message); }
+  if ($("#rep").checked && !confirm(`Isso APAGA todos os pontos atuais do projeto “${proj.nome}” antes de importar. Os outros projetos não são afetados. Continuar?`)) return;
+  if ($("#rep").checked) { const { error } = await sb.from("pontos").delete().eq("projeto_id", proj.id); if (error) return alert(error.message); }
   for (let i = 0; i < pending.length; i += 200) {
     const { error } = await sb.from("pontos").insert(pending.slice(i, i + 200));
     if (error) return alert("Erro na importação: " + error.message);
   }
-  logAcao("Importou planilha", `${pending.length} linhas${$("#rep").checked ? " (substituindo os dados)" : ""}`);
+  logP("Importou planilha", `${pending.length} linhas${$("#rep").checked ? " (substituindo os dados)" : ""}`);
   alert(pending.length + " linhas importadas."); $("#fi").value = ""; $("#pv").textContent = ""; $("#imp").classList.add("hide"); load();
 };
 $("#exp").onclick = () => {
-  logAcao("Exportou pontos (Excel)");
+  logP("Exportou pontos (Excel)");
   const out = rows.map(expRow);
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(out), "Pontos");
   XLSX.writeFile(wb, "pontos_grua_segura.xlsx");
 };
+
+// ---------- Projetos: lista, rotas e cabeçalho (Fase 1) ----------
+const DAY = 864e5, TABS = { dashboard: "t1", cadastro: "t2", relatorios: "t5", dados: "t3" };
+const logP = (acao, det = "") => logAcao(acao, proj ? `[${proj.nome}] ${det}` : det); // ações dentro de um projeto levam o nome dele
+const parseD = x => { const [y, m, d] = String(x).slice(0, 10).split("-").map(Number); return new Date(y, m - 1, d); };
+const periodo = p => ({ ini: parseD(p.data_inicio), fim: new Date(parseD(p.data_fim).getTime() + DAY - 1) }); // fim = 23:59:59.999 do último dia
+const SQLP = "Execute os scripts SQL da Fase 1 (fase1_01 a fase1_06) no SQL Editor do Supabase, nessa ordem, e recarregue o app.";
+const SEC = ["home", "t1", "t2", "t3", "t4", "t5"];
+function setView(v, sec) { // v: home | proj | users
+  document.body.classList.remove("v-home", "v-proj", "v-users"); document.body.classList.add("v-" + v);
+  SEC.forEach(x => $("#" + x).classList.toggle("hide", x !== sec));
+  window.scrollTo(0, 0);
+}
+function setHeader(t, sub) { $("#hT").textContent = t; $("#hS").textContent = sub; document.title = (t === "Grua Segura" ? "" : t + " – ") + "Grua Segura – Acompanhamento"; }
+$("#back").onclick = () => { location.hash = "#/"; };
+$("#hUsr").onclick = () => { location.hash = "#/usuarios"; };
+$("#hT").parentElement.parentElement.addEventListener("click", e => { if (e.target.closest("#hT,#hS") && proj) location.hash = "#/"; });
+
+// Interpreta o hash e mostra a tela certa. Hashes que não começam com "#/" (ex.: link de senha) são ignorados.
+async function route() {
+  if (!me || papel === "pendente") return;
+  const seq = ++navSeq, h = location.hash, m = h.match(/^#\/projeto\/(\d+)(?:\/([a-z]+))?\/?$/);
+  if (m) return abrirProjeto(+m[1], m[2], seq);
+  if (h === "#/usuarios" && papel === "admin") return abrirUsuarios();
+  if (h && h !== "#/" && h !== "#") history.replaceState(null, "", location.pathname + location.search + "#/");
+  abrirHome(seq);
+}
+window.addEventListener("hashchange", route);
+
+// Situação do projeto a partir do período e do andamento
+function situacao(p, pct) {
+  const { ini, fim } = periodo(p), now = Date.now();
+  if (pct >= 100) return { t: "Concluído", c: "#2e9e5b" };
+  if (now > fim.getTime()) return { t: "Atrasado", c: "#d64545" };
+  if (now < ini.getTime()) return { t: "Não iniciado", c: "#b0b7c3" };
+  return { t: "Em andamento", c: "#3b82c4" };
+}
+function diasTxt(p) {
+  const { ini, fim } = periodo(p), now = Date.now(), pl = n => `${n} ${n === 1 ? "dia" : "dias"}`;
+  if (now < ini.getTime()) return `Começa em ${pl(Math.ceil((ini.getTime() - now) / DAY))}`;
+  if (now > fim.getTime()) return `Encerrou há ${pl(Math.floor((now - fim.getTime()) / DAY))}`;
+  const n = Math.ceil((fim.getTime() - now) / DAY); return `${n} ${n === 1 ? "dia restante" : "dias restantes"}`;
+}
+// Andamento total (linhas) = média das 4 etapas: levantamento, desenho, Sphera e SAP (mesma conta do Dashboard)
+function andamento(list) {
+  const n = list.length || 1, lev = list.filter(lv).length, c = k => list.filter(r => si(r) >= k).length;
+  return Math.round(100 * (lev + c(2) + c(3) + c(4)) / (4 * n));
+}
+async function fetchCols(t, cols) { // lê só as colunas pedidas, em páginas de 1000
+  let out = [], f = 0;
+  for (;;) {
+    const { data, error } = await sb.from(t).select(cols).order("id").range(f, f + 999);
+    if (error) return { error, data: out };
+    out = out.concat(data); if (data.length < 1000) return { data: out }; f += 1000;
+  }
+}
+async function abrirHome(seq) {
+  proj = null; rows = []; hist = []; setView("home", "home"); setHeader("Grua Segura", "Gestão de projetos");
+  $("#pList").innerHTML = "<small>Carregando projetos…</small>";
+  const [pr, pt] = await Promise.all([sb.from("projetos").select("*").eq("ativo", true).order("data_inicio", { ascending: false }).order("id"),
+    fetchCols("pontos", "projeto_id,status_levantamento,status_projeto")]);
+  if (seq !== navSeq) return;
+  if (pr.error || pt.error) return $("#pList").innerHTML = `<div class="card"><b>Não foi possível carregar os projetos.</b><p class="err">${esc((pr.error || pt.error).message)}</p><p>${SQLP}</p></div>`;
+  const by = {}; pt.data.forEach(r => (by[r.projeto_id] = by[r.projeto_id] || []).push(r));
+  projs = pr.data.map(p => ({ ...p, pct: andamento(by[p.id] || []) }));
+  listaProjetos();
+}
+function listaProjetos() {
+  const q = $("#hQ").value.trim().toLowerCase(), d = projs.filter(p => !q || [p.nome, p.cliente, p.localidade].join(" ").toLowerCase().includes(q));
+  $("#pList").innerHTML = d.length ? d.map(p => { const sit = situacao(p, p.pct), pe = periodo(p);
+    return `<article class="card pc" tabindex="0" role="link" data-id="${p.id}" aria-label="Abrir ${esc(p.nome)}">
+      <div class="pt"><h3>${esc(p.nome)}</h3><span class="tag" style="--c:${sit.c}">${sit.t}</span></div>
+      <div class="ps">${esc([p.cliente, p.localidade].filter(Boolean).join(" · ") || "—")}</div>
+      <div class="ps">${dtBR(pe.ini)} a ${dtBR(pe.fim)}</div>
+      <div class="pp"><b>${p.pct}%</b><span>andamento total</span></div><div class="pbar"><u style="width:${p.pct}%"></u></div>
+      <div class="pfoot"><span>${diasTxt(p)}</span><span class="ac">${canProj ? `<button data-ed="${p.id}">Editar</button>` : ""}${papel === "admin" ? `<button class="d" data-rm="${p.id}">Excluir</button>` : ""}</span></div></article>`; }).join("")
+    : `<div class="card"><b>${projs.length ? "Nenhum projeto encontrado." : "Nenhum projeto cadastrado."}</b>${!projs.length && canProj ? "<p>Toque em “+ Novo projeto” para começar.</p>" : ""}</div>`;
+  document.querySelectorAll("#pList .pc").forEach(c => {
+    const abre = () => { location.hash = `#/projeto/${c.dataset.id}/dashboard`; };
+    c.onclick = abre; c.onkeydown = e => { if (e.target === c && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); abre(); } };
+  });
+  document.querySelectorAll("#pList [data-ed]").forEach(b => b.onclick = e => { e.stopPropagation(); editarProjeto(projs.find(p => p.id == b.dataset.ed)); });
+  document.querySelectorAll("#pList [data-rm]").forEach(b => b.onclick = e => { e.stopPropagation(); excluirProjeto(projs.find(p => p.id == b.dataset.rm)); });
+}
+$("#hQ").oninput = listaProjetos;
+
+async function abrirProjeto(id, tab, seq) {
+  if (!proj || proj.id !== id) {
+    let p = projs.find(x => x.id === id);
+    if (!p) { const { data, error } = await sb.from("projetos").select("*").eq("id", id).maybeSingle(); if (seq !== navSeq) return; if (error || !data) { alert(error ? "Erro ao abrir o projeto: " + error.message : "Projeto não encontrado."); location.hash = "#/"; return; } p = data; }
+    proj = p; const pe = periodo(p); PROJ = { ini: pe.ini, fim: pe.fim };
+    rows = []; hist = []; unit = "l"; ["dA", "fA", "fS", "rA"].forEach(i => { $("#" + i).value = ""; }); $("#fQ").value = ""; $("#evP").value = "p"; $("#evS").value = "tot";
+    $("#evP").options[0].textContent = fyLabel(); // 1ª opção = cronograma do projeto
+    await load(); if (seq !== navSeq) return;
+  }
+  const t = tab === "dados" && !canImport ? "dashboard" : (TABS[tab] ? tab : "dashboard"), canon = `#/projeto/${id}/${t}`;
+  if (location.hash !== canon) history.replaceState(null, "", location.pathname + location.search + canon);
+  setView("proj", TABS[t]); setHeader(proj.nome, [proj.cliente, proj.localidade].filter(Boolean).join(" · ") || perLabel());
+  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x.dataset.t === TABS[t]));
+}
+function abrirUsuarios() { proj = null; setView("users", "t4"); setHeader("Usuários", "Acessos e log de ações"); users(); }
+
+// ---------- Criar / editar / excluir projeto ----------
+function editarProjeto(p) {
+  if (!canProj) return;
+  const f = $("#pjF"); f.reset(); f.elements.id.value = p?.id ?? "";
+  $("#pjT").textContent = p ? "Editar projeto" : "Novo projeto";
+  ["nome", "cliente", "localidade", "data_inicio", "data_fim"].forEach(k => { f.elements[k].value = p?.[k] ?? ""; });
+  $("#pjN").textContent = p ? "" : "Por enquanto, um projeto novo usa as áreas, tipos e etapas padrão. A configuração própria de cada projeto chega na Fase 2.";
+  $("#pjDlg").showModal();
+}
+$("#pNovo").onclick = () => editarProjeto(null); $("#pjCx").onclick = () => $("#pjDlg").close();
+$("#pjF").onsubmit = async e => {
+  e.preventDefault(); if (!canProj) return;
+  const o = Object.fromEntries(new FormData(e.target)), id = o.id; delete o.id;
+  o.nome = o.nome.trim(); o.cliente = o.cliente.trim() || null; o.localidade = o.localidade.trim() || null;
+  if (!o.nome) return alert("Informe o nome do projeto.");
+  if (o.data_fim < o.data_inicio) return alert("A data de término precisa ser igual ou posterior à data de início.");
+  const { data, error } = await (id ? sb.from("projetos").update(o).eq("id", id).select() : sb.from("projetos").insert(o).select());
+  if (error) return alert(/duplicate|unique/i.test(error.message) ? "Já existe um projeto com esse nome." : "Erro ao salvar: " + error.message + (/projetos/.test(error.message) ? "\n\n" + SQLP : ""));
+  if (!data?.length) return alert("Seu perfil não tem permissão para salvar projetos.");
+  logAcao(id ? "Editou projeto" : "Criou projeto", `${o.nome} (${o.data_inicio} a ${o.data_fim})`);
+  $("#pjDlg").close(); abrirHome(++navSeq);
+};
+async function excluirProjeto(p) {
+  if (papel !== "admin") return alert("Somente administradores podem excluir projetos.");
+  const t = prompt(`Excluir o projeto “${p.nome}” APAGA também todos os pontos e o histórico dele. Esta ação não pode ser desfeita.\n\nPara confirmar, digite o nome do projeto:`);
+  if (t === null) return; if (t.trim().toLowerCase() !== p.nome.toLowerCase()) return alert("O nome digitado não confere. Nada foi excluído.");
+  const { data, error } = await sb.from("projetos").delete().eq("id", p.id).select("id");
+  if (error) return alert("Não foi possível excluir: " + error.message);
+  if (!data?.length) return alert("Não foi possível excluir: apenas administradores podem excluir projetos.");
+  logAcao("Excluiu projeto", p.nome); abrirHome(++navSeq);
+}
 
 boot();
 </script>
