@@ -723,22 +723,12 @@ const projKpis = (pr, u, nome) => { const f1 = x => fmt(Math.round(x * 10) / 10)
   return [[String(Math.max(0, pr.daysLeft)), `dias até ${dtBR(PROJ.fim)}`], [f1(pr.cur), `${nome} hoje · ${Math.round(100 * pr.cur / (pr.tot || 1))}% de ${f1(pr.tot)} ${u}`], [f1(pr.planNow), "Meta linear para hoje"],
     [(diff >= 0 ? "+" : "") + f1(diff), diff >= 0 ? "À frente da meta linear" : "Atrás da meta linear"],
     [pr.tot - pr.cur <= 0 ? "Concluído" : pr.finish ? pr.finish.toLocaleDateString("pt-BR") : "—", "Término previsto no ritmo atual" + (pr.finish && pr.finish.getTime() > PROJ.fim.getTime() ? " (após o prazo)" : "")]]; };
-// Plugin: sombreia o período anterior ao início do projeto e marca "Início" e "Prazo" no gráfico
-const evMark = { id: "evMark",
-  beforeDatasetsDraw(c) { const o = c.options.plugins.evMark; if (!o || o.t0 == null) return; const x = c.scales.x, a = c.chartArea; if (o.t0 <= x.min) return;
-    const px = Math.min(a.right, x.getPixelForValue(o.t0)); c.ctx.save(); c.ctx.fillStyle = "rgba(136,146,166,.14)"; c.ctx.fillRect(a.left, a.top, px - a.left, a.bottom - a.top); c.ctx.restore(); },
-  afterDatasetsDraw(c) { const o = c.options.plugins.evMark; if (!o) return; const x = c.scales.x, a = c.chartArea, ctx = c.ctx;
-    [[o.t0, "Início", "#2e9e5b"], [o.t1, "Prazo", "#d64545"]].forEach(([t, nm, col], i) => { if (t == null || t < x.min || t > x.max) return;
-      const px = x.getPixelForValue(t), txt = `${nm} ${dtBR(new Date(t))}`;
-      ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(px, a.top); ctx.lineTo(px, a.bottom); ctx.stroke();
-      ctx.setLineDash([]); ctx.fillStyle = col; ctx.font = "600 11px " + Chart.defaults.font.family; const w = ctx.measureText(txt).width, right = px + 6 + w > a.right;
-      ctx.textAlign = right ? "right" : "left"; ctx.fillText(txt, right ? px - 6 : px + 6, a.top + 12 + i * 14); ctx.restore(); }); } };
 function evoDashProj(d) {
-  const key = $("#evS").value, nm = STG.find(x => x[1] === key), pr = evoProj(d, key, unit === "p"), win = pr.win, u = unit === "p" ? "pontos" : "linhas";
+  const key = $("#evS").value, nm0 = STG.find(x => x[1] === key), nm = [nm0[0], nm0[1], key === "tot" && document.documentElement.getAttribute("data-theme") === "dark" ? "#6aa8ff" : nm0[2]], pr = evoProj(d, key, unit === "p"), win = pr.win, u = unit === "p" ? "pontos" : "linhas";
   $("#evk").innerHTML = projKpis(pr, u, nm[0]).map(([v, l]) => `<div class="card kpi" style="margin:0"><b${String(v).length > 7 ? ' class="sm"' : ""}>${v}</b><span>${l}</span></div>`).join("");
   const nT = pr.ends.length, step = Math.max(1, Math.ceil(nT / 12)), lab = new Map(pr.ends.map((t, i) => [t, (nT - 1 - i) % step === 0 ? pr.labels[i] : ""]));
   charts.c4?.destroy();
-  charts.c4 = new Chart($("#c4"), { type: "line", plugins: [evMark], data: { datasets: [
+  charts.c4 = new Chart($("#c4"), { type: "line", data: { datasets: [
     { label: `${nm[0]} (realizado)`, data: pr.pts.real, borderColor: nm[2], backgroundColor: nm[2], tension: .2 },
     { label: "Projeção no ritmo atual", data: pr.pts.proj, borderColor: nm[2], backgroundColor: nm[2], borderDash: [7, 5], pointStyle: "rectRot", tension: 0 },
     { label: "Meta linear do cronograma", data: pr.pts.plan, borderColor: "#8892a6", backgroundColor: "#8892a6", borderDash: [2, 4], pointRadius: 0, tension: 0 }] },
@@ -746,7 +736,7 @@ function evoDashProj(d) {
       scales: { x: { type: "linear", min: win.a.getTime(), max: win.b.getTime(), afterBuildTicks: s => { s.ticks = pr.ends.map(t => ({ value: t })); },
                      ticks: { autoSkip: false, maxRotation: 60, callback: v => lab.get(v) ?? "" } },
                 y: { beginAtZero: true, suggestedMax: pr.tot } },
-      plugins: { legend: { position: "bottom" }, tooltip: { callbacks: { title: it => dtBR(new Date(it[0].parsed.x)) } }, evMark: { t0: PROJ.ini.getTime(), t1: PROJ.fim.getTime() } } } });
+      plugins: { legend: { position: "bottom" }, tooltip: { callbacks: { title: it => dtBR(new Date(it[0].parsed.x)) } } } } });
   $("#evs").textContent = "Ver tabela do cronograma";
   const ini0 = PROJ.ini >= win.a && PROJ.ini <= win.b ? `<tr><td class="h"><b>Início · ${dtBR(PROJ.ini)}</b></td><td data-l="Realizado"><div class="v">0</div></td><td data-l="Projeção"><div class="v">—</div></td><td data-l="Meta linear"><div class="v">0</div></td></tr>` : "";
   $("#evt").innerHTML = `<table class="st" style="min-width:480px"><thead><tr><th>Período</th><th>Realizado</th><th>Projeção</th><th>Meta linear</th></tr></thead><tbody>${ini0}${pr.labels.map((l, i) =>
