@@ -82,8 +82,9 @@ label input,label select,label textarea{width:100%;margin-top:4px;font-weight:40
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.chip{background:#fff;border:1px solid #e8d9a8;border-radius:8px;padding:5px 9px;font:600 12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--navy)}.chip i{font-style:normal;color:var(--mut);margin-right:7px}
 a{color:var(--blue);font-weight:600}small{color:var(--mut)}.err{color:#c0362c}.hide{display:none!important}.v{display:block}
 @media(max-width:899px){
- nav{top:auto;bottom:0;width:100%;flex-direction:row;gap:0;justify-content:space-around;padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));border-right:0;border-top:1px solid var(--line);overflow:visible}
- nav button{flex:1;min-width:0;flex-direction:column;justify-content:center;gap:3px;padding:7px 2px;font-size:11px;text-align:center;border-radius:12px}
+ nav{top:auto;bottom:0;width:100%;flex-direction:row;gap:2px;justify-content:flex-start;padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));border-right:0;border-top:1px solid var(--line);overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+ nav::-webkit-scrollbar{display:none}
+ nav button{flex:1 0 auto;min-width:68px;flex-direction:column;justify-content:center;gap:3px;padding:7px 10px;font-size:11px;white-space:nowrap;text-align:center;border-radius:12px}
  nav .lg{display:none}nav .sh{display:inline}
  main{margin-left:0;padding-bottom:calc(92px + env(safe-area-inset-bottom,0px))}
 }
@@ -1209,6 +1210,7 @@ async function abrirProjeto(id, tab, seq) {
   if (location.hash !== canon) history.replaceState(null, "", location.pathname + location.search + canon);
   setView("proj", TABS[t]); setHeader(proj.nome, [proj.cliente, proj.localidade].filter(Boolean).join(" · ") || perLabel());
   document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x.dataset.t === TABS[t]));
+  { const nv = $("nav"), ab = nv.querySelector("button.on"); if (ab && nv.scrollWidth > nv.clientWidth) nv.scrollLeft = ab.offsetLeft - (nv.clientWidth - ab.offsetWidth) / 2; }
 }
 function abrirUsuarios() { proj = null; setView("users", "t4"); setHeader("Usuários", "Acessos e log de ações"); users(); }
 
@@ -1351,12 +1353,13 @@ abrirProjeto = async function (id, tab, seq) { nb.classList.toggle("hide", !canP
   await _ap(id, tab, seq); if (proj && proj.id === id && tab === "parametros") renderPar(); };
 const det = p => p.categoria === "tipo" ? "unidade: " + ((p.config || {}).unidade || "—") : p.categoria === "etapa" ? "chave: " + ((p.config || {}).chave || "personalizada") : p.categoria === "campo" ? ((p.config || {}).tipo || "texto") + ((p.config || {}).opcoes ? " (" + p.config.opcoes.join(", ") + ")" : "") : "";
 function renderPar() {
+  if (!canProj) { sec.innerHTML = ""; return; }
   sec.innerHTML = CAT.map(([c, t]) => `<div class="card"><div class="evh"><b>${t}</b>${c === "etapa" ? "" : `<button class="p" data-add="${c}">+ Adicionar</button>`}</div>` +
     (par(c).map(p => `<div class="sl"><div><b>${esc(p.nome)}</b> <small>${esc(det(p))}${p.ativo ? "" : " · inativo"}</small></div><div class="ac"><button data-pe="${p.id}">Editar</button><button data-pt="${p.id}">${p.ativo ? "Desativar" : "Ativar"}</button></div></div>`).join("") || "<small>Nenhum parâmetro cadastrado.</small>") + "</div>").join("") +
     "<small>Etapas: o andamento total é a média das etapas ativas. Desativar não apaga dados.</small>";
   sec.querySelectorAll("[data-add]").forEach(b => b.onclick = () => editPar(null, b.dataset.add));
   sec.querySelectorAll("[data-pe]").forEach(b => b.onclick = () => editPar((ALL[proj.id] || []).find(p => p.id == b.dataset.pe)));
-  sec.querySelectorAll("[data-pt]").forEach(b => b.onclick = async () => { const p = (ALL[proj.id] || []).find(x => x.id == b.dataset.pt);
+  sec.querySelectorAll("[data-pt]").forEach(b => b.onclick = async () => { if (!canProj) return; const p = (ALL[proj.id] || []).find(x => x.id == b.dataset.pt);
     const { error } = await sb.from("projeto_parametros").update({ ativo: !p.ativo }).eq("id", p.id); if (error) return alert(error.message);
     logP(p.ativo ? "Desativou parâmetro" : "Ativou parâmetro", `${p.categoria}: ${p.nome}`); await recarrega(); });
 }
