@@ -342,6 +342,8 @@ html[data-theme=dark] #mMenu{background:#151c2b}html[data-theme=dark] #mMenu .mi
  <label>Local<input name="localidade" maxlength="120" autocomplete="off"></label>
  <label>Data de início<input name="data_inicio" type="date" required></label>
  <label>Data de término<input name="data_fim" type="date" required></label>
+ <label>Ano fiscal começa em<select name="ano_fiscal_mes_inicio" id="pjFy"></select></label>
+ <small class="w" id="pjFyH"></small>
  <small class="w" id="pjN"></small>
  </div>
  <div class="bar" style="margin-top:14px"><button class="p">Salvar</button><button type="button" id="pjCx">Cancelar</button></div>
@@ -658,55 +660,103 @@ function evo(d, mode) {
 }
 const EH = ["Período", "Levantados", "Com desenho", "No Sphera", "No SAP", "Comprados", "Movimentações"];
 const evoLines = e => e.rows.map((x, i) => [(e.mode === "w" ? "Semana de " : "") + e.labels[i], x.lev, x.des, x.sph, x.sap, x.comp, x.mov]).reverse();
-let PROJ = { ini: new Date(2026, 7, 1), fim: new Date(2027, 5, 30, 23, 59, 59, 999) }; // período do projeto aberto (definido em abrirProjeto)
+let PROJ = { ini: new Date(2026, 7, 1), fim: new Date(2027, 5, 30, 23, 59, 59, 999), fyM: 7 }; // período do projeto aberto + mês em que começa o ano fiscal (definidos em abrirProjeto)
 const dtBR = d => d.toLocaleDateString("pt-BR");
-const fyLabel = () => `Ano fiscal ${PROJ.ini.getFullYear()}/${PROJ.fim.getFullYear()}`; // ex.: "Ano fiscal 2026/2027"
 const perLabel = () => `${dtBR(PROJ.ini)} a ${dtBR(PROJ.fim)}`; // ex.: "01/08/2026 a 30/06/2027"
+// ---- Ano fiscal configurável por projeto (padrão: julho a junho) ----
+const MESL = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+const fyMes = p => { let v = Number(p && p.ano_fiscal_mes_inicio); if (!(v >= 1 && v <= 12)) { try { v = Number(localStorage.getItem("gs-fy-" + (p && p.id))); } catch (e) { v = 0; } } return v >= 1 && v <= 12 ? v : 7; };
+const fyRange = m => `${MESL[m - 1]} a ${MESL[(m + 10) % 12]}`; // 7 → "julho a junho"
+const fyOpts = sel => MESL.map((n, i) => `<option value="${i + 1}"${i + 1 === Number(sel) ? " selected" : ""}>${n}</option>`).join("");
+const fyAno = (dt, m) => dt.getMonth() + 1 >= m ? dt.getFullYear() : dt.getFullYear() - 1; // ano em que começa o ano fiscal que contém a data
+const fyWin = y => { const m = PROJ.fyM; return { a: new Date(y, m - 1, 1), b: new Date(y + 1, m - 1, 0, 23, 59, 59, 999), label: m === 1 ? `Ano fiscal ${y}` : `Ano fiscal ${y}/${y + 1}` }; };
+const winAll = () => ({ a: new Date(PROJ.ini.getTime()), b: new Date(PROJ.fim.getTime()), all: true, label: "Duração total do projeto" });
+function evoOpts() { // um item por ano fiscal que o projeto atravessa + duração total + históricos
+  const y0 = fyAno(PROJ.ini, PROJ.fyM), y1 = fyAno(PROJ.fim, PROJ.fyM), o = [];
+  for (let y = y0; y <= y1; y++) o.push(`<option value="fy:${y}">${fyWin(y).label}</option>`);
+  o.push(`<option value="all">Duração total do projeto</option>`, `<option value="w">Semanal (12 semanas)</option>`, `<option value="m">Mensal (6 meses)</option>`);
+  const s = $("#evP"); s.innerHTML = o.join(""); s.value = "fy:" + Math.min(y1, Math.max(y0, fyAno(new Date(), PROJ.fyM))); // abre no ano fiscal atual (ou no mais próximo do projeto)
+}
+const evIsProj = v => v === "all" || /^fy:/.test(v);
+function curWin() { const v = $("#evP") ? $("#evP").value : ""; if (v === "all") return winAll(); if (/^fy:/.test(v)) return fyWin(+v.slice(3));
+  return fyWin(Math.min(fyAno(PROJ.fim, PROJ.fyM), Math.max(fyAno(PROJ.ini, PROJ.fyM), fyAno(new Date(), PROJ.fyM)))); } // relatórios: ano fiscal atual
+const fyLabel = win => (win || curWin()).label;
 const STG = [["Andamento total", "tot", "#14284b"], ["Levantados", "lev", "#f2a93b"], ["Com desenho", "des", "#3b82c4"], ["No Sphera", "sph", "#7a5cc7"], ["No SAP", "sap", "#0e9aa7"]];
 const MES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-function evoProj(d, key, pts) {
-  const wf = r => pts ? (Number(r.qtd) > 0 ? Number(r.qtd) : 1) : 1, now = new Date(), tn = now.getTime(), DAY = 864e5, T0 = PROJ.ini.getTime(), T1 = PROJ.fim.getTime(), r1 = x => Math.round(x * 10) / 10;
+function evoProj(d, key, pts, win) {
+  win = win || curWin();
+  const wf = r => pts ? (Number(r.qtd) > 0 ? Number(r.qtd) : 1) : 1, now = new Date(), tn = now.getTime(), DAY = 864e5, T0 = PROJ.ini.getTime(), T1 = PROJ.fim.getTime(), WA = win.a.getTime(), WB = win.b.getTime(), r1 = x => Math.round(x * 10) / 10;
   const keys = key === "tot" ? (window.etapasAtivas ? window.etapasAtivas() : ["lev", "des", "sph", "sap"]) : [key], LV = { proj: 1, des: 2, sph: 3, sap: 4, comp: 5 };
   const okk = (k, l, st) => k === "lev" ? l === "Levantado" : st >= LV[k]; // andamento total = média das etapas ativas do projeto
   const ids = new Map(d.map(r => [r.id, r])), by = {};
   hist.forEach(h => { if (ids.has(h.ponto_id)) (by[h.ponto_id] = by[h.ponto_id] || []).push({ t: new Date(h.created_at).getTime(), l: h.status_levantamento, s: ST.indexOf(h.status_projeto) }); });
   const at = t => { let n = 0; ids.forEach((r, id) => { let l = "Pendente", st = 0; for (const e of (by[id] || [])) { if (e.t <= t) { l = e.l; st = Math.max(0, e.s); } else break; } keys.forEach(k => { if (okk(k, l, st)) n += wf(r); }); }); return n / keys.length; };
   const cur = d.reduce((t, r) => t + keys.filter(k => okk(k, r.status_levantamento, si(r))).length * wf(r), 0) / keys.length, tot = d.reduce((t, r) => t + wf(r), 0);
-  const rate = tn <= T0 ? 0 : cur / Math.max(1, (Math.min(tn, T1) - T0) / DAY); // ritmo médio por dia desde o início do projeto
-  const labels = ["Início"], real = [0], proj = [null], plan = [0];
-  const y0 = PROJ.ini.getFullYear(), m0 = PROJ.ini.getMonth(), NM = (PROJ.fim.getFullYear() - y0) * 12 + PROJ.fim.getMonth() - m0 + 1; // meses do projeto
-  for (let m = 0; m < NM; m++) {
-    const end = new Date(y0, m0 + 1 + m, 0, 23, 59, 59, 999), st = new Date(y0, m0 + m, 1).getTime(), et = end.getTime();
-    labels.push(`${MES[end.getMonth()]}/${String(end.getFullYear()).slice(2)}`);
-    plan.push(r1(tot * Math.min(1, (et - T0) / (T1 - T0))));
-    if (et <= tn) { real.push(r1(at(et))); proj.push(null); }
+  const started = tn >= T0, rate = started ? cur / Math.max(1, (Math.min(tn, T1) - T0) / DAY) : 0; // ritmo médio por dia desde o INÍCIO DO PROJETO
+  const planAt = t => r1(tot * Math.min(1, Math.max(0, (t - T0) / (T1 - T0)))), projAt = t => r1(Math.min(tot, cur + rate * (t - tn) / DAY));
+  // fins de mês que caem dentro da janela (ano fiscal ou duração total)
+  const ends = [];
+  for (let dt = new Date(win.a.getFullYear(), win.a.getMonth(), 1); dt.getTime() <= WB; dt = new Date(dt.getFullYear(), dt.getMonth() + 1, 1)) {
+    const e = new Date(dt.getFullYear(), dt.getMonth() + 1, 0, 23, 59, 59, 999); if (e.getTime() > WA && e.getTime() <= WB) ends.push(e); }
+  // séries por mês (tabela e relatórios): vazio antes do início do projeto e depois do prazo
+  const labels = [], real = [], proj = [], plan = [];
+  ends.forEach(e => {
+    const et = e.getTime(), st = new Date(e.getFullYear(), e.getMonth(), 1).getTime(), t = Math.min(et, T1);
+    labels.push(`${MES[e.getMonth()]}/${String(e.getFullYear()).slice(2)}`);
+    if (et < T0 || st > T1) { plan.push(null); real.push(null); proj.push(null); return; }
+    plan.push(planAt(t));
+    if (!started) { real.push(null); proj.push(null); }
+    else if (et <= tn) { real.push(r1(at(t))); proj.push(null); }
     else if (st <= tn) { real.push(r1(cur)); proj.push(r1(cur)); }
-    else { real.push(null); proj.push(r1(Math.min(tot, cur + rate * (et - tn) / DAY))); }
-  }
+    else { real.push(null); proj.push(projAt(t)); }
+  });
+  // séries precisas do gráfico (eixo de tempo): começam na data de início do projeto
+  const eT = ends.map(e => e.getTime()), uq = a => [...new Set(a)].sort((x, y) => x - y);
+  const S = Math.max(WA, T0), E = Math.min(WB, T1), RE = Math.min(tn, WB), P0 = Math.max(tn, S);
+  const ptsPlan = S <= E ? uq([S, ...eT.filter(t => t > S && t < E), E]).map(t => ({ x: t, y: planAt(t) })) : [];
+  const ptsReal = started && S <= RE ? uq([S, ...eT.filter(t => t > S && t < RE), RE]).map(t => ({ x: t, y: t === tn ? r1(cur) : r1(at(t)) })) : [];
+  const ptsProj = started && tn < T1 && P0 < E ? uq([P0, ...eT.filter(t => t > P0 && t < E), E]).map(t => ({ x: t, y: t === tn ? r1(cur) : projAt(t) })) : [];
   const pending = tot - cur, finish = rate > 0 && pending > 0 ? new Date(tn + pending / rate * DAY) : null;
-  return { labels, real, proj, plan, cur, tot, rate, finish, planNow: tot * Math.min(1, Math.max(0, (tn - T0) / (T1 - T0))), daysLeft: Math.ceil((T1 - tn) / DAY) };
+  return { labels, real, proj, plan, pts: { real: ptsReal, proj: ptsProj, plan: ptsPlan }, ends: eT, win, cur, tot, rate, finish, planNow: tot * Math.min(1, Math.max(0, (tn - T0) / (T1 - T0))), daysLeft: Math.ceil((T1 - tn) / DAY) };
 }
 const projKpis = (pr, u, nome) => { const f1 = x => fmt(Math.round(x * 10) / 10), diff = pr.cur - pr.planNow;
   return [[String(Math.max(0, pr.daysLeft)), `dias até ${dtBR(PROJ.fim)}`], [f1(pr.cur), `${nome} hoje · ${Math.round(100 * pr.cur / (pr.tot || 1))}% de ${f1(pr.tot)} ${u}`], [f1(pr.planNow), "Meta linear para hoje"],
     [(diff >= 0 ? "+" : "") + f1(diff), diff >= 0 ? "À frente da meta linear" : "Atrás da meta linear"],
     [pr.tot - pr.cur <= 0 ? "Concluído" : pr.finish ? pr.finish.toLocaleDateString("pt-BR") : "—", "Término previsto no ritmo atual" + (pr.finish && pr.finish.getTime() > PROJ.fim.getTime() ? " (após o prazo)" : "")]]; };
+// Plugin: sombreia o período anterior ao início do projeto e marca "Início" e "Prazo" no gráfico
+const evMark = { id: "evMark",
+  beforeDatasetsDraw(c) { const o = c.options.plugins.evMark; if (!o || o.t0 == null) return; const x = c.scales.x, a = c.chartArea; if (o.t0 <= x.min) return;
+    const px = Math.min(a.right, x.getPixelForValue(o.t0)); c.ctx.save(); c.ctx.fillStyle = "rgba(136,146,166,.14)"; c.ctx.fillRect(a.left, a.top, px - a.left, a.bottom - a.top); c.ctx.restore(); },
+  afterDatasetsDraw(c) { const o = c.options.plugins.evMark; if (!o) return; const x = c.scales.x, a = c.chartArea, ctx = c.ctx;
+    [[o.t0, "Início", "#2e9e5b"], [o.t1, "Prazo", "#d64545"]].forEach(([t, nm, col], i) => { if (t == null || t < x.min || t > x.max) return;
+      const px = x.getPixelForValue(t), txt = `${nm} ${dtBR(new Date(t))}`;
+      ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(px, a.top); ctx.lineTo(px, a.bottom); ctx.stroke();
+      ctx.setLineDash([]); ctx.fillStyle = col; ctx.font = "600 11px " + Chart.defaults.font.family; const w = ctx.measureText(txt).width, right = px + 6 + w > a.right;
+      ctx.textAlign = right ? "right" : "left"; ctx.fillText(txt, right ? px - 6 : px + 6, a.top + 12 + i * 14); ctx.restore(); }); } };
 function evoDashProj(d) {
-  const key = $("#evS").value, nm = STG.find(x => x[1] === key), pr = evoProj(d, key, unit === "p"), u = unit === "p" ? "pontos" : "linhas";
+  const key = $("#evS").value, nm = STG.find(x => x[1] === key), pr = evoProj(d, key, unit === "p"), win = pr.win, u = unit === "p" ? "pontos" : "linhas";
   $("#evk").innerHTML = projKpis(pr, u, nm[0]).map(([v, l]) => `<div class="card kpi" style="margin:0"><b${String(v).length > 7 ? ' class="sm"' : ""}>${v}</b><span>${l}</span></div>`).join("");
+  const nT = pr.ends.length, step = Math.max(1, Math.ceil(nT / 12)), lab = new Map(pr.ends.map((t, i) => [t, (nT - 1 - i) % step === 0 ? pr.labels[i] : ""]));
   charts.c4?.destroy();
-  charts.c4 = new Chart($("#c4"), { type: "line", data: { labels: pr.labels, datasets: [
-    { label: `${nm[0]} (realizado)`, data: pr.real, borderColor: nm[2], backgroundColor: nm[2], tension: .2 },
-    { label: "Projeção no ritmo atual", data: pr.proj, borderColor: nm[2], backgroundColor: nm[2], borderDash: [7, 5], pointStyle: "rectRot", tension: 0 },
-    { label: "Meta linear do cronograma", data: pr.plan, borderColor: "#8892a6", backgroundColor: "#8892a6", borderDash: [2, 4], pointRadius: 0, tension: 0 }] },
-    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, suggestedMax: pr.tot } }, plugins: { legend: { position: "bottom" } } } });
+  charts.c4 = new Chart($("#c4"), { type: "line", plugins: [evMark], data: { datasets: [
+    { label: `${nm[0]} (realizado)`, data: pr.pts.real, borderColor: nm[2], backgroundColor: nm[2], tension: .2 },
+    { label: "Projeção no ritmo atual", data: pr.pts.proj, borderColor: nm[2], backgroundColor: nm[2], borderDash: [7, 5], pointStyle: "rectRot", tension: 0 },
+    { label: "Meta linear do cronograma", data: pr.pts.plan, borderColor: "#8892a6", backgroundColor: "#8892a6", borderDash: [2, 4], pointRadius: 0, tension: 0 }] },
+    options: { responsive: true, maintainAspectRatio: false,
+      scales: { x: { type: "linear", min: win.a.getTime(), max: win.b.getTime(), afterBuildTicks: s => { s.ticks = pr.ends.map(t => ({ value: t })); },
+                     ticks: { autoSkip: false, maxRotation: 60, callback: v => lab.get(v) ?? "" } },
+                y: { beginAtZero: true, suggestedMax: pr.tot } },
+      plugins: { legend: { position: "bottom" }, tooltip: { callbacks: { title: it => dtBR(new Date(it[0].parsed.x)) } }, evMark: { t0: PROJ.ini.getTime(), t1: PROJ.fim.getTime() } } } });
   $("#evs").textContent = "Ver tabela do cronograma";
-  $("#evt").innerHTML = `<table class="st" style="min-width:480px"><thead><tr><th>Período</th><th>Realizado</th><th>Projeção</th><th>Meta linear</th></tr></thead><tbody>${pr.labels.map((l, i) =>
-    `<tr><td class="h"><b>${l}</b></td><td data-l="Realizado"><div class="v">${pr.real[i] ?? "—"}</div></td><td data-l="Projeção"><div class="v">${pr.proj[i] ?? "—"}</div></td><td data-l="Meta linear"><div class="v">${pr.plan[i]}</div></td></tr>`).join("")}</tbody></table>`;
-  $("#evn").textContent = `${fyLabel()} (${perLabel()}). Andamento total = média das etapas ativas do projeto. Projeção: ritmo médio desde o início do projeto mantido até o prazo (limitado ao total). Meta linear: avanço constante do início ao fim. O realizado dos meses anteriores depende do histórico registrado no app.`;
+  const ini0 = PROJ.ini >= win.a && PROJ.ini <= win.b ? `<tr><td class="h"><b>Início · ${dtBR(PROJ.ini)}</b></td><td data-l="Realizado"><div class="v">0</div></td><td data-l="Projeção"><div class="v">—</div></td><td data-l="Meta linear"><div class="v">0</div></td></tr>` : "";
+  $("#evt").innerHTML = `<table class="st" style="min-width:480px"><thead><tr><th>Período</th><th>Realizado</th><th>Projeção</th><th>Meta linear</th></tr></thead><tbody>${ini0}${pr.labels.map((l, i) =>
+    `<tr><td class="h"><b>${l}</b></td><td data-l="Realizado"><div class="v">${pr.real[i] ?? "—"}</div></td><td data-l="Projeção"><div class="v">${pr.proj[i] ?? "—"}</div></td><td data-l="Meta linear"><div class="v">${pr.plan[i] ?? "—"}</div></td></tr>`).join("")}</tbody></table>`;
+  const multi = fyAno(PROJ.fim, PROJ.fyM) > fyAno(PROJ.ini, PROJ.fyM);
+  $("#evn").textContent = `${win.label} (${dtBR(win.a)} a ${dtBR(win.b)}) · ano fiscal de ${fyRange(PROJ.fyM)}. Início do projeto: ${dtBR(PROJ.ini)} · prazo: ${dtBR(PROJ.fim)}.${multi ? " O projeto atravessa mais de um ano fiscal: use o seletor para ver cada ano ou a duração total." : ""} Andamento total = média das etapas ativas do projeto. Projeção: ritmo médio desde o início do projeto mantido até o prazo (limitado ao total). Meta linear: avanço constante do início ao fim. O realizado dos meses anteriores depende do histórico registrado no app.`;
 }
 function evoDash(d) {
-  const m0 = $("#evP").value; $("#evS").classList.toggle("hide", m0 !== "p");
-  if (m0 === "p") return evoDashProj(d);
+  const m0 = $("#evP").value; $("#evS").classList.toggle("hide", !evIsProj(m0));
+  if (evIsProj(m0)) return evoDashProj(d);
   evoDashHist(d);
   $("#evs").textContent = m0 === "w" ? "Ver histórico semanal (12 semanas)" : "Ver histórico mensal (6 meses)";
   $("#evn").textContent = "O histórico é registrado a partir da instalação desta função; datas anteriores aparecem sem movimento.";
@@ -1225,9 +1275,9 @@ async function abrirProjeto(id, tab, seq) {
   if (!proj || proj.id !== id) {
     let p = projs.find(x => x.id === id);
     if (!p) { const { data, error } = await sb.from("projetos").select("*").eq("id", id).maybeSingle(); if (seq !== navSeq) return; if (error || !data) { alert(error ? "Erro ao abrir o projeto: " + error.message : "Projeto não encontrado."); location.hash = "#/"; return; } p = data; }
-    proj = p; const pe = periodo(p); PROJ = { ini: pe.ini, fim: pe.fim };
-    rows = []; hist = []; unit = "l"; ["dA", "fA", "fS", "rA"].forEach(i => { $("#" + i).value = ""; }); $("#fQ").value = ""; $("#evP").value = "p"; $("#evS").value = "tot";
-    $("#evP").options[0].textContent = fyLabel(); // 1ª opção = cronograma do projeto
+    proj = p; const pe = periodo(p); PROJ = { ini: pe.ini, fim: pe.fim, fyM: fyMes(p) };
+    rows = []; hist = []; unit = "l"; ["dA", "fA", "fS", "rA"].forEach(i => { $("#" + i).value = ""; }); $("#fQ").value = ""; $("#evS").value = "tot";
+    evoOpts(); // anos fiscais do projeto + duração total
     await load(); if (seq !== navSeq) return;
   }
   const t = tab === "dados" && !canImport ? "dashboard" : (TABS[tab] ? tab : "dashboard"), canon = `#/projeto/${id}/${t}`;
@@ -1243,6 +1293,7 @@ function editarProjeto(p) {
   const f = $("#pjF"); f.reset(); f.elements.id.value = p?.id ?? "";
   $("#pjT").textContent = p ? "Editar projeto" : "Novo projeto";
   ["nome", "cliente", "localidade", "data_inicio", "data_fim"].forEach(k => { f.elements[k].value = p?.[k] ?? ""; });
+  $("#pjFy").innerHTML = fyOpts(fyMes(p)); const fyH = () => { $("#pjFyH").textContent = "Ano fiscal: " + fyRange(Number($("#pjFy").value)) + ". Padrão: julho a junho; altere se o cliente usar outro período."; }; fyH(); $("#pjFy").onchange = fyH;
   $("#pjN").textContent = p ? "" : "Por enquanto, um projeto novo usa as áreas, tipos e etapas padrão. A configuração própria de cada projeto chega na Fase 2.";
   $("#pjDlg").showModal();
 }
@@ -1253,9 +1304,13 @@ $("#pjF").onsubmit = async e => {
   o.nome = o.nome.trim(); o.cliente = o.cliente.trim() || null; o.localidade = o.localidade.trim() || null;
   if (!o.nome) return alert("Informe o nome do projeto.");
   if (o.data_fim < o.data_inicio) return alert("A data de término precisa ser igual ou posterior à data de início.");
-  const { data, error } = await (id ? sb.from("projetos").update(o).eq("id", id).select() : sb.from("projetos").insert(o).select());
+  const fy = Number(o.ano_fiscal_mes_inicio) || 7; o.ano_fiscal_mes_inicio = fy;
+  const salvar = x => id ? sb.from("projetos").update(x).eq("id", id).select() : sb.from("projetos").insert(x).select();
+  let { data, error } = await salvar(o), semFy = false;
+  if (error && /ano_fiscal_mes_inicio/.test(error.message)) { const { ano_fiscal_mes_inicio, ...o2 } = o; semFy = true; ({ data, error } = await salvar(o2)); } // coluna ainda não criada no Supabase
   if (error) return alert(/duplicate|unique/i.test(error.message) ? "Já existe um projeto com esse nome." : "Erro ao salvar: " + error.message + (/projetos/.test(error.message) ? "\n\n" + SQLP : ""));
   if (!data?.length) return alert("Seu perfil não tem permissão para salvar projetos.");
+  if (semFy) { try { localStorage.setItem("gs-fy-" + data[0].id, String(fy)); } catch (x) {} alert("Projeto salvo. O ano fiscal ficou guardado só neste aparelho: rode o SQL fase3_01_ano_fiscal.sql no Supabase para gravar no banco."); }
   logAcao(id ? "Editou projeto" : "Criou projeto", `${o.nome} (${o.data_inicio} a ${o.data_fim})`);
   $("#pjDlg").close(); abrirHome(++navSeq);
 };
@@ -1429,7 +1484,7 @@ function drawMap() { const R = tsv(), box = $("#w_map"); if (!box) return; if (R
 function wzOpen() { if (!canNew) return; W = { s: 1, b: {}, tsv: "", map: {}, tipos: "", areas: "", et: ETP2.map(e => e[0]) }; wzDraw(); wz.showModal(); }
 function wzDraw() {
   const s = W.s, b = W.b, v = x => esc(b[x] || ""); let h = `<h3>Novo projeto · passo ${s} de 4</h3>`;
-  if (s === 1) h += `<label>Nome<input id="w_nome" maxlength="120" value="${v("nome")}"></label><label>Cliente<input id="w_cli" maxlength="120" value="${v("cli")}"></label><label>Local<input id="w_loc" maxlength="120" value="${v("loc")}"></label><label>Data de início<input id="w_ini" type="date" value="${v("ini")}"></label><label>Data de término<input id="w_fim" type="date" value="${v("fim")}"></label>`;
+  if (s === 1) h += `<label>Nome<input id="w_nome" maxlength="120" value="${v("nome")}"></label><label>Cliente<input id="w_cli" maxlength="120" value="${v("cli")}"></label><label>Local<input id="w_loc" maxlength="120" value="${v("loc")}"></label><label>Data de início<input id="w_ini" type="date" value="${v("ini")}"></label><label>Data de término<input id="w_fim" type="date" value="${v("fim")}"></label><label>Ano fiscal começa em<select id="w_fy">${fyOpts(b.fy || 7)}</select></label><small>Padrão: julho a junho (ano fiscal da Ternium). Altere se este projeto usar outro período.</small>`;
   if (s === 2) h += `<label>Escopo (.xlsx, .csv, .docx ou .pdf) — opcional<input id="w_file" type="file" accept=".xlsx,.xls,.csv,.docx,.pdf"></label><small id="w_msg">Word e PDF podem vir com erros: corrija na prévia abaixo.</small><label>Prévia editável (colunas separadas por TAB; 1ª linha = cabeçalho)<textarea id="w_tsv" rows="8" style="font:12px ui-monospace,monospace;white-space:pre">${esc(W.tsv)}</textarea></label><div id="w_map"></div>`;
   if (s === 3) h += `<label>Tipos de intervenção (um por linha: nome;unidade)<textarea id="w_tp" rows="5">${esc(W.tipos)}</textarea></label><label>Áreas / locais (um por linha)<textarea id="w_ar" rows="4">${esc(W.areas)}</textarea></label><b style="display:block;margin-top:10px">Etapas do fluxo (ativas)</b>${ETP2.map(([k, n]) => `<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-k="${k}" style="width:auto;min-height:0" ${W.et.includes(k) ? "checked" : ""}> ${n}</label>`).join("")}`;
   if (s === 4) h += `<p><b>${esc(b.nome)}</b><br>${esc([b.cli, b.loc].filter(Boolean).join(" · ") || "—")}<br>${b.ini} a ${b.fim}</p><p>${pontosDe().length} pontos · ${W.tipos.split("\n").filter(x => x.trim()).length} tipos · ${W.areas.split("\n").filter(x => x.trim()).length} áreas · etapas ativas: ${W.et.map(k => ETP2.find(e => e[0] === k)[1]).join(", ") || "—"}</p><small>Nada foi gravado ainda. Ao confirmar, o projeto e seus parâmetros são criados.</small>`;
@@ -1441,7 +1496,7 @@ function wzDraw() {
       catch (x) { $("#w_msg").textContent = "Não foi possível ler: " + x.message; } }; }
 }
 function wzRead() { const g = i => $("#" + i) ? $("#" + i).value : null;
-  if (W.s === 1) W.b = { nome: g("w_nome").trim(), cli: g("w_cli").trim(), loc: g("w_loc").trim(), ini: g("w_ini"), fim: g("w_fim") };
+  if (W.s === 1) W.b = { nome: g("w_nome").trim(), cli: g("w_cli").trim(), loc: g("w_loc").trim(), ini: g("w_ini"), fim: g("w_fim"), fy: g("w_fy") };
   if (W.s === 2) W.tsv = g("w_tsv");
   if (W.s === 3) { W.tipos = g("w_tp"); W.areas = g("w_ar"); W.et = [...document.querySelectorAll("#wz [data-k]")].filter(x => x.checked).map(x => x.dataset.k); } }
 async function wzNext() {
@@ -1454,7 +1509,9 @@ async function wzNext() {
 }
 async function wzSave() {
   if (!canNew) return "Sem permissão.";
-  const b = W.b, { data, error } = await sb.from("projetos").insert({ nome: b.nome, cliente: b.cli || null, localidade: b.loc || null, data_inicio: b.ini, data_fim: b.fim }).select();
+  const b = W.b, fy = Number(b.fy) || 7, base = { nome: b.nome, cliente: b.cli || null, localidade: b.loc || null, data_inicio: b.ini, data_fim: b.fim };
+  let { data, error } = await sb.from("projetos").insert({ ...base, ano_fiscal_mes_inicio: fy }).select();
+  if (error && /ano_fiscal_mes_inicio/.test(error.message)) { ({ data, error } = await sb.from("projetos").insert(base).select()); if (!error && data && data.length) { try { localStorage.setItem("gs-fy-" + data[0].id, String(fy)); } catch (x) {} } }
   if (error || !data || !data.length) return error ? (/duplicate|unique/i.test(error.message) ? "Já existe um projeto com esse nome." : error.message) : "Sem permissão para criar projetos.";
   const id = data[0].id, L = t => uniq(t.split("\n").map(x => x.trim()));
   const ps = [...L(W.areas).map((n, i) => ({ categoria: "area", nome: n, ordem: i + 1, ativo: true, config: {} })),
