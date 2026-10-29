@@ -1262,5 +1262,143 @@ async function recusarExclusao(x) {
 
 boot();
 </script>
+<script>
+/* Grua Segura – Fase 2: parâmetros por projeto, assistente de novo projeto e importação de escopo.
+   Carregar DEPOIS do script principal (ver passo a passo). Não altera o index.html além da tag <script>. */
+(function () {
+const CAT = [["tipo", "Tipos de intervenção"], ["area", "Áreas / locais"], ["etapa", "Etapas do fluxo"], ["campo", "Campos extras"]];
+const ETP2 = [["lev", "Levantamento"], ["proj", "Projeto"], ["des", "Desenho"], ["sph", "Sphera"], ["sap", "SAP"]];
+const ETM = { lev: r => lv(r), proj: r => si(r) >= 1, des: r => si(r) >= 2, sph: r => si(r) >= 3, sap: r => si(r) >= 4 }; // regra de cada etapa
+const DEF = { a: [...AREAS], t: [...TIPOS], k: ["lev", "des", "sph", "sap"] };
+const MAM = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";
+const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js", PDFW = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+let ALL = {}; // parâmetros de todos os projetos, por projeto_id
+const par = (c, pid) => (ALL[pid || proj.id] || []).filter(p => p.categoria === c);
+const keysFor = pid => { const k = par("etapa", pid).filter(p => p.ativo).map(p => p.config && p.config.chave).filter(k => ETM[k]); return k.length ? k : DEF.k; };
+const lib = u => new Promise((ok, no) => { if (document.querySelector(`script[src="${u}"]`)) return ok(); const s = document.createElement("script"); s.src = u; s.onload = ok; s.onerror = () => no(new Error("Falha ao carregar a biblioteca")); document.head.appendChild(s); });
+
+// ---- Carga dos parâmetros ----
+async function loadAll() { const { data, error } = await sb.from("projeto_parametros").select("*").order("ordem").order("id"); if (error) return; ALL = {}; data.forEach(p => (ALL[p.projeto_id] = ALL[p.projeto_id] || []).push(p)); }
+function keep(sel, items, first) { const el = $(sel), v = el.value; fillSelect(el, items, first); el.value = items.includes(v) ? v : ""; }
+async function loadCfg() {
+  await loadAll(); const a = par("area").filter(p => p.ativo).map(p => p.nome), t = par("tipo").filter(p => p.ativo).map(p => p.nome);
+  AREAS.splice(0, AREAS.length, ...(a.length ? a : DEF.a)); TIPOS.splice(0, TIPOS.length, ...(t.length ? t : DEF.t));
+  keep("#dA", AREAS, "Todas as áreas"); keep("#rA", AREAS, "Todas as áreas"); keep("#fA", AREAS, "Área"); fillSelect($("#fArea"), AREAS);
+}
+const _load = load; load = async function () { await loadCfg(); await _load(); };
+const _ah = abrirHome; abrirHome = async function (seq) { await loadAll(); return _ah(seq); };
+
+// ---- Andamento total = média das etapas ATIVAS ----
+andamento = function (list) { const pid = list.length ? list[0].projeto_id : (proj && proj.id), ks = keysFor(pid), n = list.length || 1;
+  return Math.round(100 * ks.reduce((t, k) => t + list.filter(ETM[k]).length, 0) / (ks.length * n)); };
+const _dash = dash;
+dash = function () { _dash();
+  try { const a = $("#dA").value, d = a ? rows.filter(r => r.area === a) : rows, ks = keysFor(proj.id), n = wsum(d) || 1;
+    const tp = Math.round(100 * ks.reduce((t, k) => t + wsum(d.filter(ETM[k])), 0) / (ks.length * n)), c = $("#kpis").children[1], nm = ks.map(k => ETP2.find(e => e[0] === k)[1].toLowerCase()).join(", ");
+    c.querySelector("b").textContent = tp + "%"; c.querySelector("u").style.width = tp + "%"; c.querySelector("small").innerHTML = `<em>média das ${ks.length} etapas ativas (${esc(nm)})</em><br><i>faltam ${100 - tp}%</i>`; } catch (e) {}
+};
+$("#dA").onchange = dash; $("#evP").onchange = dash; $("#evS").onchange = dash;
+
+// ---- Aba Parâmetros (editor/admin) ----
+const sec = document.createElement("section"); sec.id = "t6"; sec.className = "hide"; $("main").appendChild(sec); SEC.push("t6"); TABS.parametros = "t6";
+const nb = document.createElement("button"); nb.dataset.t = "t6"; nb.dataset.r = "parametros"; nb.innerHTML = '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span>Parâmetros</span>';
+nb.onclick = () => { if (proj) location.hash = `#/projeto/${proj.id}/parametros`; }; $("nav").appendChild(nb);
+const _ap = abrirProjeto;
+abrirProjeto = async function (id, tab, seq) { nb.classList.toggle("hide", !canProj); if (tab === "parametros" && !canProj) tab = "dashboard";
+  await _ap(id, tab, seq); if (proj && proj.id === id && tab === "parametros") renderPar(); };
+const det = p => p.categoria === "tipo" ? "unidade: " + ((p.config || {}).unidade || "—") : p.categoria === "etapa" ? "chave: " + ((p.config || {}).chave || "personalizada") : p.categoria === "campo" ? ((p.config || {}).tipo || "texto") + ((p.config || {}).opcoes ? " (" + p.config.opcoes.join(", ") + ")" : "") : "";
+function renderPar() {
+  sec.innerHTML = CAT.map(([c, t]) => `<div class="card"><div class="evh"><b>${t}</b>${c === "etapa" ? "" : `<button class="p" data-add="${c}">+ Adicionar</button>`}</div>` +
+    (par(c).map(p => `<div class="sl"><div><b>${esc(p.nome)}</b> <small>${esc(det(p))}${p.ativo ? "" : " · inativo"}</small></div><div class="ac"><button data-pe="${p.id}">Editar</button><button data-pt="${p.id}">${p.ativo ? "Desativar" : "Ativar"}</button></div></div>`).join("") || "<small>Nenhum parâmetro cadastrado.</small>") + "</div>").join("") +
+    "<small>Etapas: o andamento total é a média das etapas ativas. Desativar não apaga dados.</small>";
+  sec.querySelectorAll("[data-add]").forEach(b => b.onclick = () => editPar(null, b.dataset.add));
+  sec.querySelectorAll("[data-pe]").forEach(b => b.onclick = () => editPar((ALL[proj.id] || []).find(p => p.id == b.dataset.pe)));
+  sec.querySelectorAll("[data-pt]").forEach(b => b.onclick = async () => { const p = (ALL[proj.id] || []).find(x => x.id == b.dataset.pt);
+    const { error } = await sb.from("projeto_parametros").update({ ativo: !p.ativo }).eq("id", p.id); if (error) return alert(error.message);
+    logP(p.ativo ? "Desativou parâmetro" : "Ativou parâmetro", `${p.categoria}: ${p.nome}`); await recarrega(); });
+}
+async function recarrega() { await loadCfg(); renderPar(); dash(); }
+async function editPar(p, cat) {
+  if (!canProj) return; const c = p ? p.categoria : cat, cf = Object.assign({}, p && p.config);
+  const nome = (prompt("Nome:", p ? p.nome : "") || "").trim(); if (!nome) return;
+  if (c === "tipo") cf.unidade = (prompt("Unidade (ex.: un, m, m²):", cf.unidade || "un") || "un").trim();
+  if (c === "campo") { const t = (prompt("Tipo do campo: texto, número, data ou lista", cf.tipo || "texto") || "texto").trim().toLowerCase(); cf.tipo = ["texto", "número", "numero", "data", "lista"].includes(t) ? t : "texto";
+    if (cf.tipo === "lista") cf.opcoes = (prompt("Opções separadas por ;", (cf.opcoes || []).join(";")) || "").split(";").map(s => s.trim()).filter(Boolean); }
+  const o = { nome, config: cf }, { error } = await (p ? sb.from("projeto_parametros").update(o).eq("id", p.id) : sb.from("projeto_parametros").insert({ ...o, projeto_id: proj.id, categoria: c, ordem: par(c).length + 1 }));
+  if (error) return alert(/duplicate|unique/i.test(error.message) ? "Já existe um parâmetro com esse nome." : "Erro: " + error.message);
+  logP(p ? "Editou parâmetro" : "Criou parâmetro", `${c}: ${nome}`); await recarrega();
+}
+
+// ---- Leitura do escopo (Excel/CSV, Word, PDF) -> matriz de linhas ----
+async function lerArq(f) {
+  const n = f.name.toLowerCase();
+  if (/\.(xlsx|xls|csv)$/.test(n)) { const wb = XLSX.read(await f.arrayBuffer()); return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "", blankrows: false }); }
+  if (/\.docx$/.test(n)) { await lib(MAM); const h = (await mammoth.convertToHtml({ arrayBuffer: await f.arrayBuffer() })).value, d = new DOMParser().parseFromString(h, "text/html"), t = d.querySelector("table");
+    return t ? [...t.rows].map(r => [...r.cells].map(c => c.textContent.trim())) : [...d.body.children].map(e => [e.textContent.trim()]).filter(r => r[0]); }
+  if (/\.pdf$/.test(n)) { await lib(PDFJS); pdfjsLib.GlobalWorkerOptions.workerSrc = PDFW; const pdf = await pdfjsLib.getDocument({ data: await f.arrayBuffer() }).promise, out = [];
+    for (let i = 1; i <= pdf.numPages; i++) { const tc = await (await pdf.getPage(i)).getTextContent(), ls = {};
+      tc.items.forEach(it => { const y = Math.round(it.transform[5] / 3); (ls[y] = ls[y] || []).push(it); });
+      Object.keys(ls).sort((a, b) => b - a).forEach(y => { const cols = []; let last = null; ls[y].sort((a, b) => a.transform[4] - b.transform[4]).forEach(it => {
+        if (last === null || it.transform[4] - last > 12) cols.push(it.str); else cols[cols.length - 1] += it.str; last = it.transform[4] + (it.width || 0); }); out.push(cols.map(s => s.trim())); }); }
+    return out.filter(r => r.some(Boolean)); }
+  throw new Error("Formato não suportado.");
+}
+
+// ---- Assistente de novo projeto ----
+const wz = document.createElement("dialog"); wz.id = "wzDlg"; wz.innerHTML = '<div id="wz"></div>'; document.body.appendChild(wz);
+let W = {};
+const FIELDS = [["area", "Área / local", /[áa]rea|local/i], ["equipamento", "Equipamento (obrigatório)", /equip|tag/i], ["tipo_projeto", "Tipo de intervenção", /tipo|interven|servi/i], ["qtd", "Quantidade", /qtd|quant/i], ["detalhe", "Detalhe / descrição", /detalh|descri|escopo/i]];
+const tsv = () => W.tsv.split("\n").map(l => l.split("\t").map(s => s.trim())).filter(r => r.some(Boolean));
+const uniq = a => [...new Set(a.filter(Boolean))];
+function pontosDe() { const R = tsv(); if (R.length < 2) return []; const m = W.map, g = (r, f) => m[f] === undefined || m[f] === "" ? "" : (r[+m[f]] || "");
+  return R.slice(1).map(r => ({ area: g(r, "area") || "Geral", equipamento: g(r, "equipamento"), tipo_projeto: g(r, "tipo_projeto") || "Geral", qtd: Number(String(g(r, "qtd")).replace(",", ".")) || null, detalhe: g(r, "detalhe") || null })).filter(p => p.equipamento); }
+function drawMap() { const R = tsv(), box = $("#w_map"); if (!box) return; if (R.length < 2) { box.innerHTML = ""; return; }
+  box.innerHTML = "<b>Mapeamento de colunas</b>" + FIELDS.map(([f, l, re]) => { if (W.map[f] === undefined) { const i = R[0].findIndex(h => re.test(h)); W.map[f] = i < 0 ? "" : String(i); }
+    return `<label>${l}<select data-f="${f}"><option value="">— não usar —</option>${R[0].map((h, i) => `<option value="${i}" ${W.map[f] === String(i) ? "selected" : ""}>${esc(h || "Coluna " + (i + 1))}</option>`).join("")}</select></label>`; }).join("") +
+    `<small>${pontosDe().length} linhas válidas serão criadas (só após a confirmação final).</small>`;
+  box.querySelectorAll("select").forEach(s => s.onchange = () => { W.map[s.dataset.f] = s.value; drawMap(); }); }
+function wzOpen() { if (!canProj) return; W = { s: 1, b: {}, tsv: "", map: {}, tipos: "", areas: "", et: ETP2.map(e => e[0]) }; wzDraw(); wz.showModal(); }
+function wzDraw() {
+  const s = W.s, b = W.b, v = x => esc(b[x] || ""); let h = `<h3>Novo projeto · passo ${s} de 4</h3>`;
+  if (s === 1) h += `<label>Nome<input id="w_nome" maxlength="120" value="${v("nome")}"></label><label>Cliente<input id="w_cli" maxlength="120" value="${v("cli")}"></label><label>Local<input id="w_loc" maxlength="120" value="${v("loc")}"></label><label>Data de início<input id="w_ini" type="date" value="${v("ini")}"></label><label>Data de término<input id="w_fim" type="date" value="${v("fim")}"></label>`;
+  if (s === 2) h += `<label>Escopo (.xlsx, .csv, .docx ou .pdf) — opcional<input id="w_file" type="file" accept=".xlsx,.xls,.csv,.docx,.pdf"></label><small id="w_msg">Word e PDF podem vir com erros: corrija na prévia abaixo.</small><label>Prévia editável (colunas separadas por TAB; 1ª linha = cabeçalho)<textarea id="w_tsv" rows="8" style="font:12px ui-monospace,monospace;white-space:pre">${esc(W.tsv)}</textarea></label><div id="w_map"></div>`;
+  if (s === 3) h += `<label>Tipos de intervenção (um por linha: nome;unidade)<textarea id="w_tp" rows="5">${esc(W.tipos)}</textarea></label><label>Áreas / locais (um por linha)<textarea id="w_ar" rows="4">${esc(W.areas)}</textarea></label><b style="display:block;margin-top:10px">Etapas do fluxo (ativas)</b>${ETP2.map(([k, n]) => `<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-k="${k}" style="width:auto;min-height:0" ${W.et.includes(k) ? "checked" : ""}> ${n}</label>`).join("")}`;
+  if (s === 4) h += `<p><b>${esc(b.nome)}</b><br>${esc([b.cli, b.loc].filter(Boolean).join(" · ") || "—")}<br>${b.ini} a ${b.fim}</p><p>${pontosDe().length} pontos · ${W.tipos.split("\n").filter(x => x.trim()).length} tipos · ${W.areas.split("\n").filter(x => x.trim()).length} áreas · etapas ativas: ${W.et.map(k => ETP2.find(e => e[0] === k)[1]).join(", ") || "—"}</p><small>Nada foi gravado ainda. Ao confirmar, o projeto e seus parâmetros são criados.</small>`;
+  h += `<div class="bar" style="margin-top:14px">${s > 1 ? '<button id="w_bk">Voltar</button>' : ""}<button class="p" id="w_nx">${s === 4 ? "Confirmar e criar" : "Continuar"}</button><button id="w_cx">Cancelar</button></div><p class="err" id="w_err"></p>`;
+  $("#wz").innerHTML = h; $("#w_cx").onclick = () => wz.close(); if ($("#w_bk")) $("#w_bk").onclick = () => { wzRead(); W.s--; wzDraw(); }; $("#w_nx").onclick = wzNext;
+  if (s === 2) { drawMap(); $("#w_tsv").oninput = e => { W.tsv = e.target.value; W.map = {}; drawMap(); };
+    $("#w_file").onchange = async e => { const f = e.target.files[0]; if (!f) return; $("#w_msg").textContent = "Lendo arquivo…";
+      try { const a = await lerArq(f); W.tsv = a.map(r => r.map(c => String(c ?? "").replace(/[\t\r\n]+/g, " ")).join("\t")).join("\n"); W.map = {}; $("#w_tsv").value = W.tsv; $("#w_msg").textContent = `${a.length} linhas lidas. Confira e corrija se preciso.`; drawMap(); }
+      catch (x) { $("#w_msg").textContent = "Não foi possível ler: " + x.message; } }; }
+}
+function wzRead() { const g = i => $("#" + i) ? $("#" + i).value : null;
+  if (W.s === 1) W.b = { nome: g("w_nome").trim(), cli: g("w_cli").trim(), loc: g("w_loc").trim(), ini: g("w_ini"), fim: g("w_fim") };
+  if (W.s === 2) W.tsv = g("w_tsv");
+  if (W.s === 3) { W.tipos = g("w_tp"); W.areas = g("w_ar"); W.et = [...document.querySelectorAll("#wz [data-k]")].filter(x => x.checked).map(x => x.dataset.k); } }
+async function wzNext() {
+  const err = m => { $("#w_err").textContent = m; }; wzRead(); const b = W.b;
+  if (W.s === 1) { if (!b.nome) return err("Informe o nome."); if (!b.ini || !b.fim || b.fim < b.ini) return err("Informe datas válidas (término igual ou depois do início)."); }
+  if (W.s === 2) { const p = pontosDe(); if (W.tsv.trim() && !p.length) return err("Nenhuma linha válida: mapeie ao menos a coluna Equipamento."); W.areas = uniq(p.map(x => x.area)).join("\n"); W.tipos = uniq(p.map(x => x.tipo_projeto)).map(t => t + ";un").join("\n"); }
+  if (W.s === 3 && !W.et.length) return err("Mantenha ao menos uma etapa ativa.");
+  if (W.s < 4) { W.s++; return wzDraw(); }
+  $("#w_nx").disabled = true; const m = await wzSave(); if (m) { err(m); $("#w_nx").disabled = false; }
+}
+async function wzSave() {
+  if (!canProj) return "Sem permissão.";
+  const b = W.b, { data, error } = await sb.from("projetos").insert({ nome: b.nome, cliente: b.cli || null, localidade: b.loc || null, data_inicio: b.ini, data_fim: b.fim }).select();
+  if (error || !data || !data.length) return error ? (/duplicate|unique/i.test(error.message) ? "Já existe um projeto com esse nome." : error.message) : "Sem permissão para criar projetos.";
+  const id = data[0].id, L = t => uniq(t.split("\n").map(x => x.trim()));
+  const ps = [...L(W.areas).map((n, i) => ({ categoria: "area", nome: n, ordem: i + 1, ativo: true, config: {} })),
+    ...uniq(L(W.tipos).map(x => x.split(";")[0].trim())).map((n, i) => ({ categoria: "tipo", nome: n, ordem: i + 1, ativo: true, config: { unidade: ((L(W.tipos).find(x => x.split(";")[0].trim() === n) || "").split(";")[1] || "un").trim() } })),
+    ...ETP2.map(([k, n], i) => ({ categoria: "etapa", nome: n, ordem: i + 1, ativo: W.et.includes(k), config: { chave: k } }))].map(p => ({ ...p, projeto_id: id }));
+  let r = await sb.from("projeto_parametros").insert(ps); if (r.error) return "Projeto criado, mas os parâmetros falharam: " + r.error.message + " (rode fase2_01 a fase2_03).";
+  const pts = pontosDe().map(p => ({ ...p, projeto_id: id, status_levantamento: "Pendente", status_projeto: "A projetar" }));
+  for (let i = 0; i < pts.length; i += 200) { r = await sb.from("pontos").insert(pts.slice(i, i + 200)); if (r.error) return `Projeto criado, mas a importação parou na linha ${i}: ${r.error.message}`; }
+  logAcao("Criou projeto (assistente)", `${b.nome} · ${pts.length} pontos · ${ps.length} parâmetros`); wz.close(); abrirHome(++navSeq); return null;
+}
+$("#pNovo").onclick = wzOpen;
+})();
+
+</script>
 </body>
 </html>
