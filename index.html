@@ -161,6 +161,13 @@ body.v-proj .logo{display:none}
 html[data-theme=dark] .pbar{background:#27314a}html[data-theme=dark] .pc:hover{box-shadow:0 4px 18px #0006}html[data-theme=dark] .pc .pp b{color:var(--ink)}
 body.v-proj header h1,body.v-users header h1{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:13.5px;line-height:1.2}
 @media(max-width:440px){header{padding-left:12px;padding-right:12px;gap:8px}header .hb{gap:6px}header .hb button,#back{padding:7px 10px}}
+.pc .pt h3{flex:1;min-width:0}.mw{position:relative;flex:none;margin:-6px -8px 0 0}
+.km{min-height:0;width:40px;height:40px;padding:0;border:0;background:transparent;font-size:22px;line-height:1;border-radius:10px;color:var(--mut)}
+.mn{position:absolute;right:0;top:100%;z-index:15;min-width:190px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px #0f1b2d30;padding:6px}
+.mn button{display:block;width:100%;text-align:left;border:0;background:transparent;min-height:0;padding:11px 12px;border-radius:8px;font-weight:600}.mn button.dg{color:#d64545}.mn button:disabled{opacity:.55;cursor:default}
+.pc .aviso{font-size:12.5px;font-weight:700;color:#d9822b}
+.sl{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:12px 0 0;margin-top:12px;border-top:1px solid var(--line)}.sl>div{min-width:0}.sl .ac{display:flex;gap:8px;flex-wrap:wrap}
+html[data-theme=dark] .mn{background:#1a2336;border-color:#34405c;box-shadow:0 10px 30px #0008}html[data-theme=dark] .mn button{background:transparent}html[data-theme=dark] .mn button:hover{background:#222d45}html[data-theme=dark] .mn button.dg{color:#ff8a80}
 </style>
 </head>
 <body>
@@ -197,6 +204,7 @@ body.v-proj header h1,body.v-users header h1{white-space:normal;display:-webkit-
 <main>
  <section id="home" class="hide">
   <div class="hh"><h2>Projetos</h2><div class="bar"><input id="hQ" type="search" placeholder="Buscar projeto, cliente ou local…" aria-label="Buscar projeto"><button class="p hide" id="pNovo">+ Novo projeto</button></div></div>
+  <div id="solic"></div>
   <div class="pgrid" id="pList"></div>
  </section>
  <section id="t1">
@@ -275,6 +283,13 @@ body.v-proj header h1,body.v-users header h1{white-space:normal;display:-webkit-
 </main>
 </div>
 
+<dialog id="pwDlg"><form id="pwF">
+ <h3 id="pwT">Confirmar</h3><p id="pwM"></p>
+ <label>Sua senha<input id="pwI" type="password" autocomplete="current-password" required></label>
+ <p class="err" id="pwE"></p>
+ <div class="bar" style="margin-top:10px"><button class="p" id="pwOk">Confirmar</button><button type="button" id="pwCx">Cancelar</button></div>
+</form></dialog>
+
 <dialog id="pjDlg"><form id="pjF">
  <h3 id="pjT">Novo projeto</h3><input type="hidden" name="id"><div class="g">
  <label class="w">Nome do projeto<input name="nome" required maxlength="120" autocomplete="off"></label>
@@ -344,7 +359,7 @@ fillSelect($("#fS"), ST, "Status do projeto"); fillSelect($("#fArea"), AREAS); f
 
 // ---------- Login e acesso ----------
 let papel = null, canEdit = false, canDelete = false, canImport = false, canProj = false, signup = false, me = null, myEmail = "", hb = null;
-let proj = null, projs = [], navSeq = 0; // projeto aberto, lista de projetos e controle de navegação
+let proj = null, projs = [], sols = [], navSeq = 0; // projeto aberto, lista de projetos e controle de navegação
 const PAPEIS = [["pendente","Pendente (sem acesso)"],["visualizador","Visualizador"],["colaborador","Colaborador"],["editor","Editor"],["admin","Administrador"]];
 async function boot() {
   const { data } = await sb.auth.getSession();
@@ -504,7 +519,7 @@ setInterval(() => { if (papel === "admin" && !$("#t4").classList.contains("hide"
 async function load() {
   if (!proj) return;
   const { data, error } = await sb.from("pontos").select("*").eq("projeto_id", proj.id).order("area").order("equipamento").limit(5000);
-  if (error) return alert("Erro ao carregar: " + error.message + (/projeto_id/.test(error.message) ? "\n\nExecute os scripts SQL da Fase 1 (fase1_01 a fase1_06) no Supabase." : ""));
+  if (error) return alert("Erro ao carregar: " + error.message + (/projeto_id/.test(error.message) ? "\n\nExecute os scripts SQL da Fase 1 (fase1_01 a fase1_08) no Supabase." : ""));
   rows = data; hasF = !rows.length || "folhas" in rows[0]; hasS = !rows.length || "codigo_sap" in rows[0]; hist = await fetchAll("historico", { projeto_id: proj.id });
   const tps = [...new Set([...TIPOS, ...rows.map(r => r.tipo_projeto)])];
   $("#tps").innerHTML = tps.map(t => `<option value="${esc(t)}">`).join("");
@@ -1053,7 +1068,7 @@ const DAY = 864e5, TABS = { dashboard: "t1", cadastro: "t2", relatorios: "t5", d
 const logP = (acao, det = "") => logAcao(acao, proj ? `[${proj.nome}] ${det}` : det); // ações dentro de um projeto levam o nome dele
 const parseD = x => { const [y, m, d] = String(x).slice(0, 10).split("-").map(Number); return new Date(y, m - 1, d); };
 const periodo = p => ({ ini: parseD(p.data_inicio), fim: new Date(parseD(p.data_fim).getTime() + DAY - 1) }); // fim = 23:59:59.999 do último dia
-const SQLP = "Execute os scripts SQL da Fase 1 (fase1_01 a fase1_06) no SQL Editor do Supabase, nessa ordem, e recarregue o app.";
+const SQLP = "Execute os scripts SQL da Fase 1 (fase1_01 a fase1_08) no SQL Editor do Supabase, nessa ordem, e recarregue o app.";
 const SEC = ["home", "t1", "t2", "t3", "t4", "t5"];
 function setView(v, sec) { // v: home | proj | users
   document.body.classList.remove("v-home", "v-proj", "v-users"); document.body.classList.add("v-" + v);
@@ -1106,30 +1121,35 @@ async function fetchCols(t, cols) { // lê só as colunas pedidas, em páginas d
 async function abrirHome(seq) {
   proj = null; rows = []; hist = []; setView("home", "home"); setHeader("Grua Segura", "Gestão de projetos");
   $("#pList").innerHTML = "<small>Carregando projetos…</small>";
-  const [pr, pt] = await Promise.all([sb.from("projetos").select("*").eq("ativo", true).order("data_inicio", { ascending: false }).order("id"),
-    fetchCols("pontos", "projeto_id,status_levantamento,status_projeto")]);
+  const [pr, pt, so] = await Promise.all([sb.from("projetos").select("*").eq("ativo", true).order("data_inicio", { ascending: false }).order("id"),
+    fetchCols("pontos", "projeto_id,status_levantamento,status_projeto"),
+    canProj ? sb.from("projeto_exclusoes").select("*").eq("status", "pendente").order("created_at") : Promise.resolve({ data: [] })]);
   if (seq !== navSeq) return;
   if (pr.error || pt.error) return $("#pList").innerHTML = `<div class="card"><b>Não foi possível carregar os projetos.</b><p class="err">${esc((pr.error || pt.error).message)}</p><p>${SQLP}</p></div>`;
   const by = {}; pt.data.forEach(r => (by[r.projeto_id] = by[r.projeto_id] || []).push(r));
   projs = pr.data.map(p => ({ ...p, pct: andamento(by[p.id] || []) }));
-  listaProjetos();
+  sols = so.error ? [] : so.data; // sem a tabela (SQL 07/08 não rodado) o app segue funcionando
+  listaProjetos(); painelSolic();
 }
 function listaProjetos() {
   const q = $("#hQ").value.trim().toLowerCase(), d = projs.filter(p => !q || [p.nome, p.cliente, p.localidade].join(" ").toLowerCase().includes(q));
   $("#pList").innerHTML = d.length ? d.map(p => { const sit = situacao(p, p.pct), pe = periodo(p);
     return `<article class="card pc" tabindex="0" role="link" data-id="${p.id}" aria-label="Abrir ${esc(p.nome)}">
-      <div class="pt"><h3>${esc(p.nome)}</h3><span class="tag" style="--c:${sit.c}">${sit.t}</span></div>
+      <div class="pt"><h3>${esc(p.nome)}</h3><span class="tag" style="--c:${sit.c}">${sit.t}</span>${canProj ? menuHtml(p) : ""}</div>
       <div class="ps">${esc([p.cliente, p.localidade].filter(Boolean).join(" · ") || "—")}</div>
       <div class="ps">${dtBR(pe.ini)} a ${dtBR(pe.fim)}</div>
       <div class="pp"><b>${p.pct}%</b><span>andamento total</span></div><div class="pbar"><u style="width:${p.pct}%"></u></div>
-      <div class="pfoot"><span>${diasTxt(p)}</span><span class="ac">${canProj ? `<button data-ed="${p.id}">Editar</button>` : ""}${papel === "admin" ? `<button class="d" data-rm="${p.id}">Excluir</button>` : ""}</span></div></article>`; }).join("")
+      ${solDe(p) ? `<div class="aviso">⏳ Exclusão solicitada por ${esc(solDe(p).solicitante_email || "um editor")}</div>` : ""}
+      <div class="pfoot"><span>${diasTxt(p)}</span></div></article>`; }).join("")
     : `<div class="card"><b>${projs.length ? "Nenhum projeto encontrado." : "Nenhum projeto cadastrado."}</b>${!projs.length && canProj ? "<p>Toque em “+ Novo projeto” para começar.</p>" : ""}</div>`;
   document.querySelectorAll("#pList .pc").forEach(c => {
     const abre = () => { location.hash = `#/projeto/${c.dataset.id}/dashboard`; };
     c.onclick = abre; c.onkeydown = e => { if (e.target === c && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); abre(); } };
   });
-  document.querySelectorAll("#pList [data-ed]").forEach(b => b.onclick = e => { e.stopPropagation(); editarProjeto(projs.find(p => p.id == b.dataset.ed)); });
-  document.querySelectorAll("#pList [data-rm]").forEach(b => b.onclick = e => { e.stopPropagation(); excluirProjeto(projs.find(p => p.id == b.dataset.rm)); });
+  document.querySelectorAll("#pList .km").forEach(b => b.onclick = e => { e.stopPropagation(); const mn = b.nextElementSibling, abrir = mn.classList.contains("hide"); fecharMenus(); mn.classList.toggle("hide", !abrir); b.setAttribute("aria-expanded", String(abrir)); });
+  document.querySelectorAll("#pList .mn").forEach(m => m.onclick = e => e.stopPropagation());
+  document.querySelectorAll("#pList [data-ed]").forEach(b => b.onclick = () => { fecharMenus(); editarProjeto(projs.find(p => p.id == b.dataset.ed)); });
+  document.querySelectorAll("#pList [data-rm]").forEach(b => b.onclick = () => { fecharMenus(); excluirProjeto(projs.find(p => p.id == b.dataset.rm)); });
 }
 $("#hQ").oninput = listaProjetos;
 
@@ -1171,14 +1191,73 @@ $("#pjF").onsubmit = async e => {
   logAcao(id ? "Editou projeto" : "Criou projeto", `${o.nome} (${o.data_inicio} a ${o.data_fim})`);
   $("#pjDlg").close(); abrirHome(++navSeq);
 };
-async function excluirProjeto(p) {
-  if (papel !== "admin") return alert("Somente administradores podem excluir projetos.");
-  const t = prompt(`Excluir o projeto “${p.nome}” APAGA também todos os pontos e o histórico dele. Esta ação não pode ser desfeita.\n\nPara confirmar, digite o nome do projeto:`);
-  if (t === null) return; if (t.trim().toLowerCase() !== p.nome.toLowerCase()) return alert("O nome digitado não confere. Nada foi excluído.");
-  const { data, error } = await sb.from("projetos").delete().eq("id", p.id).select("id");
-  if (error) return alert("Não foi possível excluir: " + error.message);
-  if (!data?.length) return alert("Não foi possível excluir: apenas administradores podem excluir projetos.");
-  logAcao("Excluiu projeto", p.nome); abrirHome(++navSeq);
+// ---------- Menu ⋮ do card, exclusão com senha e solicitações ----------
+const solDe = p => sols.find(x => x.projeto_id === p.id);
+const menuHtml = p => `<div class="mw"><button class="km" aria-label="Opções do projeto ${esc(p.nome)}" aria-haspopup="menu" aria-expanded="false">⋮</button><div class="mn hide" role="menu">
+  <button role="menuitem" data-ed="${p.id}">Editar</button>
+  <button role="menuitem" class="dg" data-rm="${p.id}" ${solDe(p) ? "disabled" : ""}>${solDe(p) ? "Exclusão já solicitada" : "Excluir"}</button></div></div>`;
+function fecharMenus() { document.querySelectorAll("#pList .mn").forEach(m => m.classList.add("hide")); document.querySelectorAll("#pList .km").forEach(b => b.setAttribute("aria-expanded", "false")); }
+document.addEventListener("click", fecharMenus); document.addEventListener("keydown", e => { if (e.key === "Escape") fecharMenus(); });
+
+// Confere a senha do usuário logado num cliente temporário (não troca a sessão do app)
+async function senhaOk(pw) {
+  const tmp = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: "gs-confirma-senha" } });
+  const { error } = await tmp.auth.signInWithPassword({ email: myEmail, password: pw }); return !error;
+}
+// Abre o diálogo de senha; só executa acao() (que devolve null ou uma mensagem de erro) se a senha estiver certa
+function confirmarComSenha(titulo, msg, rotulo, perigo, acao) {
+  $("#pwT").textContent = titulo; $("#pwM").textContent = msg; $("#pwI").value = ""; $("#pwE").textContent = "";
+  const ok = $("#pwOk"); ok.textContent = rotulo; ok.className = perigo ? "d" : "p"; ok.disabled = false;
+  $("#pwF").onsubmit = async e => {
+    e.preventDefault(); ok.disabled = true; $("#pwE").textContent = "";
+    if (!(await senhaOk($("#pwI").value))) { $("#pwE").textContent = "Senha incorreta."; ok.disabled = false; return; }
+    const err = await acao(); ok.disabled = false;
+    if (err) $("#pwE").textContent = err; else { $("#pwI").value = ""; $("#pwDlg").close(); }
+  };
+  $("#pwDlg").showModal(); $("#pwI").focus();
+}
+$("#pwCx").onclick = () => { $("#pwI").value = ""; $("#pwDlg").close(); };
+
+// Excluir: admin apaga na hora (após a senha); editor envia solicitação ao admin
+function excluirProjeto(p) {
+  if (!canProj || !p) return;
+  if (solDe(p)) return alert("Já existe uma solicitação de exclusão pendente para este projeto.");
+  if (papel === "admin") return confirmarComSenha("Excluir projeto", `“${p.nome}” será excluído junto com todos os pontos e o histórico dele. Isso não pode ser desfeito. Digite sua senha para confirmar.`, "Excluir definitivamente", true, async () => {
+    const { data, error } = await sb.from("projetos").delete().eq("id", p.id).select("id");
+    if (error) return "Não foi possível excluir: " + error.message;
+    if (!data?.length) return "Não foi possível excluir: sem permissão.";
+    logAcao("Excluiu projeto", p.nome); abrirHome(++navSeq); return null;
+  });
+  confirmarComSenha("Solicitar exclusão", `A exclusão de “${p.nome}” será enviada ao administrador, que decide se aprova. Nada é apagado até lá. Digite sua senha para confirmar.`, "Enviar solicitação", false, async () => {
+    const { error } = await sb.from("projeto_exclusoes").insert({ projeto_id: p.id, projeto_nome: p.nome, solicitante: me, solicitante_email: myEmail });
+    if (error) return /duplicate|unique/i.test(error.message) ? "Já existe uma solicitação pendente para este projeto." : "Não foi possível enviar: " + error.message + (/projeto_exclusoes/.test(error.message) ? " — " + SQLP2 : "");
+    logAcao("Solicitou exclusão de projeto", p.nome); alert("Solicitação enviada ao administrador."); abrirHome(++navSeq); return null;
+  });
+}
+const SQLP2 = "Execute os scripts fase1_07 e fase1_08 no SQL Editor do Supabase.";
+// Painel do admin: solicitações pendentes
+function painelSolic() {
+  const el = $("#solic");
+  if (papel !== "admin" || !sols.length) return el.innerHTML = "";
+  el.innerHTML = `<div class="card"><b>Solicitações de exclusão<span class="cnt">${sols.length}</span></b>${sols.map(x => `<div class="sl"><div><b>${esc(x.projeto_nome)}</b><br><small>pedido por ${esc(x.solicitante_email || "—")} em ${dtf(x.created_at)}</small></div>
+    <div class="ac"><button class="d" data-ap="${x.id}">Aprovar e excluir</button><button data-rc="${x.id}">Recusar</button></div></div>`).join("")}</div>`;
+  el.querySelectorAll("[data-ap]").forEach(b => b.onclick = () => aprovarExclusao(sols.find(x => x.id == b.dataset.ap)));
+  el.querySelectorAll("[data-rc]").forEach(b => b.onclick = () => recusarExclusao(sols.find(x => x.id == b.dataset.rc)));
+}
+const decisao = st => ({ status: st, decidido_por: me, decidido_email: myEmail, decidido_em: new Date().toISOString() });
+function aprovarExclusao(x) {
+  if (papel !== "admin" || !x) return;
+  confirmarComSenha("Aprovar exclusão", `“${x.projeto_nome}” será excluído junto com todos os pontos e o histórico. Isso não pode ser desfeito. Digite sua senha para aprovar.`, "Aprovar e excluir", true, async () => {
+    if (x.projeto_id) { const { data, error } = await sb.from("projetos").delete().eq("id", x.projeto_id).select("id"); if (error) return "Não foi possível excluir: " + error.message; if (!data?.length) return "Não foi possível excluir: sem permissão."; }
+    await sb.from("projeto_exclusoes").update(decisao("aprovada")).eq("id", x.id);
+    logAcao("Aprovou exclusão de projeto", `${x.projeto_nome} (pedido de ${x.solicitante_email || "—"})`); abrirHome(++navSeq); return null;
+  });
+}
+async function recusarExclusao(x) {
+  if (papel !== "admin" || !x || !confirm(`Recusar a exclusão de “${x.projeto_nome}”? O projeto continua como está.`)) return;
+  const { data, error } = await sb.from("projeto_exclusoes").update(decisao("recusada")).eq("id", x.id).select("id");
+  if (error || !data?.length) return alert("Não foi possível recusar: " + (error?.message || "sem permissão."));
+  logAcao("Recusou exclusão de projeto", `${x.projeto_nome} (pedido de ${x.solicitante_email || "—"})`); abrirHome(++navSeq);
 }
 
 boot();
