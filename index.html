@@ -52,8 +52,8 @@ details.dt>summary::-webkit-details-marker{display:none}details.dt>summary small
 .uf{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:10px 0;padding:14px;border:1px dashed #cdd4e1;border-radius:12px;background:#fafbfd}
 html,body{overflow-x:hidden}main,section,.card{min-width:0}
 .bar>*{min-width:0}.bar select{flex:1 1 200px;max-width:420px;width:auto;text-overflow:ellipsis}
-.evh{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px}.evh>b{flex:none}.evh .bar{margin:0;flex:1 1 300px;justify-content:flex-end}
-@media(max-width:700px){.evh .bar{justify-content:stretch}.bar select,.bar input:not([type=checkbox]){flex:1 1 100%;max-width:100%;width:100%}.bar button{flex:1 1 auto}.evh>b{flex:1 1 100%}}
+.evh{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px}.evh>b{flex:none}.evh .bar{margin:0;flex:1 1 300px;justify-content:flex-end}.evd{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.evd label{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;white-space:nowrap}.evd input{width:auto;min-width:0}.evd button{flex:none;padding:6px 10px}.evd.cs input{border-color:#f2a93b}
+@media(max-width:700px){.evd{flex:1 1 100%}.evd label{flex:1 1 140px}.evd input{flex:1 1 auto!important;width:100%!important}.evh .bar{justify-content:stretch}.bar select,.bar input:not([type=checkbox]){flex:1 1 100%;max-width:100%;width:100%}.bar button{flex:1 1 auto}.evh>b{flex:1 1 100%}}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:14px}
 .ch{height:300px;position:relative}.ch.tall{height:380px}
 input,select,textarea,button{font:inherit;padding:9px 12px;border:1px solid #cdd4e1;border-radius:10px;max-width:100%;background:#fff;color:var(--txt);transition:border-color .15s,box-shadow .15s,background .15s}
@@ -262,7 +262,7 @@ html[data-theme=dark] #mMenu{background:#151c2b}html[data-theme=dark] #mMenu .mi
   </div>
   <div class="card">
    <div class="evh"><b>Evolução e andamento</b>
-    <div class="bar"><select id="evS" title="O que acompanhar no gráfico"><option value="tot" selected>Andamento total</option><option value="lev">Levantados</option><option value="des">Com desenho</option><option value="sph">No Sphera</option><option value="sap">No SAP</option></select><select id="evP"><option value="p">Ano fiscal 2026/2027</option><option value="w">Semanal (12 semanas)</option><option value="m">Mensal (6 meses)</option></select></div></div>
+    <div class="bar"><select id="evS" title="O que acompanhar no gráfico"><option value="tot" selected>Andamento total</option><option value="lev">Levantados</option><option value="des">Com desenho</option><option value="sph">No Sphera</option><option value="sap">No SAP</option></select><span class="evd" id="evD"><label>Início<input type="date" id="evI"></label><label>Fim<input type="date" id="evF"></label><button type="button" id="evR" title="Voltar às datas padrão desta opção">↺</button></span><select id="evP"><option value="p">Ano fiscal 2026/2027</option><option value="w">Semanal (12 semanas)</option><option value="m">Mensal (6 meses)</option></select></div></div>
    <div class="cards" id="evk"></div>
    <div class="ch"><canvas id="c4"></canvas></div>
    <small id="evn"></small>
@@ -683,9 +683,9 @@ function curWin() { const v = $("#evP") ? $("#evP").value : ""; if (v === "all")
 const fyLabel = win => (win || curWin()).label;
 const STG = [["Andamento total", "tot", "#14284b"], ["Levantados", "lev", "#f2a93b"], ["Com desenho", "des", "#3b82c4"], ["No Sphera", "sph", "#7a5cc7"], ["No SAP", "sap", "#0e9aa7"]];
 const MES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-function evoProj(d, key, pts, win) {
-  win = win || curWin();
-  const wf = r => pts ? (Number(r.qtd) > 0 ? Number(r.qtd) : 1) : 1, now = new Date(), tn = now.getTime(), DAY = 864e5, T0 = PROJ.ini.getTime(), T1 = PROJ.fim.getTime(), WA = win.a.getTime(), WB = win.b.getTime(), r1 = x => Math.round(x * 10) / 10;
+function evoProj(d, key, pts, win, rng) {
+  win = win || curWin(); rng = rng || {};
+  const wf = r => pts ? (Number(r.qtd) > 0 ? Number(r.qtd) : 1) : 1, now = new Date(), tn = now.getTime(), DAY = 864e5, T0 = rng.ini != null ? rng.ini : PROJ.ini.getTime(), T1 = rng.fim != null ? rng.fim : PROJ.fim.getTime(), WA = win.a.getTime(), WB = win.b.getTime(), r1 = x => Math.round(x * 10) / 10;
   const keys = key === "tot" ? (window.etapasAtivas ? window.etapasAtivas() : ["lev", "des", "sph", "sap"]) : [key], LV = { proj: 1, des: 2, sph: 3, sap: 4, comp: 5 };
   const okk = (k, l, st) => k === "lev" ? l === "Levantado" : st >= LV[k]; // andamento total = média das etapas ativas do projeto
   const ids = new Map(d.map(r => [r.id, r])), by = {};
@@ -717,14 +717,38 @@ function evoProj(d, key, pts, win) {
   const ptsReal = started && S <= RE ? uq([S, ...eT.filter(t => t > S && t < RE), RE]).map(t => ({ x: t, y: t === tn ? r1(cur) : r1(at(t)) })) : [];
   const ptsProj = started && tn < T1 && P0 < E ? uq([P0, ...eT.filter(t => t > P0 && t < E), E]).map(t => ({ x: t, y: t === tn ? r1(cur) : projAt(t) })) : [];
   const pending = tot - cur, finish = rate > 0 && pending > 0 ? new Date(tn + pending / rate * DAY) : null;
-  return { labels, real, proj, plan, pts: { real: ptsReal, proj: ptsProj, plan: ptsPlan }, ends: eT, win, cur, tot, rate, finish, planNow: tot * Math.min(1, Math.max(0, (tn - T0) / (T1 - T0))), daysLeft: Math.ceil((T1 - tn) / DAY) };
+  return { labels, real, proj, plan, pts: { real: ptsReal, proj: ptsProj, plan: ptsPlan }, ends: eT, win, cur, tot, rate, finish, T0, T1, planNow: tot * Math.min(1, Math.max(0, (tn - T0) / (T1 - T0))), daysLeft: Math.ceil((T1 - tn) / DAY) };
 }
 const projKpis = (pr, u, nome) => { const f1 = x => fmt(Math.round(x * 10) / 10), diff = pr.cur - pr.planNow;
-  return [[String(Math.max(0, pr.daysLeft)), `dias até ${dtBR(PROJ.fim)}`], [f1(pr.cur), `${nome} hoje · ${Math.round(100 * pr.cur / (pr.tot || 1))}% de ${f1(pr.tot)} ${u}`], [f1(pr.planNow), "Meta linear para hoje"],
+  return [[String(Math.max(0, pr.daysLeft)), `dias até ${dtBR(new Date(pr.T1))}`], [f1(pr.cur), `${nome} hoje · ${Math.round(100 * pr.cur / (pr.tot || 1))}% de ${f1(pr.tot)} ${u}`], [f1(pr.planNow), "Meta linear para hoje"],
     [(diff >= 0 ? "+" : "") + f1(diff), diff >= 0 ? "À frente da meta linear" : "Atrás da meta linear"],
-    [pr.tot - pr.cur <= 0 ? "Concluído" : pr.finish ? pr.finish.toLocaleDateString("pt-BR") : "—", "Término previsto no ritmo atual" + (pr.finish && pr.finish.getTime() > PROJ.fim.getTime() ? " (após o prazo)" : "")]]; };
+    [pr.tot - pr.cur <= 0 ? "Concluído" : pr.finish ? pr.finish.toLocaleDateString("pt-BR") : "—", "Término previsto no ritmo atual" + (pr.finish && pr.finish.getTime() > pr.T1 ? " (após o prazo)" : "")]]; };
+// ---- Datas de início/fim por etapa (opção do seletor); o fim padrão acompanha o fim do ano fiscal exibido ----
+let EVR = {}, EVRid = null, evrWarned = false;
+function evrLoad() { const k = proj ? proj.id : "x"; if (EVRid === k) return; EVRid = k; let o = proj && proj.evolucao_datas;
+  if (!o || typeof o !== "object") { try { o = JSON.parse(localStorage.getItem("gs-evr-" + k) || "{}"); } catch (e) { o = {}; } } // coluna ainda não criada: usa o que estiver neste aparelho
+  EVR = JSON.parse(JSON.stringify(o || {})); }
+async function evrSave() { if (!canProj || !proj) return; // só editor/admin grava no banco (vale para todos); leitor ajusta só na sua tela
+  const { data, error } = await sb.from("projetos").update({ evolucao_datas: EVR }).eq("id", proj.id).select("id");
+  if (error) { if (/evolucao_datas/.test(error.message)) { try { localStorage.setItem("gs-evr-" + proj.id, JSON.stringify(EVR)); } catch (e) {}
+      if (!evrWarned) { evrWarned = true; alert("As datas ficaram guardadas só neste aparelho: rode o SQL fase3_02_datas_evolucao.sql no Supabase para gravar no banco."); } }
+    else alert("Não foi possível salvar as datas: " + error.message); return; }
+  if (!data || !data.length) return alert("Sem permissão para salvar as datas deste projeto.");
+  proj.evolucao_datas = JSON.parse(JSON.stringify(EVR)); }
+const isoD = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const evParse = (s, end) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ""); return m ? (end ? new Date(+m[1], m[2] - 1, +m[3], 23, 59, 59, 999) : new Date(+m[1], m[2] - 1, +m[3])) : null; };
+function evrRange(key, win) { evrLoad(); const o = EVR[key] || {}, a = evParse(o.ini), b = evParse(o.fim, true);
+  return { ini: (a || PROJ.ini).getTime(), fim: (b || win.b).getTime(), custom: !!(a || b) }; }
+function evrSet(field) { evrLoad(); const k = $("#evS").value, v = $(field === "ini" ? "#evI" : "#evF").value, o = EVR[k] = EVR[k] || {};
+  const win = curWin(), cur = evrRange(k, win), a = field === "ini" ? evParse(v) : new Date(cur.ini), b = field === "fim" ? evParse(v, true) : new Date(cur.fim);
+  if (v && a && b && b.getTime() < a.getTime()) { alert("A data fim deve ser igual ou posterior à data de início."); return dash(); }
+  if (v) o[field] = v; else delete o[field];
+  if (!o.ini && !o.fim) delete EVR[k]; dash(); evrSave(); }
+$("#evI").onchange = () => evrSet("ini"); $("#evF").onchange = () => evrSet("fim");
+$("#evR").onclick = () => { evrLoad(); delete EVR[$("#evS").value]; dash(); evrSave(); };
 function evoDashProj(d) {
-  const key = $("#evS").value, nm0 = STG.find(x => x[1] === key), nm = [nm0[0], nm0[1], key === "tot" && document.documentElement.getAttribute("data-theme") === "dark" ? "#6aa8ff" : nm0[2]], pr = evoProj(d, key, unit === "p"), win = pr.win, u = unit === "p" ? "pontos" : "linhas";
+  const key = $("#evS").value, nm0 = STG.find(x => x[1] === key), nm = [nm0[0], nm0[1], key === "tot" && document.documentElement.getAttribute("data-theme") === "dark" ? "#6aa8ff" : nm0[2]], win0 = curWin(), rg = evrRange(key, win0), pr = evoProj(d, key, unit === "p", win0, rg), win = pr.win, u = unit === "p" ? "pontos" : "linhas";
+  $("#evI").value = isoD(new Date(rg.ini)); $("#evF").value = isoD(new Date(rg.fim)); $("#evD").classList.toggle("cs", rg.custom);
   $("#evk").innerHTML = projKpis(pr, u, nm[0]).map(([v, l]) => `<div class="card kpi" style="margin:0"><b${String(v).length > 7 ? ' class="sm"' : ""}>${v}</b><span>${l}</span></div>`).join("");
   // rótulos no CENTRO de cada mês e linhas de grade nas divisas entre meses: o mês de julho é a 1ª coluna e o início (01/08) cai na divisa jul|ago
   const WA = win.a.getTime(), WB = win.b.getTime(), mm = [];
@@ -744,14 +768,14 @@ function evoDashProj(d) {
                 y: { beginAtZero: true, suggestedMax: pr.tot } },
       plugins: { legend: { position: "bottom" }, tooltip: { callbacks: { title: it => dtBR(new Date(it[0].parsed.x)) } } } } });
   $("#evs").textContent = "Ver tabela do cronograma";
-  const ini0 = PROJ.ini >= win.a && PROJ.ini <= win.b ? `<tr><td class="h"><b>Início · ${dtBR(PROJ.ini)}</b></td><td data-l="Realizado"><div class="v">0</div></td><td data-l="Projeção"><div class="v">—</div></td><td data-l="Meta linear"><div class="v">0</div></td></tr>` : "";
+  const ini0 = pr.T0 >= win.a.getTime() && pr.T0 <= win.b.getTime() ? `<tr><td class="h"><b>Início · ${dtBR(new Date(pr.T0))}</b></td><td data-l="Realizado"><div class="v">0</div></td><td data-l="Projeção"><div class="v">—</div></td><td data-l="Meta linear"><div class="v">0</div></td></tr>` : "";
   $("#evt").innerHTML = `<table class="st" style="min-width:480px"><thead><tr><th>Período</th><th>Realizado</th><th>Projeção</th><th>Meta linear</th></tr></thead><tbody>${ini0}${pr.labels.map((l, i) =>
     `<tr><td class="h"><b>${l}</b></td><td data-l="Realizado"><div class="v">${pr.real[i] ?? "—"}</div></td><td data-l="Projeção"><div class="v">${pr.proj[i] ?? "—"}</div></td><td data-l="Meta linear"><div class="v">${pr.plan[i] ?? "—"}</div></td></tr>`).join("")}</tbody></table>`;
   const multi = fyAno(PROJ.fim, PROJ.fyM) > fyAno(PROJ.ini, PROJ.fyM);
-  $("#evn").textContent = `${win.label} (${dtBR(win.a)} a ${dtBR(win.b)}) · ano fiscal de ${fyRange(PROJ.fyM)}. Início do projeto: ${dtBR(PROJ.ini)} · prazo: ${dtBR(PROJ.fim)}.${multi ? " O projeto atravessa mais de um ano fiscal: use o seletor para ver cada ano ou a duração total." : ""} Andamento total = média das etapas ativas do projeto. Projeção: ritmo médio desde o início do projeto mantido até o prazo (limitado ao total). Meta linear: avanço constante do início ao fim. O realizado dos meses anteriores depende do histórico registrado no app.`;
+  $("#evn").textContent = `${win.label} (${dtBR(win.a)} a ${dtBR(win.b)}) · ano fiscal de ${fyRange(PROJ.fyM)}. ${nm[0]}: início ${dtBR(new Date(pr.T0))} · fim ${dtBR(new Date(pr.T1))}${rg.custom ? " (datas ajustadas)" : ""}. Projeto: ${dtBR(PROJ.ini)} a ${dtBR(PROJ.fim)}.${multi ? " O projeto atravessa mais de um ano fiscal: use o seletor para ver cada ano ou a duração total." : ""} Andamento total = média das etapas ativas do projeto. Projeção: ritmo médio desde a data de início mantido até a data fim (limitado ao total). Meta linear: avanço constante da data de início à data fim. O realizado dos meses anteriores depende do histórico registrado no app.`;
 }
 function evoDash(d) {
-  const m0 = $("#evP").value; $("#evS").classList.toggle("hide", !evIsProj(m0));
+  const m0 = $("#evP").value; $("#evS").classList.toggle("hide", !evIsProj(m0)); $("#evD").classList.toggle("hide", !evIsProj(m0));
   if (evIsProj(m0)) return evoDashProj(d);
   evoDashHist(d);
   $("#evs").textContent = m0 === "w" ? "Ver histórico semanal (12 semanas)" : "Ver histórico mensal (6 meses)";
@@ -933,7 +957,7 @@ $("#rp").onclick = () => {
     let lx = L; TCH().forEach(([name, key, color]) => { g += `<line x1="${lx}" y1="${H - 9}" x2="${lx + 14}" y2="${H - 9}" stroke="#${color}" stroke-width="3.5"/><text x="${lx + 19}" y="${H - 5.5}" font-size="10" fill="#666666">${name}</text>`; lx += name.length * 5.6 + 40; });
     return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc2(title)}" xmlns="http://www.w3.org/2000/svg">${g}</svg>`;
   };
-  const pj = evoProj(d, "tot", true);
+  const pj = evoProj(d, "tot", true, undefined, evrRange("tot", curWin()));
   const projSvg = () => {
     const W = 1000, H = 300, L = 44, R = 14, T = 16, B = 56, pw2 = W - L - R, ph = H - T - B, n = pj.labels.length;
     const max = Math.max(1, pj.tot, ...pj.real.filter(v => v != null), ...pj.proj.filter(v => v != null));
@@ -963,9 +987,9 @@ $("#rp").onclick = () => {
 <p class="note">Linha = ponto levantado com projeto próprio. Ponto de adequação = soma das quantidades de cada linha. Pendências identificadas: ${pd.length}.</p>${ft(2)}</section>`,
     `<section class="page">${hd("Evolução do projeto", "Marcos acumulados registrados no histórico do aplicativo")}<div class="charts"><div>${chartSvg(ew, "Semanal · últimas 12 semanas")}</div><div>${chartSvg(em, "Mensal · últimos 6 meses")}</div></div>
 <p class="note">As linhas mostram a quantidade acumulada de itens em cada etapa. O histórico é registrado a partir da ativação desta função; períodos anteriores podem aparecer sem movimento, o que não significa ausência de atividade.</p>${ft(3)}</section>`,
-    `<section class="page">${hd(fyLabel(), perLabel() + " · andamento total em pontos de adequação (média das 4 etapas: levantamento, desenho, Sphera e SAP)")}<div class="kpis k5">${projKpis(pj, "pontos", "Andamento total").map(([v, l]) => `<div class="kpi"><strong>${esc2(v)}</strong><em>${esc2(l)}</em></div>`).join("")}</div>
+    `<section class="page">${hd(fyLabel(), `${dtBR(new Date(pj.T0))} a ${dtBR(new Date(pj.T1))}` + " · andamento total em pontos de adequação (média das 4 etapas: levantamento, desenho, Sphera e SAP)")}<div class="kpis k5">${projKpis(pj, "pontos", "Andamento total").map(([v, l]) => `<div class="kpi"><strong>${esc2(v)}</strong><em>${esc2(l)}</em></div>`).join("")}</div>
 <div class="proj">${projSvg()}</div>
-<p class="note">Projeção: ritmo médio desde ${dtBR(PROJ.ini)} mantido até ${dtBR(PROJ.fim)} (limitada ao total de pontos). Meta linear: avanço constante do início ao fim do prazo. O realizado dos meses anteriores depende do histórico registrado no aplicativo.</p>${ft(4)}</section>`,
+<p class="note">Projeção: ritmo médio desde ${dtBR(new Date(pj.T0))} mantido até ${dtBR(new Date(pj.T1))} (limitada ao total de pontos). Meta linear: avanço constante da data de início à data fim. O realizado dos meses anteriores depende do histórico registrado no aplicativo.</p>${ft(4)}</section>`,
     `<section class="page">${hd("Suprimentos", `${proj.nome} · situação dos itens`)}${sr.t ? `<div class="kpis k5">${sr.kp.map(([v, l]) => `<div class="kpi"><strong>${esc2(v)}</strong><em>${esc2(l)}</em></div>`).join("")}</div><h2 style="margin-top:7mm">Itens em atenção (atrasados ou sem prazo)</h2>${sr.att.length ? tbl(["Código", "Descrição", "Situação", "Prazo"], sr.att.slice(0, 10)) + (sr.att.length > 10 ? `<p class="note">Exibindo 10 de ${sr.att.length}. Consulte o aplicativo para a lista completa.</p>` : "") : `<p class="ok" style="margin-top:12mm">Nenhum item atrasado ou sem prazo.</p>`}` : `<p class="note">Nenhum item de suprimentos cadastrado neste projeto.</p>`}${ft(5)}</section>`,
     `<section class="page">${hd(`Próximas ações · ${pd.length} pendência(s)`, "Lista resumida para orientar o acompanhamento")}${pd.length ? tbl(["Área", "Equipamento", "Tipo de projeto", "Situação"], pd.slice(0, 12).map(([r, t]) => [r.area, r.equipamento, r.tipo_projeto || "—", t])) + (pd.length > 12 ? `<p class="note">Exibindo 12 de ${pd.length} pendências. Consulte o aplicativo para a lista completa.</p>` : "") : `<p class="ok">Nenhuma pendência identificada com os critérios atuais.</p>`}${ft(6)}</section>`
   ];
@@ -1083,8 +1107,8 @@ $("#rpp").onclick = async () => {
   note(sl, "O histórico é contabilizado a partir da ativação da função. Períodos anteriores sem movimento não significam, necessariamente, ausência de atividade.", 0.527, 6.5, 12.2, 0.5);
 
   // 5b — Cronograma do projeto (período do projeto aberto)
-  sl = content(fyLabel(), perLabel() + " · andamento total em pontos de adequação (média das 4 etapas: levantamento, desenho, Sphera e SAP)");
-  const pj = evoProj(d, "tot", true);
+  const pj = evoProj(d, "tot", true, undefined, evrRange("tot", curWin()));
+  sl = content(fyLabel(), `${dtBR(new Date(pj.T0))} a ${dtBR(new Date(pj.T1))}` + " · andamento total em pontos de adequação (média das 4 etapas: levantamento, desenho, Sphera e SAP)");
   projKpis(pj, "pontos", "Andamento total").forEach(([v, l], i) => {
     const x = 0.527 + i * 2.47;
     sl.addShape(P.ShapeType.rect, { x, y: 1.35, w: 2.3, h: 1.15, fill: { color: "FFFFFF" }, line: { color: TC.light, width: 0.75 } });
@@ -1104,7 +1128,7 @@ $("#rpp").onclick = async () => {
     const url = cv.toDataURL("image/png"); ch.destroy(); return url;
   };
   sl.addImage({ data: U(projImg()), x: 0.527, y: 2.65, w: 12.2, h: 3.95, altText: `Gráfico do ${fyLabel().toLowerCase()} com andamento total realizado, projeção e meta linear` });
-  note(sl, `Projeção: ritmo médio desde ${dtBR(PROJ.ini)} mantido até ${dtBR(PROJ.fim)}. Meta linear: avanço constante do início ao fim do prazo.`, 0.527, 6.68, 12.2, 0.4);
+  note(sl, `Projeção: ritmo médio desde ${dtBR(new Date(pj.T0))} mantido até ${dtBR(new Date(pj.T1))}. Meta linear: avanço constante da data de início à data fim.`, 0.527, 6.68, 12.2, 0.4);
 
   // 5c — Suprimentos
   sl = content("Suprimentos", `${proj.nome} · situação dos itens`);
