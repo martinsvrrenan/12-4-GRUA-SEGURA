@@ -1497,7 +1497,8 @@ boot();
 /* Grua Segura – Fase 2: parâmetros por projeto, assistente de novo projeto e importação de escopo.
    Carregar DEPOIS do script principal (ver passo a passo). Não altera o index.html além da tag <script>. */
 (function () {
-const CAT = [["tipo", "Tipos de intervenção"], ["area", "Áreas / locais"], ["etapa", "Etapas do fluxo"], ["campo", "Campos extras"]];
+const CAT = [["tipo", "Tipos de intervenção"], ["area", "Áreas / locais"], ["etapa", "Etapas do fluxo"], ["campo", "Campos extras"],
+  ["sup_campo", "Suprimentos · Campos extras do item"], ["sup_unidade", "Suprimentos · Unidades de medida"], ["sup_fornecedor", "Suprimentos · Fornecedores"]];
 const ETP2 = [["lev", "Levantamento"], ["proj", "Projeto"], ["des", "Desenho"], ["sph", "Sphera"], ["sap", "SAP"]];
 const ETM = { lev: r => lv(r), proj: r => si(r) >= 1, des: r => si(r) >= 2, sph: r => si(r) >= 3, sap: r => si(r) >= 4 }; // regra de cada etapa
 const DEF = { a: [...AREAS], t: [...TIPOS], k: ["lev", "des", "sph", "sap"] };
@@ -1505,6 +1506,7 @@ const MAM = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browse
 const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js", PDFW = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 let ALL = {}; // parâmetros de todos os projetos, por projeto_id
 const par = (c, pid) => (ALL[pid || proj.id] || []).filter(p => p.categoria === c);
+window.parSup = c => (proj ? par(c).filter(p => p.ativo) : []); // usado pela aba Suprimentos
 const keysFor = pid => { const k = par("etapa", pid).filter(p => p.ativo).map(p => p.config && p.config.chave).filter(k => ETM[k]); return k.length ? k : DEF.k; };
 const lib = u => new Promise((ok, no) => { if (document.querySelector(`script[src="${u}"]`)) return ok(); const s = document.createElement("script"); s.src = u; s.onload = ok; s.onerror = () => no(new Error("Falha ao carregar a biblioteca")); document.head.appendChild(s); });
 
@@ -1537,12 +1539,12 @@ nb.onclick = () => { if (proj) location.hash = `#/projeto/${proj.id}/parametros`
 const _ap = abrirProjeto;
 abrirProjeto = async function (id, tab, seq) { nb.classList.toggle("hide", !canProj); if (tab === "parametros" && !canProj) tab = "dashboard";
   await _ap(id, tab, seq); if (proj && proj.id === id && tab === "parametros") renderPar(); };
-const det = p => p.categoria === "tipo" ? "unidade: " + ((p.config || {}).unidade || "—") : p.categoria === "etapa" ? "chave: " + ((p.config || {}).chave || "personalizada") : p.categoria === "campo" ? ((p.config || {}).tipo || "texto") + ((p.config || {}).opcoes ? " (" + p.config.opcoes.join(", ") + ")" : "") : "";
+const det = p => p.categoria === "tipo" ? "unidade: " + ((p.config || {}).unidade || "—") : p.categoria === "etapa" ? "chave: " + ((p.config || {}).chave || "personalizada") : (p.categoria === "campo" || p.categoria === "sup_campo") ? ((p.config || {}).tipo || "texto") + ((p.config || {}).opcoes ? " (" + p.config.opcoes.join(", ") + ")" : "") : "";
 function renderPar() {
   if (!canProj) { sec.innerHTML = ""; return; }
   sec.innerHTML = CAT.map(([c, t]) => `<div class="card"><div class="evh"><b>${t}</b>${c === "etapa" ? "" : `<button class="p" data-add="${c}">+ Adicionar</button>`}</div>` +
     (par(c).map(p => `<div class="sl"><div><b>${esc(p.nome)}</b> <small>${esc(det(p))}${p.ativo ? "" : " · inativo"}</small></div><div class="ac"><button data-pe="${p.id}">Editar</button><button data-pt="${p.id}">${p.ativo ? "Desativar" : "Ativar"}</button></div></div>`).join("") || "<small>Nenhum parâmetro cadastrado.</small>") + "</div>").join("") +
-    "<small>Etapas: o andamento total é a média das etapas ativas. Desativar não apaga dados.</small>";
+    "<small>Etapas: o andamento total é a média das etapas ativas. Desativar não apaga dados. Os parâmetros de Suprimentos aparecem no cadastro, na tabela e na exportação dos itens deste projeto.</small>";
   sec.querySelectorAll("[data-add]").forEach(b => b.onclick = () => editPar(null, b.dataset.add));
   sec.querySelectorAll("[data-pe]").forEach(b => b.onclick = () => editPar((ALL[proj.id] || []).find(p => p.id == b.dataset.pe)));
   sec.querySelectorAll("[data-pt]").forEach(b => b.onclick = async () => { if (!canProj) return; const p = (ALL[proj.id] || []).find(x => x.id == b.dataset.pt);
@@ -1554,7 +1556,7 @@ async function editPar(p, cat) {
   if (!canProj) return; const c = p ? p.categoria : cat, cf = Object.assign({}, p && p.config);
   const nome = (prompt("Nome:", p ? p.nome : "") || "").trim(); if (!nome) return;
   if (c === "tipo") cf.unidade = (prompt("Unidade (ex.: un, m, m²):", cf.unidade || "un") || "un").trim();
-  if (c === "campo") { const t = (prompt("Tipo do campo: texto, número, data ou lista", cf.tipo || "texto") || "texto").trim().toLowerCase(); cf.tipo = ["texto", "número", "numero", "data", "lista"].includes(t) ? t : "texto";
+  if (c === "campo" || c === "sup_campo") { const t = (prompt("Tipo do campo: texto, número, data ou lista", cf.tipo || "texto") || "texto").trim().toLowerCase(); cf.tipo = ["texto", "número", "numero", "data", "lista"].includes(t) ? t : "texto";
     if (cf.tipo === "lista") cf.opcoes = (prompt("Opções separadas por ;", (cf.opcoes || []).join(";")) || "").split(";").map(s => s.trim()).filter(Boolean); }
   const o = { nome, config: cf }, { error } = await (p ? sb.from("projeto_parametros").update(o).eq("id", p.id) : sb.from("projeto_parametros").insert({ ...o, projeto_id: proj.id, categoria: c, ordem: par(c).length + 1 }));
   if (error) return alert(/duplicate|unique/i.test(error.message) ? "Já existe um parâmetro com esse nome." : "Erro: " + error.message);
@@ -1673,6 +1675,13 @@ const ORD = ["codigo_sap", "codigo_sphera", "descricao", "quantidade", "unidade"
 const nz = t => String(t ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 const fR = v => v == null || v === "" ? "—" : Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), fU = v => v == null ? "—" : Number(v).toLocaleString("en-US", { style: "currency", currency: "USD" });
 const ff = k => FLD.find(f => f[0] === k);
+// Parâmetros customizados de suprimentos (aba Parâmetros): campos extras, unidades e fornecedores
+const xCampos = () => (window.parSup ? window.parSup("sup_campo") : []);
+const xLista = c => (window.parSup ? window.parSup(c).map(p => p.nome) : []);
+const xTipo = p => { const t = String((p.config || {}).tipo || "texto").toLowerCase(); return t === "numero" ? "número" : t; };
+const xVal = (i, p) => { const v = ((i && i.extras) || {})[String(p.id)]; return v == null ? "" : v; };
+const xFmt = (i, p) => { const v = xVal(i, p); if (v === "") return "—"; const t = xTipo(p); return t === "data" ? dtBR(parseD(v)) : t === "número" ? Number(v).toLocaleString("pt-BR") : String(v); };
+const xCol = p => (ORD.some(k => ff(k)[1] === p.nome) || p.nome === "Situação") ? p.nome + " (extra)" : p.nome;
 
 // ---- Carga e migração automática ponto -> suprimento ----
 async function loadSup() {
@@ -1717,7 +1726,7 @@ function renderSup() {
   <div class="cards" id="sV" style="margin-top:10px"></div><div class="ch"><canvas id="c6"></canvas></div></div>
   <div class="cards" id="sK"></div><div class="grid"><div class="card"><b>Funil RC → Pedido → Entrega</b><div class="ch"><canvas id="c5"></canvas></div></div>
   <div class="card"><div class="evh"><b>Atenção</b><label style="margin:0">Sem RC há mais de <input id="sX" type="number" min="1" value="${X}" style="width:80px"> dias</label></div><div id="sA"></div></div></div>
-  <div class="card tw"><table class="st"><thead><tr><th>Código SAP</th><th>Sphera</th><th>Descrição</th><th>Qtd</th><th>Valor unit.</th><th>Valor total</th><th>Situação</th><th>RC</th><th>Pedido</th><th>Prazo</th><th>Recebido</th></tr></thead><tbody id="sT"></tbody></table></div><small id="sC"></small>`;
+  <div class="card tw"><table class="st"><thead><tr><th>Código SAP</th><th>Sphera</th><th>Descrição</th><th>Qtd</th><th>Valor unit.</th><th>Valor total</th><th>Situação</th><th>RC</th><th>Pedido</th><th>Prazo</th><th>Recebido</th>${xCampos().map(p => `<th>${esc(p.nome)}</th>`).join("")}</tr></thead><tbody id="sT"></tbody></table></div><small id="sC"></small>`;
   ["sFs:sit", "sFa:area", "sFt:tipo"].forEach(x => { const [i, k] = x.split(":"); $("#" + i).onchange = e => { F[k] = e.target.value; pinta(); }; }); $("#sFq").oninput = e => { F.q = e.target.value; pinta(); };
   $("#sX").onchange = e => { X = Math.max(1, +e.target.value || 15); pinta(); }; $("#sExp").onclick = exporta;
   if (canProj) { $("#sNew").onclick = () => editaItem(null); $("#sImp").onclick = impOpen; $("#sBu").onchange = $("#sBc").onchange = salvaOrc; } pinta(); pintaOrc();
@@ -1743,7 +1752,7 @@ function pintaOrc() {
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: { callbacks: { label: t => ` ${t.label}: ${fR(t.parsed)}${c ? " · " + fU(t.parsed / c) : ""}` } } } } });
 }
 function filtrados() { const q = F.q.toLowerCase(); return SUP.filter(i => { const p = pontoDe(i);
-  return (!F.sit || sitTxt(i) === F.sit || (F.sit === "Sem prazo" && semPrazo(i))) && (!F.area || (p && p.area === F.area)) && (!F.tipo || (p && p.tipo_projeto === F.tipo)) && (!q || [i.codigo_sap, i.codigo_sphera, i.descricao].join(" ").toLowerCase().includes(q)); }); }
+  return (!F.sit || sitTxt(i) === F.sit || (F.sit === "Sem prazo" && semPrazo(i))) && (!F.area || (p && p.area === F.area)) && (!F.tipo || (p && p.tipo_projeto === F.tipo)) && (!q || [i.codigo_sap, i.codigo_sphera, i.descricao, ...xCampos().map(p => xVal(i, p))].join(" ").toLowerCase().includes(q)); }); }
 function pinta() {
   const L = filtrados(), s = supStats(L), d = x => x ? dtBR(parseD(x)) : "—", cd = [[s.t, "itens"], [pc3(s.rc, s.t), "com RC"], [pc3(s.pd, s.t), "com pedido"], [pc3(s.pz, s.t), "com prazo"], [pc3(s.en, s.t), "entregues"], [`${s.at} (${pc3(s.at, s.t)})`, "atrasados"], [s.sp, "pedidos sem prazo"], [`${s.a7} / ${s.a15} / ${s.a30}`, "a vencer em 7 / 15 / 30 dias"], [s.pm == null ? "—" : s.pm + " d", "prazo médio (pedido → entrega)"]];
   $("#sK").innerHTML = cd.map(([v, l]) => `<div class="card kpi" style="margin:0"><b class="sm">${v}</b><span>${l}</span></div>`).join("");
@@ -1751,19 +1760,32 @@ function pinta() {
   const hojeS = ymd(hj()), at = [...L.filter(atras).map(i => [i, "Atrasado desde " + d(i.prazo_entrega)]), ...L.filter(i => sitOf(i) === 0 && i.created_at && dias(i.created_at.slice(0, 10), hojeS) > X).map(i => [i, `Sem RC há ${dias(i.created_at.slice(0, 10), hojeS)} dias`])];
   $("#sA").innerHTML = at.length ? at.slice(0, 15).map(([i, t]) => `<div class="sl"><div><b>${esc(i.codigo_sap || i.codigo_sphera || "—")}</b> <small>${esc(i.descricao || "")}</small></div><span class="tag" style="--c:#d64545">${t}</span></div>`).join("") + (at.length > 15 ? `<small>+${at.length - 15} itens</small>` : "") : "Nenhum item em atenção.";
   const cor = i => atras(i) ? "#d64545" : semPrazo(i) ? "#d9822b" : ["#b0b7c3", "#f2a93b", "#3b82c4", "#2e9e5b"][sitOf(i)];
-  $("#sT").innerHTML = L.map(i => `<tr data-id="${i.id}" style="${canProj ? "cursor:pointer" : ""}"><td class="h"><b>${esc(i.codigo_sap || "—")}</b></td><td data-l="Sphera"><div class="v">${esc(i.codigo_sphera || "—")}</div></td><td data-l="Descrição"><div class="v">${esc(i.descricao || "—")}</div></td><td data-l="Qtd"><div class="v">${i.quantidade ?? "—"} ${esc(i.unidade || "")}</div></td><td data-l="Valor unit."><div class="v">${fR(i.valor_unitario)}</div></td><td data-l="Valor total"><div class="v">${i.valor_total != null || i.valor_unitario != null ? fR(vTot(i)) : "—"}</div></td><td data-l="Situação"><div class="v"><span class="tag" style="--c:${cor(i)}">${sitTxt(i)}</span></div></td><td data-l="RC"><div class="v">${esc(i.rc_numero || "—")} <small>${i.rc_data ? d(i.rc_data) : ""}</small></div></td><td data-l="Pedido"><div class="v">${esc(i.pedido_numero || "—")} <small>${esc(i.fornecedor || "")}</small></div></td><td data-l="Prazo"><div class="v">${d(i.prazo_entrega)}</div></td><td data-l="Recebido"><div class="v">${d(i.data_recebimento)}</div></td></tr>`).join("");
+  $("#sT").innerHTML = L.map(i => `<tr data-id="${i.id}" style="${canProj ? "cursor:pointer" : ""}"><td class="h"><b>${esc(i.codigo_sap || "—")}</b></td><td data-l="Sphera"><div class="v">${esc(i.codigo_sphera || "—")}</div></td><td data-l="Descrição"><div class="v">${esc(i.descricao || "—")}</div></td><td data-l="Qtd"><div class="v">${i.quantidade ?? "—"} ${esc(i.unidade || "")}</div></td><td data-l="Valor unit."><div class="v">${fR(i.valor_unitario)}</div></td><td data-l="Valor total"><div class="v">${i.valor_total != null || i.valor_unitario != null ? fR(vTot(i)) : "—"}</div></td><td data-l="Situação"><div class="v"><span class="tag" style="--c:${cor(i)}">${sitTxt(i)}</span></div></td><td data-l="RC"><div class="v">${esc(i.rc_numero || "—")} <small>${i.rc_data ? d(i.rc_data) : ""}</small></div></td><td data-l="Pedido"><div class="v">${esc(i.pedido_numero || "—")} <small>${esc(i.fornecedor || "")}</small></div></td><td data-l="Prazo"><div class="v">${d(i.prazo_entrega)}</div></td><td data-l="Recebido"><div class="v">${d(i.data_recebimento)}</div></td>${xCampos().map(p => `<td data-l="${esc(p.nome)}"><div class="v">${esc(xFmt(i, p))}</div></td>`).join("")}</tr>`).join("");
   $("#sC").textContent = `${L.length} de ${SUP.length} itens · valor total listado: ${fR(L.reduce((a, i) => a + (vTot(i) || 0), 0))}`; if (canProj) document.querySelectorAll("#sT tr").forEach(tr => tr.onclick = () => editaItem(SUP.find(i => i.id == tr.dataset.id)));
 }
 
 // ---- Item manual (inserir / editar / excluir) ----
 const dl = document.createElement("dialog"); dl.id = "spDlg"; document.body.appendChild(dl);
+function itemCampos(it) {
+  const un = xLista("sup_unidade"), fo = xLista("sup_fornecedor");
+  const std = ORD.map(k => { const f = ff(k), w = f[3] === "w" ? ' style="grid-column:1/-1"' : "", v = it ? it[k] ?? "" : k === "unidade" ? (un[0] || "un") : "";
+    if (k === "unidade" && un.length) { const l = v && !un.includes(v) ? [...un, v] : un;
+      return `<label${w}>${f[1]}<select name="${k}"><option value="">—</option>${l.map(x => `<option ${x === v ? "selected" : ""}>${esc(x)}</option>`).join("")}</select></label>`; }
+    return `<label${w}>${f[1]}<input name="${k}" type="${f[3] === "n" ? "number" : f[3] === "d" ? "date" : "text"}"${f[3] === "n" ? ' step="any"' : ""}${k === "fornecedor" && fo.length ? ' list="spFor"' : ""} value="${esc(v)}"></label>`; }).join("");
+  const dl2 = fo.length ? `<datalist id="spFor">${fo.map(x => `<option value="${esc(x)}">`).join("")}</datalist>` : "";
+  const ex = xCampos().map(p => { const t = xTipo(p), v = xVal(it, p), nm = `x_${p.id}`;
+    if (t === "lista") { const op = (p.config || {}).opcoes || [], l = v !== "" && !op.includes(v) ? [...op, v] : op;
+      return `<label>${esc(p.nome)}<select name="${nm}"><option value="">—</option>${l.map(x => `<option ${x === v ? "selected" : ""}>${esc(x)}</option>`).join("")}</select></label>`; }
+    return `<label>${esc(p.nome)}<input name="${nm}" type="${t === "número" ? "number" : t === "data" ? "date" : "text"}"${t === "número" ? ' step="any"' : ""} value="${esc(v)}"></label>`; }).join("");
+  return std + dl2 + (ex ? '<div style="grid-column:1/-1;margin-top:6px"><b>Campos extras</b></div>' + ex : "");
+}
 function editaItem(it) {
   if (!canProj) return;
-  dl.innerHTML = `<form id="spF"><h3>${it ? "Editar item" : "Novo item de suprimento"}</h3><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0 12px">${ORD.map(k => { const f = ff(k); return `<label${f[3] === "w" ? ' style="grid-column:1/-1"' : ""}>${f[1]}<input name="${k}" type="${f[3] === "n" ? "number" : f[3] === "d" ? "date" : "text"}"${f[3] === "n" ? ' step="any"' : ""} value="${esc(it ? it[k] ?? "" : k === "unidade" ? "un" : "")}"></label>`; }).join("")}</div>
+  dl.innerHTML = `<form id="spF"><h3>${it ? "Editar item" : "Novo item de suprimento"}</h3><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0 12px">${itemCampos(it)}</div>
   <p class="err" id="spE"></p><div class="bar" style="margin-top:12px"><button class="p">Salvar</button><button type="button" id="spCx">Cancelar</button>${it && canDelete ? '<button type="button" class="d" id="spDel">Excluir</button>' : ""}</div></form>`;
   $("#spCx").onclick = () => dl.close();
   if ($("#spDel")) $("#spDel").onclick = async () => { if (!confirm("Excluir este item de suprimentos?")) return; const { error } = await sb.from("suprimentos").delete().eq("id", it.id); if (error) return alert(error.message); logP("Excluiu item de suprimentos", it.codigo_sap || it.codigo_sphera || it.descricao || ""); dl.close(); await loadSup(); renderSup(); };
-  $("#spF").onsubmit = async e => { e.preventDefault(); const o = {}; new FormData(e.target).forEach((v, k) => { o[k] = cl(v); }); ["quantidade", "valor_unitario", "valor_total"].forEach(k => { if (o[k] != null) o[k] = brNum(o[k]); });
+  $("#spF").onsubmit = async e => { e.preventDefault(); const o = {}, ex = Object.assign({}, it && it.extras); new FormData(e.target).forEach((v, k) => { if (k.startsWith("x_")) { const id = k.slice(2), p = xCampos().find(q => String(q.id) === id); let z = cl(v); if (z != null && p && xTipo(p) === "número") z = brNum(z); if (z == null) delete ex[id]; else ex[id] = z; } else o[k] = cl(v); }); o.extras = ex; ["quantidade", "valor_unitario", "valor_total"].forEach(k => { if (o[k] != null) o[k] = brNum(o[k]); });
     if (!o.codigo_sap && !o.codigo_sphera) return $("#spE").textContent = "Informe o código SAP ou o código Sphera.";
     const { error } = await (it ? sb.from("suprimentos").update(o).eq("id", it.id) : sb.from("suprimentos").insert({ ...o, projeto_id: proj.id, origem: "manual" }));
     if (error) return $("#spE").textContent = /duplicate|unique/i.test(error.message) ? "Já existe um item com esse código neste projeto." : error.message + (/suprimentos/.test(error.message) ? " — " + "execute fase3_01 e fase3_02." : "");
@@ -1805,13 +1827,13 @@ function impOpen() {
   di.showModal();
 }
 function exporta() {
-  const H = ORD.map(k => ff(k)[1]), out = SUP.map(i => ({ ...Object.fromEntries(ORD.map(k => [ff(k)[1], i[k] ?? ""])), "Situação": sitTxt(i) })), wb = XLSX.utils.book_new();
+  const XC = xCampos(), H = [...ORD.map(k => ff(k)[1]), ...XC.map(xCol)], out = SUP.map(i => ({ ...Object.fromEntries(ORD.map(k => [ff(k)[1], i[k] ?? ""])), ...Object.fromEntries(XC.map(p => [xCol(p), xVal(i, p)])), "Situação": sitTxt(i) })), wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(out, { header: [...H, "Situação"] }), "Suprimentos"); XLSX.writeFile(wb, `suprimentos_${proj.nome.replace(/[^\w]+/g, "_")}_${stamp()}.xlsx`); logP("Exportou suprimentos", `${SUP.length} itens`);
 }
 window.supRel = () => { const s = supStats(SUP), d = x => x ? dtBR(parseD(x)) : "—"; // dados de suprimentos para os relatórios
   return { t: s.t, kp: [[s.t, "itens"], [pc3(s.rc, s.t), "com RC"], [pc3(s.pd, s.t), "com pedido"], [pc3(s.en, s.t), "entregues"], [`${s.at} (${pc3(s.at, s.t)})`, "atrasados"]],
     att: SUP.filter(i => atras(i) || semPrazo(i)).map(i => [i.codigo_sap || i.codigo_sphera || "—", i.descricao || "—", sitTxt(i), d(i.prazo_entrega)]),
-    rows: SUP.map(i => ({ ...Object.fromEntries(ORD.map(k => [ff(k)[1], i[k] ?? ""])), "Situação": sitTxt(i) })) }; };
+    rows: SUP.map(i => ({ ...Object.fromEntries(ORD.map(k => [ff(k)[1], i[k] ?? ""])), ...Object.fromEntries(xCampos().map(p => [xCol(p), xVal(i, p)])), "Situação": sitTxt(i) })) }; };
 })();
 
 </script>
