@@ -255,6 +255,7 @@ html[data-theme=dark] #mMenu{background:#151c2b}html[data-theme=dark] #mMenu .mi
  <section id="t1">
   <div class="bar"><select id="dA"><option value="">Todas as áreas</option></select></div>
   <div class="cards" id="kpis"></div>
+  <div class="card" id="dsapC" style="margin-top:14px"><div class="evh"><b>Desenhos no SAP</b><small id="dsapN"></small></div><div id="dsapL"></div></div>
   <div class="grid">
    <div class="card"><b>Por área e status</b><div class="ch"><canvas id="c1"></canvas></div></div>
    <div class="card"><b>Funil do projeto</b><div class="ch"><canvas id="c2"></canvas></div></div>
@@ -268,7 +269,6 @@ html[data-theme=dark] #mMenu{background:#151c2b}html[data-theme=dark] #mMenu .mi
    <small id="evn"></small>
    <details class="dt" id="evd" style="margin-top:12px"><summary id="evs">Ver histórico</summary><div class="tw" id="evt"></div></details>
   </div>
-  <div class="card" id="dsapC"><div class="evh"><b>Desenhos no SAP</b><small id="dsapN"></small></div><div id="dsapL"></div></div>
   <div class="card"><details class="dt" id="pdd"><summary><span>Pendências<span class="cnt" id="pdn">0</span></span><small>clique para ver a lista</small></summary><div class="tw" id="pend"></div></details></div>
  </section>
 
@@ -614,7 +614,7 @@ function dash() {
   const dw = d.filter(r => String(r.file_name || "").trim()), dwS = dw.filter(r => r.desenho_sap), dwN = dw.filter(r => !r.desenho_sap);
   const fol = a => a.reduce((t, r) => t + Math.max(1, parseInt(r.folhas) || 1), 0), dT = dw.length, dS = dwS.length, dN = dwN.length, dd = dT || 1;
   const dCards = `<div class="card kpi" style="margin:0"><b>${dT}</b><span>Desenhos cadastrados (com nome)</span><small><em>${fol(dw)} folhas no total</em><br>${d.length - dT} linhas ainda sem desenho</small></div>`
-    + `<div class="card kpi" style="margin:0"><b>${dT ? Math.round(100 * dS / dd) : 0}%</b><span>Desenhos no SAP</span><small><em>${dS} de ${dT} desenhos · ${fol(dwS)} folhas</em><br><i>${dN} faltam</i></small><div class="pb"><u style="width:${dT ? Math.round(100 * dS / dd) : 0}%"></u></div></div>`
+    + `<div class="card kpi" style="margin:0"><b>${dS}</b><span>Desenhos cadastrados no SAP</span><small><em>${fol(dwS)} folhas · ${dT ? Math.round(100 * dS / dd) : 0}% dos ${dT} desenhos</em><br><i>${dN} faltam</i></small><div class="pb"><u style="width:${dT ? Math.round(100 * dS / dd) : 0}%"></u></div></div>`
     + `<div class="card kpi" style="margin:0"><b>${dN}</b><span>Desenhos não cadastrados no SAP</span><small><em>${fol(dwN)} folhas</em><br>${dT ? Math.round(100 * dN / dd) : 0}% dos desenhos</small><div class="pb"><u style="width:${dT ? Math.round(100 * dN / dd) : 0}%;background:#d9822b"></u></div></div>`;
   $("#kpis").innerHTML = first + andam + card(["Levantados", lev]) + equip + [["Com desenho", c(2)], ["Cadastrados no Sphera", c(3)], ["Cadastrados no SAP", c(4)]].map(card).join("") + dCards;
   const dTab = (t, l, c) => l.length ? `<p style="margin:12px 0 4px"><span class="tag" style="--c:${c}">${t}</span> <small>${l.length} ${l.length > 1 ? "desenhos" : "desenho"} · ${fol(l)} folhas</small></p><div class="tw"><table class="st" style="min-width:560px"><thead><tr><th>Desenho (file_name)</th><th>Folhas</th><th>Área</th><th>Equipamento</th><th>Tipo</th></tr></thead><tbody>${l.map(r => `<tr><td class="h"><b>${esc(r.file_name)}</b></td><td data-l="Folhas"><div class="v">${Math.max(1, parseInt(r.folhas) || 1)}</div></td><td data-l="Área"><div class="v">${esc(r.area)}</div></td><td data-l="Equipamento"><div class="v">${esc(r.equipamento)}</div></td><td data-l="Tipo"><div class="v">${esc(r.tipo_projeto)}</div></td></tr>`).join("")}</tbody></table></div>` : `<p style="margin:12px 0 4px"><span class="tag" style="--c:${c}">${t}</span> <small>nenhum desenho</small></p>`;
