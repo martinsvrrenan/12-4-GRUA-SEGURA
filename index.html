@@ -1396,7 +1396,157 @@ async function wzSave() {
   for (let i = 0; i < pts.length; i += 200) { r = await sb.from("pontos").insert(pts.slice(i, i + 200)); if (r.error) return `Projeto criado, mas a importação parou na linha ${i}: ${r.error.message}`; }
   logAcao("Criou projeto (assistente)", `${b.nome} · ${pts.length} pontos · ${ps.length} parâmetros`); wz.close(); abrirHome(++navSeq); return null;
 }
-$("#pNovo").onclick = wzOpen;
+window.lerArq = lerArq; $("#pNovo").onclick = wzOpen;
+})();
+
+</script>
+<script>
+/* Grua Segura – Fase 3: Suprimentos por projeto. */
+(function () {
+//#PURE
+const SIT = ["Sem RC", "RC emitida", "Pedido emitido", "Entregue"];
+const sitOf = i => i.data_recebimento ? 3 : i.pedido_numero ? 2 : i.rc_numero ? 1 : 0;
+const hj = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const dias = (a, b) => Math.round((parseD(b) - parseD(a)) / DAY);
+const atras = i => !!i.prazo_entrega && !i.data_recebimento && parseD(i.prazo_entrega) < hj();
+const semPrazo = i => sitOf(i) === 2 && !i.prazo_entrega;
+const cl = v => { v = String(v ?? "").trim(); return v || null; };
+const kk = (sap, sph) => sap ? "S:" + sap : sph ? "P:" + sph : null; // chave: SAP; sem SAP, Sphera
+function pdate(v) { v = String(v ?? "").trim(); if (!v) return null; let m;
+  if (/^\d{5}$/.test(v)) return new Date(Math.round((+v - 25569) * 864e5)).toISOString().slice(0, 10);
+  if ((m = v.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/))) return `${m[3].length === 2 ? "20" + m[3] : m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+  if ((m = v.match(/^\d{4}-\d{2}-\d{2}/))) return m[0]; return null; }
+function supStats(L) { const t = L.length, c = f => L.filter(f).length, h = hj().getTime();
+  const av = d => c(i => i.prazo_entrega && !i.data_recebimento && !atras(i) && (parseD(i.prazo_entrega).getTime() - h) / DAY <= d);
+  const pm = L.filter(i => i.pedido_data && i.prazo_entrega).map(i => dias(i.pedido_data, i.prazo_entrega));
+  return { t, rc: c(i => sitOf(i) >= 1), pd: c(i => sitOf(i) >= 2), pz: c(i => i.prazo_entrega), en: c(i => sitOf(i) === 3), at: c(atras), sp: c(semPrazo),
+    a7: av(7), a15: av(15), a30: av(30), pm: pm.length ? Math.round(pm.reduce((a, b) => a + b, 0) / pm.length) : null }; }
+//#/PURE
+const pc3 = (x, n) => n ? Math.round(100 * x / n) + "%" : "0%";
+let SUP = [], F = { sit: "", area: "", tipo: "", q: "" }, X = 15, supOk = true;
+const FLD = [["codigo_sap", "Código SAP", /sap/i], ["codigo_sphera", "Código Sphera", /sphera|mestre/i], ["descricao", "Descrição", /descri|material|item/i, "w"], ["quantidade", "Quantidade", /qtd|quant/i, "n"], ["unidade", "Unidade", /unid|^un$/i],
+  ["rc_data", "RC (data)", /rc.*data/i, "d"], ["rc_numero", "RC (número)", /rc|requisi/i], ["pedido_data", "Pedido (data)", /pedido.*data/i, "d"], ["pedido_numero", "Pedido (número)", /pedido/i], ["fornecedor", "Fornecedor", /fornec/i],
+  ["prazo_entrega", "Prazo de entrega previsto", /prazo/i, "d"], ["data_recebimento", "Data de recebimento", /receb|entregue em/i, "d"], ["observacao", "Observação", /obs/i, "w"]];
+const ORD = ["codigo_sap", "codigo_sphera", "descricao", "quantidade", "unidade", "rc_numero", "rc_data", "pedido_numero", "pedido_data", "fornecedor", "prazo_entrega", "data_recebimento", "observacao"];
+const ff = k => FLD.find(f => f[0] === k);
+
+// ---- Carga e migração automática ponto -> suprimento ----
+async function loadSup() {
+  const { data, error } = await sb.from("suprimentos").select("*").eq("projeto_id", proj.id).order("id").limit(5000);
+  supOk = !error; SUP = error ? [] : data; if (supOk && canProj) await sync(false); resumo();
+}
+async function sync(ask) {
+  const byP = new Map(SUP.filter(i => i.ponto_id != null).map(i => [String(i.ponto_id), i])), byK = new Map(SUP.map(i => [kk(i.codigo_sap, i.codigo_sphera), i]).filter(x => x[0]));
+  const ins = [], upd = [], seen = new Set();
+  rows.forEach(r => { const sap = cl(r.codigo_sap), sph = cl(r.sphera); if (!sap && !sph) return; const key = kk(sap, sph), pid = String(r.id); seen.add(pid);
+    const it = byP.get(pid);
+    if (it) { if (it.codigo_sap !== sap || it.codigo_sphera !== sph) upd.push({ id: it.id, p: { codigo_sap: sap, codigo_sphera: sph } }); return; } // código mudou: atualiza
+    const ex = byK.get(key); if (ex) { if (ex.ponto_id == null && ex.id) { upd.push({ id: ex.id, p: { ponto_id: pid } }); ex.ponto_id = pid; } return; } // sem duplicar
+    const n = { projeto_id: proj.id, ponto_id: pid, origem: "ponto", codigo_sap: sap, codigo_sphera: sph, descricao: [r.equipamento, r.tipo_projeto].filter(Boolean).join(" · "), quantidade: r.qtd, unidade: "un" };
+    ins.push(n); byK.set(key, n); });
+  const orf = ask ? SUP.filter(i => i.origem === "ponto" && i.ponto_id != null && !seen.has(String(i.ponto_id))) : [];
+  let ch = false;
+  for (let i = 0; i < ins.length; i += 200) { const { error } = await sb.from("suprimentos").insert(ins.slice(i, i + 200)); if (error) { console.warn(error.message); break; } ch = true; }
+  for (const u of upd) { const { error } = await sb.from("suprimentos").update(u.p).eq("id", u.id); if (error) console.warn(error.message); else ch = true; }
+  if (orf.length) { const rm = confirm(`${orf.length} item(ns) de suprimentos perderam o código no ponto de origem (código apagado ou ponto excluído).\n\nOK = remover da lista de suprimentos\nCancelar = manter como item manual`);
+    const ids = orf.map(i => i.id), { error } = rm ? await sb.from("suprimentos").delete().in("id", ids) : await sb.from("suprimentos").update({ ponto_id: null, origem: "manual" }).in("id", ids);
+    if (!error) { ch = true; logP(rm ? "Removeu itens de suprimentos" : "Manteve itens de suprimentos como manuais", `${orf.length} item(ns)`); } }
+  if (ch) { const { data } = await sb.from("suprimentos").select("*").eq("projeto_id", proj.id).order("id").limit(5000); if (data) SUP = data; if (ins.length) logP("Migrou pontos para suprimentos", `${ins.length} novo(s)`); }
+}
+const _load = load; load = async function () { await _load(); if (proj) await loadSup(); };
+
+// ---- Resumo no Dashboard ----
+const rs = document.createElement("div"); rs.className = "card"; rs.id = "supRes"; $("#t1").insertBefore(rs, $("#t1 .grid"));
+function resumo() { const s = supStats(SUP);
+  rs.innerHTML = !supOk ? `<b>Suprimentos</b><p><small>Indisponível. Execute os scripts fase3_01 e fase3_02 no Supabase.</small></p>` : `<div class="evh"><b>Suprimentos</b><button id="rsGo">Abrir Suprimentos</button></div>` + (s.t ? `<div class="cards" style="margin:0">${[[s.t, "itens"], [pc3(s.rc, s.t), "com RC"], [pc3(s.pd, s.t), "com pedido"], [pc3(s.en, s.t), "entregues"], [s.at + " (" + pc3(s.at, s.t) + ")", "atrasados"]].map(([v, l]) => `<div class="card kpi" style="margin:0"><b class="sm">${v}</b><span>${l}</span></div>`).join("")}</div>` : "<small>Nenhum item. Códigos Sphera/SAP dos pontos entram aqui automaticamente.</small>");
+  if ($("#rsGo")) $("#rsGo").onclick = () => { location.hash = `#/projeto/${proj.id}/suprimentos`; }; }
+
+// ---- Aba Suprimentos ----
+const sec = document.createElement("section"); sec.id = "t7"; sec.className = "hide"; $("main").appendChild(sec); SEC.push("t7"); TABS.suprimentos = "t7";
+const nb = document.createElement("button"); nb.dataset.t = "t7"; nb.dataset.r = "suprimentos"; nb.innerHTML = '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/></svg><span>Suprimentos</span>';
+nb.onclick = () => { if (proj) location.hash = `#/projeto/${proj.id}/suprimentos`; }; $("nav").appendChild(nb);
+const _ap = abrirProjeto;
+abrirProjeto = async function (id, tab, seq) { await _ap(id, tab, seq); if (proj && proj.id === id && tab === "suprimentos") { if (canProj) await sync(true); renderSup(); } };
+const pontoDe = i => i.ponto_id != null ? rows.find(r => String(r.id) === String(i.ponto_id)) : null;
+const sitTxt = i => atras(i) ? "Atrasado" : semPrazo(i) ? "Sem prazo" : SIT[sitOf(i)];
+function renderSup() {
+  const ar = [...new Set(rows.map(r => r.area).filter(Boolean))].sort(), tp = [...new Set(rows.map(r => r.tipo_projeto).filter(Boolean))].sort(), op = (a, f) => a.map(x => `<option ${x === f ? "selected" : ""}>${esc(x)}</option>`).join("");
+  sec.innerHTML = `<div class="card"><div class="bar"><select id="sFs"><option value="">Todas as situações</option>${op([...SIT, "Atrasado", "Sem prazo"], F.sit)}</select><select id="sFa"><option value="">Todas as áreas</option>${op(ar, F.area)}</select><select id="sFt"><option value="">Todos os tipos</option>${op(tp, F.tipo)}</select><input id="sFq" type="search" placeholder="Buscar código SAP, Sphera ou descrição…" value="${esc(F.q)}"></div>
+  <div class="bar">${canProj ? '<button class="p" id="sNew">+ Item</button><button class="p" id="sImp">Importar (Excel, Word, PDF)</button>' : ""}<button id="sExp">Exportar Excel</button></div></div>
+  <div class="cards" id="sK"></div><div class="grid"><div class="card"><b>Funil RC → Pedido → Entrega</b><div class="ch"><canvas id="c5"></canvas></div></div>
+  <div class="card"><div class="evh"><b>Atenção</b><label style="margin:0">Sem RC há mais de <input id="sX" type="number" min="1" value="${X}" style="width:80px"> dias</label></div><div id="sA"></div></div></div>
+  <div class="card tw"><table class="st"><thead><tr><th>Código SAP</th><th>Sphera</th><th>Descrição</th><th>Qtd</th><th>Situação</th><th>RC</th><th>Pedido</th><th>Prazo</th><th>Recebido</th></tr></thead><tbody id="sT"></tbody></table></div><small id="sC"></small>`;
+  ["sFs:sit", "sFa:area", "sFt:tipo"].forEach(x => { const [i, k] = x.split(":"); $("#" + i).onchange = e => { F[k] = e.target.value; pinta(); }; }); $("#sFq").oninput = e => { F.q = e.target.value; pinta(); };
+  $("#sX").onchange = e => { X = Math.max(1, +e.target.value || 15); pinta(); }; $("#sExp").onclick = exporta;
+  if (canProj) { $("#sNew").onclick = () => editaItem(null); $("#sImp").onclick = impOpen; } pinta();
+}
+function filtrados() { const q = F.q.toLowerCase(); return SUP.filter(i => { const p = pontoDe(i);
+  return (!F.sit || sitTxt(i) === F.sit || (F.sit === "Sem prazo" && semPrazo(i))) && (!F.area || (p && p.area === F.area)) && (!F.tipo || (p && p.tipo_projeto === F.tipo)) && (!q || [i.codigo_sap, i.codigo_sphera, i.descricao].join(" ").toLowerCase().includes(q)); }); }
+function pinta() {
+  const L = filtrados(), s = supStats(L), d = x => x ? dtBR(parseD(x)) : "—", cd = [[s.t, "itens"], [pc3(s.rc, s.t), "com RC"], [pc3(s.pd, s.t), "com pedido"], [pc3(s.pz, s.t), "com prazo"], [pc3(s.en, s.t), "entregues"], [`${s.at} (${pc3(s.at, s.t)})`, "atrasados"], [s.sp, "pedidos sem prazo"], [`${s.a7} / ${s.a15} / ${s.a30}`, "a vencer em 7 / 15 / 30 dias"], [s.pm == null ? "—" : s.pm + " d", "prazo médio (pedido → entrega)"]];
+  $("#sK").innerHTML = cd.map(([v, l]) => `<div class="card kpi" style="margin:0"><b class="sm">${v}</b><span>${l}</span></div>`).join("");
+  charts.c5?.destroy(); charts.c5 = new Chart($("#c5"), { type: "bar", data: { labels: ["Total", "Com RC", "Com pedido", "Entregues"], datasets: [{ data: [s.t, s.rc, s.pd, s.en], backgroundColor: ["#b0b7c3", "#f2a93b", "#3b82c4", "#2e9e5b"] }] }, options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+  const hojeS = ymd(hj()), at = [...L.filter(atras).map(i => [i, "Atrasado desde " + d(i.prazo_entrega)]), ...L.filter(i => sitOf(i) === 0 && i.created_at && dias(i.created_at.slice(0, 10), hojeS) > X).map(i => [i, `Sem RC há ${dias(i.created_at.slice(0, 10), hojeS)} dias`])];
+  $("#sA").innerHTML = at.length ? at.slice(0, 15).map(([i, t]) => `<div class="sl"><div><b>${esc(i.codigo_sap || i.codigo_sphera || "—")}</b> <small>${esc(i.descricao || "")}</small></div><span class="tag" style="--c:#d64545">${t}</span></div>`).join("") + (at.length > 15 ? `<small>+${at.length - 15} itens</small>` : "") : "Nenhum item em atenção.";
+  const cor = i => atras(i) ? "#d64545" : semPrazo(i) ? "#d9822b" : ["#b0b7c3", "#f2a93b", "#3b82c4", "#2e9e5b"][sitOf(i)];
+  $("#sT").innerHTML = L.map(i => `<tr data-id="${i.id}" style="${canProj ? "cursor:pointer" : ""}"><td class="h"><b>${esc(i.codigo_sap || "—")}</b></td><td data-l="Sphera"><div class="v">${esc(i.codigo_sphera || "—")}</div></td><td data-l="Descrição"><div class="v">${esc(i.descricao || "—")}</div></td><td data-l="Qtd"><div class="v">${i.quantidade ?? "—"} ${esc(i.unidade || "")}</div></td><td data-l="Situação"><div class="v"><span class="tag" style="--c:${cor(i)}">${sitTxt(i)}</span></div></td><td data-l="RC"><div class="v">${esc(i.rc_numero || "—")} <small>${i.rc_data ? d(i.rc_data) : ""}</small></div></td><td data-l="Pedido"><div class="v">${esc(i.pedido_numero || "—")} <small>${esc(i.fornecedor || "")}</small></div></td><td data-l="Prazo"><div class="v">${d(i.prazo_entrega)}</div></td><td data-l="Recebido"><div class="v">${d(i.data_recebimento)}</div></td></tr>`).join("");
+  $("#sC").textContent = `${L.length} de ${SUP.length} itens`; if (canProj) document.querySelectorAll("#sT tr").forEach(tr => tr.onclick = () => editaItem(SUP.find(i => i.id == tr.dataset.id)));
+}
+
+// ---- Item manual (inserir / editar / excluir) ----
+const dl = document.createElement("dialog"); dl.id = "spDlg"; document.body.appendChild(dl);
+function editaItem(it) {
+  if (!canProj) return;
+  dl.innerHTML = `<form id="spF"><h3>${it ? "Editar item" : "Novo item de suprimento"}</h3><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0 12px">${ORD.map(k => { const f = ff(k); return `<label${f[3] === "w" ? ' style="grid-column:1/-1"' : ""}>${f[1]}<input name="${k}" type="${f[3] === "n" ? "number" : f[3] === "d" ? "date" : "text"}"${f[3] === "n" ? ' step="any"' : ""} value="${esc(it ? it[k] ?? "" : k === "unidade" ? "un" : "")}"></label>`; }).join("")}</div>
+  <p class="err" id="spE"></p><div class="bar" style="margin-top:12px"><button class="p">Salvar</button><button type="button" id="spCx">Cancelar</button>${it && canDelete ? '<button type="button" class="d" id="spDel">Excluir</button>' : ""}</div></form>`;
+  $("#spCx").onclick = () => dl.close();
+  if ($("#spDel")) $("#spDel").onclick = async () => { if (!confirm("Excluir este item de suprimentos?")) return; const { error } = await sb.from("suprimentos").delete().eq("id", it.id); if (error) return alert(error.message); logP("Excluiu item de suprimentos", it.codigo_sap || it.codigo_sphera || it.descricao || ""); dl.close(); await loadSup(); renderSup(); };
+  $("#spF").onsubmit = async e => { e.preventDefault(); const o = {}; new FormData(e.target).forEach((v, k) => { o[k] = cl(v); }); if (o.quantidade != null) o.quantidade = Number(o.quantidade);
+    if (!o.codigo_sap && !o.codigo_sphera) return $("#spE").textContent = "Informe o código SAP ou o código Sphera.";
+    const { error } = await (it ? sb.from("suprimentos").update(o).eq("id", it.id) : sb.from("suprimentos").insert({ ...o, projeto_id: proj.id, origem: "manual" }));
+    if (error) return $("#spE").textContent = /duplicate|unique/i.test(error.message) ? "Já existe um item com esse código neste projeto." : error.message + (/suprimentos/.test(error.message) ? " — " + "execute fase3_01 e fase3_02." : "");
+    logP(it ? "Editou item de suprimentos" : "Criou item de suprimentos", o.codigo_sap || o.codigo_sphera); dl.close(); await loadSup(); renderSup(); };
+  dl.showModal();
+}
+
+// ---- Importação (Excel/CSV, Word, PDF) com prévia editável, mapeamento e confirmação ----
+const di = document.createElement("dialog"); di.id = "spImp"; document.body.appendChild(di);
+let I = {};
+const tsv = () => I.tsv.split("\n").map(l => l.split("\t").map(s => s.trim())).filter(r => r.some(Boolean));
+function plano() { const R = tsv(); if (R.length < 2) return { upd: [], ins: [] }; const g = (r, f) => I.map[f] === undefined || I.map[f] === "" ? "" : (r[+I.map[f]] || "");
+  const bS = new Map(SUP.filter(i => i.codigo_sap).map(i => [i.codigo_sap, i])), bP = new Map(SUP.filter(i => i.codigo_sphera).map(i => [i.codigo_sphera, i])), upd = new Map(), ins = new Map();
+  R.slice(1).forEach(r => { const sap = cl(g(r, "codigo_sap")), sph = cl(g(r, "codigo_sphera")); if (!sap && !sph) return; const p = {};
+    ORD.slice(2).forEach(k => { const f = ff(k), raw = g(r, k); let v = f[3] === "d" ? pdate(raw) : f[3] === "n" ? (raw === "" ? null : (Number(String(raw).replace(",", ".")) || null)) : cl(raw); if (v != null) p[k] = v; });
+    const it = (sap && bS.get(sap)) || (sph && bP.get(sph));
+    if (it) { if (sph && !it.codigo_sphera) p.codigo_sphera = sph; if (sap && !it.codigo_sap) p.codigo_sap = sap; upd.set(it.id, { ...(upd.get(it.id) || {}), ...p }); }
+    else { const k = kk(sap, sph); ins.set(k, { ...(ins.get(k) || {}), ...p, codigo_sap: sap, codigo_sphera: sph }); } });
+  return { upd: [...upd].map(([id, p]) => ({ id, p })), ins: [...ins.values()] }; }
+function impMap() { const R = tsv(), b = $("#iMap"); if (R.length < 2) { b.innerHTML = ""; return; } const used = new Set();
+  FLD.forEach(([k, l, re]) => { if (I.map[k] === undefined) { const i = R[0].findIndex((h, j) => !used.has(j) && re.test(h)); I.map[k] = i < 0 ? "" : String(i); } if (I.map[k] !== "") used.add(+I.map[k]); });
+  const pl = plano();
+  b.innerHTML = "<b>Mapeamento de colunas</b>" + ORD.map(k => { const f = ff(k); return `<label>${f[1]}<select data-f="${k}"><option value="">— não usar —</option>${R[0].map((h, i) => `<option value="${i}" ${I.map[k] === String(i) ? "selected" : ""}>${esc(h || "Coluna " + (i + 1))}</option>`).join("")}</select></label>`; }).join("") + `<p><b>${pl.upd.length}</b> item(ns) existente(s) serão atualizados (casando por código SAP, ou Sphera se não houver SAP) e <b>${pl.ins.length}</b> novo(s) serão criados. Campos vazios na planilha não apagam dados.</p>`;
+  b.querySelectorAll("select").forEach(s => s.onchange = () => { I.map[s.dataset.f] = s.value; impMap(); }); }
+function impOpen() {
+  if (!canProj) return; I = { tsv: "", map: {} };
+  di.innerHTML = `<h3>Importar suprimentos</h3><label>Arquivo (.xlsx, .csv, .docx ou .pdf)<input id="iF" type="file" accept=".xlsx,.xls,.csv,.docx,.pdf"></label><small id="iM">Word e PDF podem vir com erros: corrija na prévia. Nada é gravado antes de “Confirmar”.</small>
+  <label>Prévia editável (colunas separadas por TAB; 1ª linha = cabeçalho)<textarea id="iT" rows="8" style="font:12px ui-monospace,monospace;white-space:pre"></textarea></label><div id="iMap"></div><p class="err" id="iE"></p>
+  <div class="bar" style="margin-top:12px"><button class="p" id="iOk">Confirmar importação</button><button id="iCx">Cancelar</button></div>`;
+  $("#iCx").onclick = () => di.close(); $("#iT").oninput = e => { I.tsv = e.target.value; I.map = {}; impMap(); };
+  $("#iF").onchange = async e => { const f = e.target.files[0]; if (!f) return; $("#iM").textContent = "Lendo arquivo…";
+    try { const a = await window.lerArq(f); I.tsv = a.map(r => r.map(c => String(c ?? "").replace(/[\t\r\n]+/g, " ")).join("\t")).join("\n"); I.map = {}; $("#iT").value = I.tsv; $("#iM").textContent = `${a.length} linhas lidas. Confira e corrija se preciso.`; impMap(); }
+    catch (x) { $("#iM").textContent = "Não foi possível ler: " + x.message; } };
+  $("#iOk").onclick = async () => { const pl = plano(); if (!pl.upd.length && !pl.ins.length) return $("#iE").textContent = "Nada para importar: mapeie a coluna de código SAP ou Sphera."; $("#iOk").disabled = true;
+    for (let i = 0; i < pl.upd.length; i += 20) { const r = await Promise.all(pl.upd.slice(i, i + 20).map(u => sb.from("suprimentos").update(u.p).eq("id", u.id))), er = r.find(x => x.error); if (er) { $("#iE").textContent = er.error.message; $("#iOk").disabled = false; return; } }
+    const nv = pl.ins.map(o => ({ ...o, projeto_id: proj.id, origem: "importacao", unidade: o.unidade || "un" }));
+    for (let i = 0; i < nv.length; i += 200) { const { error } = await sb.from("suprimentos").insert(nv.slice(i, i + 200)); if (error) { $("#iE").textContent = "Importação parou: " + error.message; $("#iOk").disabled = false; return; } }
+    logP("Importou suprimentos", `${pl.upd.length} atualizados, ${pl.ins.length} novos`); di.close(); await loadSup(); renderSup(); };
+  di.showModal();
+}
+function exporta() {
+  const H = ORD.map(k => ff(k)[1]), out = SUP.map(i => ({ ...Object.fromEntries(ORD.map(k => [ff(k)[1], i[k] ?? ""])), "Situação": sitTxt(i) })), wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(out, { header: [...H, "Situação"] }), "Suprimentos"); XLSX.writeFile(wb, `suprimentos_${proj.nome.replace(/[^\w]+/g, "_")}_${stamp()}.xlsx`); logP("Exportou suprimentos", `${SUP.length} itens`);
+}
 })();
 
 </script>
