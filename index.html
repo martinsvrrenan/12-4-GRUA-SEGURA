@@ -197,6 +197,12 @@ html[data-theme=dark] #login{background:#151c2b;box-shadow:0 24px 60px #0008}
 html[data-theme=dark] #mMenu{background:#151c2b}html[data-theme=dark] #mMenu .mi:hover{background:#222d45}html[data-theme=dark] #mMenu .mi.out{color:#ff8a80}
 @media(max-width:899px){#mBtn{display:inline-flex;align-items:center;justify-content:center;width:42px;padding:0}}
 @media(min-width:900px){#mBtn,#mMenu{display:none!important}}
+
+.mn.um{position:fixed;right:auto;top:0;left:0;z-index:60}
+.bdg{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12.5px;font-weight:700;background:#eef1f7;color:#3a4660;border:1px solid #dfe5f0}
+.bdg.admin{background:#14284b;color:#fff;border-color:#14284b}.bdg.editor{background:#e3ecff;color:#1d47a0;border-color:#c9d9ff}.bdg.colaborador{background:#e2f5ea;color:#1f7a47;border-color:#c4ead3}.bdg.pendente{background:#fff0c7;color:#8a5a00;border-color:#ffe08a}
+html[data-theme=dark] .bdg{background:#222d45;color:#c9d3e8;border-color:#34405c}html[data-theme=dark] .bdg.admin{background:#2456b8;color:#fff;border-color:#2456b8}html[data-theme=dark] .bdg.editor{background:#1d3566;color:#b9d0ff;border-color:#2c4c8f}html[data-theme=dark] .bdg.colaborador{background:#16382a;color:#9fe0bb;border-color:#24593f}html[data-theme=dark] .bdg.pendente{background:#4a3a0e;color:#ffd978;border-color:#6b5415}
+#usDlg{width:min(420px,94vw)}#usDlg label{display:block;margin-top:10px;font-size:13px;color:var(--mut);font-weight:600}#usDlg label input,#usDlg label select{display:block;width:100%;margin-top:4px}
 </style>
 </head>
 <body>
@@ -319,7 +325,7 @@ html[data-theme=dark] #mMenu{background:#151c2b}html[data-theme=dark] #mMenu .mi
     <div class="bar" style="margin:0"><button class="p" id="uOk">Criar</button><button id="uNo">Cancelar</button></div>
     <small id="uMsg" style="grid-column:1/-1"></small>
    </div>
-   <div class="tw"><table class="st" style="min-width:980px"><thead><tr><th>E-mail</th><th>Status</th><th>Acesso</th><th>Último login</th><th>Última ação</th><th>Criada em</th><th></th></tr></thead><tbody id="ub"></tbody></table></div>
+   <div class="tw"><table class="st" style="min-width:980px"><thead><tr><th>E-mail</th><th>Status</th><th>Perfil</th><th>Último login</th><th>Última ação</th><th>Criada em</th><th style="width:56px"></th></tr></thead><tbody id="ub"></tbody></table></div>
   </div>
   <div class="card">
    <div class="evh"><b>Log de ações</b><div class="bar"><select id="lgU"><option value="">Todos os usuários</option></select><button class="p" id="lgX">Exportar histórico (Excel)</button></div></div>
@@ -509,27 +515,80 @@ async function users() {
     const on = u.id === me || (u.online_ate && new Date(u.online_ate).getTime() > now), l = last[u.id];
     return `<tr ${u.papel === "pendente" ? 'class="pend"' : ""}><td class="h"><b>${esc(u.email)}</b>${u.id === me ? " <small>(você)</small>" : ""}</td>
     <td data-l="Status"><div class="v"><span class="dot ${on ? "on" : ""}"></span>${on ? "Online" : "Offline"}</div></td>
-    <td data-l="Acesso"><div class="v"><select data-id="${u.id}" data-em="${esc(u.email)}" ${u.id === me ? "disabled" : ""}>${PAPEIS.map(p => `<option value="${p[0]}" ${p[0] === u.papel ? "selected" : ""}>${p[1]}</option>`).join("")}</select></div></td>
+    <td data-l="Perfil"><div class="v"><span class="bdg ${esc(u.papel)}">${esc(PAPEL_LBL[u.papel] || u.papel)}</span></div></td>
     <td data-l="Último login"><div class="v">${dtf(u.ultimo_login)}</div></td>
     <td data-l="Última ação"><div class="v">${l ? `${esc(l.acao)}${l.detalhe ? " · " + esc(l.detalhe) : ""}<br><small>${dtf(l.created_at)}</small>` : "—"}</div></td>
     <td data-l="Criada em"><div class="v">${new Date(u.created_at).toLocaleDateString("pt-BR")}</div></td>
-    <td><div class="v"><button class="d" data-del="${u.id}" data-em="${esc(u.email)}" ${u.id === me ? "disabled" : ""}>Excluir</button></div></td></tr>`;
+    <td><div class="v"><button class="km uk" data-u="${u.id}" data-em="${esc(u.email)}" data-pap="${esc(u.papel)}" aria-label="Opções de ${esc(u.email)}" aria-haspopup="menu" aria-expanded="false">⋮</button></div></td></tr>`;
   }).join("");
-  document.querySelectorAll("#ub select").forEach(sel => sel.onchange = async () => {
-    const { error } = await sb.from("perfis").update({ papel: sel.value }).eq("id", sel.dataset.id);
-    if (error) return alert(error.message);
-    logAcao("Alterou acesso", `${sel.dataset.em} → ${sel.value}`);
-  });
-  document.querySelectorAll("#ub button[data-del]").forEach(bt => bt.onclick = async () => {
-    if (!confirm(`Excluir a conta ${bt.dataset.em}?\nEssa ação não pode ser desfeita e o usuário perde o acesso.`)) return;
-    const { data, error } = await sb.rpc("admin_excluir_usuario", { p_id: bt.dataset.del });
-    if (error) return alert("Não foi possível excluir: " + error.message + (/function|schema cache/i.test(error.message) ? "\n\n" + SQLU : ""));
-    if (data === false) return alert("Não foi possível excluir: apenas administradores podem excluir contas, e não é possível excluir a própria.");
-    logAcao("Excluiu conta", bt.dataset.em); users();
-  });
+  document.querySelectorAll("#ub .uk").forEach(bt => bt.onclick = e => { e.stopPropagation(); abrirMenuUsuario(bt); });
   const cur = $("#lgU").value;
   $("#lgU").innerHTML = '<option value="">Todos os usuários</option>' + pr.data.map(u => `<option value="${u.id}">${esc(u.email)}</option>`).join("");
   $("#lgU").value = cur; lgLoad();
+}
+// ---------- Menu ⋮ de usuários: alterar acesso, alterar senha, excluir ----------
+const PAPEL_LBL = { pendente: "Pendente", visualizador: "Visualizador", colaborador: "Colaborador", editor: "Editor", admin: "Administrador" };
+let umEl = null;
+function fecharMenuUsuario() { if (umEl) { umEl.remove(); umEl = null; } document.querySelectorAll("#ub .uk[aria-expanded=true]").forEach(b => b.setAttribute("aria-expanded", "false")); }
+function abrirMenuUsuario(bt) {
+  const abria = bt.getAttribute("aria-expanded") === "true";
+  fecharMenuUsuario(); if (abria) return;
+  const u = { id: bt.dataset.u, em: bt.dataset.em, pap: bt.dataset.pap }, eu = u.id === me;
+  const m = document.createElement("div"); m.className = "mn um"; m.setAttribute("role", "menu");
+  m.innerHTML = (eu ? "" : '<button role="menuitem" data-a="pap">Alterar nível de acesso</button>') +
+    '<button role="menuitem" data-a="pw">Alterar senha</button>' +
+    (eu ? "" : '<button role="menuitem" data-a="del" class="dg">Excluir</button>');
+  document.body.appendChild(m); umEl = m; bt.setAttribute("aria-expanded", "true");
+  const r = bt.getBoundingClientRect(), w = m.offsetWidth, h = m.offsetHeight;
+  m.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.right - w)) + "px";
+  m.style.top = (r.bottom + h + 8 > innerHeight ? Math.max(8, r.top - h - 4) : r.bottom + 4) + "px";
+  m.onclick = e => { const a = e.target.closest("button")?.dataset.a; if (!a) return; fecharMenuUsuario(); if (a === "pap") dlgAcesso(u); else if (a === "pw") dlgSenha(u); else excluirUsuario(u); };
+}
+document.addEventListener("click", e => { if (umEl && !e.target.closest(".um")) fecharMenuUsuario(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") fecharMenuUsuario(); });
+addEventListener("scroll", fecharMenuUsuario, true); addEventListener("resize", fecharMenuUsuario);
+
+function dlgUsuario(titulo, corpo, rotulo, onOk) {
+  const d = document.createElement("dialog"); d.id = "usDlg";
+  d.innerHTML = `<form><h3>${titulo}</h3>${corpo}<p class="err" data-err></p><div class="bar" style="margin-top:10px"><button class="p" data-ok>${rotulo}</button><button type="button" data-cx>Cancelar</button></div></form>`;
+  document.body.appendChild(d);
+  const err = d.querySelector("[data-err]"), ok = d.querySelector("[data-ok]");
+  const fim = () => { d.close(); d.remove(); };
+  d.querySelector("[data-cx]").onclick = fim; d.addEventListener("cancel", e => { e.preventDefault(); fim(); });
+  d.querySelector("form").onsubmit = async e => {
+    e.preventDefault(); err.textContent = ""; ok.disabled = true;
+    try { const msg = await onOk(d); if (msg) err.textContent = msg; else fim(); } catch (x) { err.textContent = x.message || String(x); }
+    ok.disabled = false;
+  };
+  d.showModal(); (d.querySelector("select,input") || ok).focus();
+}
+function dlgAcesso(u) {
+  dlgUsuario("Alterar nível de acesso", `<p><b>${esc(u.em)}</b></p><label>Nível de acesso<select id="usPap">${PAPEIS.map(p => `<option value="${p[0]}" ${p[0] === u.pap ? "selected" : ""}>${p[1]}</option>`).join("")}</select></label>`, "Salvar", async d => {
+    const novo = d.querySelector("#usPap").value;
+    if (novo === u.pap) return "Esse já é o nível atual.";
+    const { data, error } = await sb.rpc("admin_alterar_papel", { p_id: u.id, p_papel: novo });
+    if (error) return "Não foi possível alterar: " + error.message + (/function|schema cache/i.test(error.message) ? " (rode o SQL admin_alterar_papel no Supabase)" : "");
+    if (data === false) return "Usuário não encontrado.";
+    logAcao("Alterou acesso", `${u.em} → ${novo}`); users();
+  });
+}
+function dlgSenha(u) {
+  dlgUsuario("Alterar senha", `<p><b>${esc(u.em)}</b></p><label>Nova senha (mín. 6 caracteres)<input id="usP1" type="password" autocomplete="new-password" minlength="6" required></label><label>Repita a nova senha<input id="usP2" type="password" autocomplete="new-password" minlength="6" required></label>`, "Alterar senha", async d => {
+    const a = d.querySelector("#usP1").value, b = d.querySelector("#usP2").value;
+    if (a.length < 6) return "A senha deve ter pelo menos 6 caracteres.";
+    if (a !== b) return "As senhas não conferem.";
+    const { data, error } = await sb.rpc("admin_alterar_senha", { p_id: u.id, p_senha: a });
+    if (error) return "Não foi possível alterar: " + error.message + (/function|schema cache/i.test(error.message) ? " (rode o SQL admin_alterar_senha no Supabase)" : "");
+    if (data === false) return "Usuário não encontrado.";
+    logAcao("Alterou senha", u.em); alert("Senha alterada com sucesso.");
+  });
+}
+async function excluirUsuario(u) {
+  if (!confirm(`Excluir a conta ${u.em}?\nEssa ação não pode ser desfeita e o usuário perde o acesso.`)) return;
+  const { data, error } = await sb.rpc("admin_excluir_usuario", { p_id: u.id });
+  if (error) return alert("Não foi possível excluir: " + error.message + (/function|schema cache/i.test(error.message) ? "\n\n" + SQLU : ""));
+  if (data === false) return alert("Não foi possível excluir: apenas administradores podem excluir contas, e não é possível excluir a própria.");
+  logAcao("Excluiu conta", u.em); users();
 }
 async function lgLoad() {
   const uid = $("#lgU").value;
