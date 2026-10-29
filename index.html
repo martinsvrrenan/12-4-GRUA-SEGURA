@@ -1563,6 +1563,12 @@ function pdate(v) { v = String(v ?? "").trim(); if (!v) return null; let m;
   if (/^\d{5}$/.test(v)) return new Date(Math.round((+v - 25569) * 864e5)).toISOString().slice(0, 10);
   if ((m = v.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/))) return `${m[3].length === 2 ? "20" + m[3] : m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
   if ((m = v.match(/^\d{4}-\d{2}-\d{2}/))) return m[0]; return null; }
+function brNum(v) { v = String(v ?? "").replace(/[^\d.,\-]/g, ""); if (!v) return null; const lc = v.lastIndexOf(","), lp = v.lastIndexOf(".");
+  if (lc >= 0 && lp >= 0) v = lc > lp ? v.replace(/\./g, "").replace(",", ".") : v.replace(/,/g, ""); else if (lc >= 0) v = v.replace(",", ".");
+  const n = Number(v); return isFinite(n) ? n : null; }
+function pdateLast(v) { v = String(v ?? "").trim(); const m = v.match(/\d{4}-\d{2}-\d{2}|\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}/g); return m ? pdate(m[m.length - 1]) : pdate(v); } // "de/até": usa a última data
+const vTot = i => i.valor_total != null ? Number(i.valor_total) : (i.valor_unitario != null && i.quantidade != null ? Number(i.valor_unitario) * Number(i.quantidade) : 0);
+function supValores(L) { const v = { rc: 0, pd: 0, rec: 0 }; L.forEach(i => { const s = sitOf(i), x = vTot(i) || 0; if (s === 1) v.rc += x; else if (s === 2) v.pd += x; else if (s === 3) v.rec += x; }); v.comp = v.rc + v.pd + v.rec; return v; }
 function supStats(L) { const t = L.length, c = f => L.filter(f).length, h = hj().getTime();
   const av = d => c(i => i.prazo_entrega && !i.data_recebimento && !atras(i) && (parseD(i.prazo_entrega).getTime() - h) / DAY <= d);
   const pm = L.filter(i => i.pedido_data && i.prazo_entrega).map(i => dias(i.pedido_data, i.prazo_entrega));
@@ -1571,10 +1577,13 @@ function supStats(L) { const t = L.length, c = f => L.filter(f).length, h = hj()
 //#/PURE
 const pc3 = (x, n) => n ? Math.round(100 * x / n) + "%" : "0%";
 let SUP = [], F = { sit: "", area: "", tipo: "", q: "" }, X = 15, supOk = true;
-const FLD = [["codigo_sap", "Código SAP", /sap/i], ["codigo_sphera", "Código Sphera", /sphera|mestre/i], ["descricao", "Descrição", /descri|material|item/i, "w"], ["quantidade", "Quantidade", /qtd|quant/i, "n"], ["unidade", "Unidade", /unid|^un$/i],
-  ["rc_data", "RC (data)", /rc.*data/i, "d"], ["rc_numero", "RC (número)", /rc|requisi/i], ["pedido_data", "Pedido (data)", /pedido.*data/i, "d"], ["pedido_numero", "Pedido (número)", /pedido/i], ["fornecedor", "Fornecedor", /fornec/i],
-  ["prazo_entrega", "Prazo de entrega previsto", /prazo/i, "d"], ["data_recebimento", "Data de recebimento", /receb|entregue em/i, "d"], ["observacao", "Observação", /obs/i, "w"]];
-const ORD = ["codigo_sap", "codigo_sphera", "descricao", "quantidade", "unidade", "rc_numero", "rc_data", "pedido_numero", "pedido_data", "fornecedor", "prazo_entrega", "data_recebimento", "observacao"];
+const FLD = [["codigo_sap", "Código SAP", /^material$|sap/i], ["codigo_sphera", "Código Sphera", /sphera|mestre/i], ["descricao", "Descrição", /texto breve|descri|item/i, "w"], ["quantidade", "Quantidade", /qtd|quant/i, "n"], ["unidade", "Unidade", /unid|^un$/i],
+  ["valor_unitario", "Valor unitário", /preco|valor.*unit|unit/i, "n"], ["valor_total", "Valor total", /valor.*total|total/i, "n"],
+  ["rc_data", "RC (data)", /data.*solicit|solicit.*data|rc.*data/i, "d"], ["rc_numero", "RC (número)", /requisi|rc/i], ["pedido_data", "Pedido (data)", /pedido.*data/i, "d"], ["pedido_numero", "Pedido (número)", /pedido/i], ["fornecedor", "Fornecedor", /fornec/i],
+  ["prazo_entrega", "Prazo de entrega previsto", /remessa|prazo/i, "d"], ["data_recebimento", "Data de recebimento", /receb|entregue em/i, "d"], ["observacao", "Observação", /obs/i, "w"]];
+const ORD = ["codigo_sap", "codigo_sphera", "descricao", "quantidade", "unidade", "valor_unitario", "valor_total", "rc_numero", "rc_data", "pedido_numero", "pedido_data", "fornecedor", "prazo_entrega", "data_recebimento", "observacao"];
+const nz = t => String(t ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+const fR = v => v == null || v === "" ? "—" : Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), fU = v => v == null ? "—" : Number(v).toLocaleString("en-US", { style: "currency", currency: "USD" });
 const ff = k => FLD.find(f => f[0] === k);
 
 // ---- Carga e migração automática ponto -> suprimento ----
@@ -1614,12 +1623,36 @@ function renderSup() {
   const ar = [...new Set(rows.map(r => r.area).filter(Boolean))].sort(), tp = [...new Set(rows.map(r => r.tipo_projeto).filter(Boolean))].sort(), op = (a, f) => a.map(x => `<option ${x === f ? "selected" : ""}>${esc(x)}</option>`).join("");
   sec.innerHTML = `<div class="card"><div class="bar"><select id="sFs"><option value="">Todas as situações</option>${op([...SIT, "Atrasado", "Sem prazo"], F.sit)}</select><select id="sFa"><option value="">Todas as áreas</option>${op(ar, F.area)}</select><select id="sFt"><option value="">Todos os tipos</option>${op(tp, F.tipo)}</select><input id="sFq" type="search" placeholder="Buscar código SAP, Sphera ou descrição…" value="${esc(F.q)}"></div>
   <div class="bar">${canProj ? '<button class="p" id="sNew">+ Item</button><button class="p" id="sImp">Importar (Excel, Word, PDF)</button>' : ""}<button id="sExp">Exportar Excel</button></div></div>
+  <div class="card" id="sB"><div class="evh"><b>Orçamento e gasto do projeto</b><small>Valores dos itens em R$ (SAP) · orçamento liberado em US$</small></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0 12px"><label>Orçamento disponível (US$)<input id="sBu" type="number" min="0" step="any" value="${proj.orcamento_usd ?? ""}" ${canProj ? "" : "disabled"}></label>
+  <label>Câmbio (R$ por US$)<input id="sBc" type="number" min="0" step="any" value="${proj.cambio_usd_brl ?? ""}" ${canProj ? "" : "disabled"}></label><label>Orçamento em R$<input id="sBr" disabled></label></div><small class="err" id="sBe"></small>
+  <div class="cards" id="sV" style="margin-top:10px"></div><div class="ch"><canvas id="c6"></canvas></div></div>
   <div class="cards" id="sK"></div><div class="grid"><div class="card"><b>Funil RC → Pedido → Entrega</b><div class="ch"><canvas id="c5"></canvas></div></div>
   <div class="card"><div class="evh"><b>Atenção</b><label style="margin:0">Sem RC há mais de <input id="sX" type="number" min="1" value="${X}" style="width:80px"> dias</label></div><div id="sA"></div></div></div>
-  <div class="card tw"><table class="st"><thead><tr><th>Código SAP</th><th>Sphera</th><th>Descrição</th><th>Qtd</th><th>Situação</th><th>RC</th><th>Pedido</th><th>Prazo</th><th>Recebido</th></tr></thead><tbody id="sT"></tbody></table></div><small id="sC"></small>`;
+  <div class="card tw"><table class="st"><thead><tr><th>Código SAP</th><th>Sphera</th><th>Descrição</th><th>Qtd</th><th>Valor unit.</th><th>Valor total</th><th>Situação</th><th>RC</th><th>Pedido</th><th>Prazo</th><th>Recebido</th></tr></thead><tbody id="sT"></tbody></table></div><small id="sC"></small>`;
   ["sFs:sit", "sFa:area", "sFt:tipo"].forEach(x => { const [i, k] = x.split(":"); $("#" + i).onchange = e => { F[k] = e.target.value; pinta(); }; }); $("#sFq").oninput = e => { F.q = e.target.value; pinta(); };
   $("#sX").onchange = e => { X = Math.max(1, +e.target.value || 15); pinta(); }; $("#sExp").onclick = exporta;
-  if (canProj) { $("#sNew").onclick = () => editaItem(null); $("#sImp").onclick = impOpen; } pinta();
+  if (canProj) { $("#sNew").onclick = () => editaItem(null); $("#sImp").onclick = impOpen; $("#sBu").onchange = $("#sBc").onchange = salvaOrc; } pinta(); pintaOrc();
+}
+async function salvaOrc() {
+  const u = brNum($("#sBu").value), c = brNum($("#sBc").value); $("#sBe").textContent = "";
+  const { data, error } = await sb.from("projetos").update({ orcamento_usd: u, cambio_usd_brl: c }).eq("id", proj.id).select("id");
+  if (error || !data?.length) { $("#sBe").textContent = error ? error.message + (/orcamento|cambio/.test(error.message) ? " — execute a migração fase3_03." : "") : "Sem permissão para alterar o orçamento."; return; }
+  proj.orcamento_usd = u; proj.cambio_usd_brl = c; const pj = projs.find(x => x.id === proj.id); if (pj && pj !== proj) { pj.orcamento_usd = u; pj.cambio_usd_brl = c; }
+  logP("Atualizou orçamento do projeto", `US$ ${u ?? "—"} · câmbio ${c ?? "—"}`); pintaOrc();
+}
+function pintaOrc() {
+  const u = proj.orcamento_usd != null ? Number(proj.orcamento_usd) : null, c = proj.cambio_usd_brl > 0 ? Number(proj.cambio_usd_brl) : null, orc = u != null && c ? u * c : null, v = supValores(SUP);
+  const toU = r => c ? r / c : null, sal = orc != null ? orc - v.comp : null, pct = orc ? Math.round(100 * v.comp / orc) + "%" : "—";
+  $("#sBr").value = orc != null ? fR(orc) : (u != null ? "Informe o câmbio" : "");
+  const kp = (r, l, extra) => `<div class="card kpi" style="margin:0"><b class="sm"${extra || ""}>${fR(r)}</b><span>${l}</span><small>${c || r == null ? fU(r == null ? null : toU(r)) : "US$ — (informe o câmbio)"}</small></div>`;
+  $("#sV").innerHTML = (orc != null ? kp(orc, "Orçamento disponível") : `<div class="card kpi" style="margin:0"><b class="sm">${u != null ? fU(u) : "—"}</b><span>Orçamento disponível</span><small>${u != null ? "informe o câmbio para ver em R$" : "informe o valor acima"}</small></div>`)
+    + kp(v.comp, `Verba comprometida (${pct})`) + kp(v.rc, "Em RC (sem pedido)") + kp(v.pd, "Em pedido (a receber)") + kp(v.rec, "Material recebido")
+    + (sal != null ? kp(sal, sal < 0 ? "Estouro do orçamento" : "Saldo livre", sal < 0 ? ' style="color:#d64545"' : "") : "");
+  const lab = ["Recebido", "Em pedido", "Em RC"], dat = [v.rec, v.pd, v.rc], col = ["#2e9e5b", "#3b82c4", "#f2a93b"];
+  if (sal != null && sal > 0) { lab.push("Saldo livre"); dat.push(sal); col.push("#d5dae2"); }
+  charts.c6?.destroy(); charts.c6 = new Chart($("#c6"), { type: "doughnut", data: { labels: lab, datasets: [{ data: dat, backgroundColor: col }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: { callbacks: { label: t => ` ${t.label}: ${fR(t.parsed)}${c ? " · " + fU(t.parsed / c) : ""}` } } } } });
 }
 function filtrados() { const q = F.q.toLowerCase(); return SUP.filter(i => { const p = pontoDe(i);
   return (!F.sit || sitTxt(i) === F.sit || (F.sit === "Sem prazo" && semPrazo(i))) && (!F.area || (p && p.area === F.area)) && (!F.tipo || (p && p.tipo_projeto === F.tipo)) && (!q || [i.codigo_sap, i.codigo_sphera, i.descricao].join(" ").toLowerCase().includes(q)); }); }
@@ -1630,8 +1663,8 @@ function pinta() {
   const hojeS = ymd(hj()), at = [...L.filter(atras).map(i => [i, "Atrasado desde " + d(i.prazo_entrega)]), ...L.filter(i => sitOf(i) === 0 && i.created_at && dias(i.created_at.slice(0, 10), hojeS) > X).map(i => [i, `Sem RC há ${dias(i.created_at.slice(0, 10), hojeS)} dias`])];
   $("#sA").innerHTML = at.length ? at.slice(0, 15).map(([i, t]) => `<div class="sl"><div><b>${esc(i.codigo_sap || i.codigo_sphera || "—")}</b> <small>${esc(i.descricao || "")}</small></div><span class="tag" style="--c:#d64545">${t}</span></div>`).join("") + (at.length > 15 ? `<small>+${at.length - 15} itens</small>` : "") : "Nenhum item em atenção.";
   const cor = i => atras(i) ? "#d64545" : semPrazo(i) ? "#d9822b" : ["#b0b7c3", "#f2a93b", "#3b82c4", "#2e9e5b"][sitOf(i)];
-  $("#sT").innerHTML = L.map(i => `<tr data-id="${i.id}" style="${canProj ? "cursor:pointer" : ""}"><td class="h"><b>${esc(i.codigo_sap || "—")}</b></td><td data-l="Sphera"><div class="v">${esc(i.codigo_sphera || "—")}</div></td><td data-l="Descrição"><div class="v">${esc(i.descricao || "—")}</div></td><td data-l="Qtd"><div class="v">${i.quantidade ?? "—"} ${esc(i.unidade || "")}</div></td><td data-l="Situação"><div class="v"><span class="tag" style="--c:${cor(i)}">${sitTxt(i)}</span></div></td><td data-l="RC"><div class="v">${esc(i.rc_numero || "—")} <small>${i.rc_data ? d(i.rc_data) : ""}</small></div></td><td data-l="Pedido"><div class="v">${esc(i.pedido_numero || "—")} <small>${esc(i.fornecedor || "")}</small></div></td><td data-l="Prazo"><div class="v">${d(i.prazo_entrega)}</div></td><td data-l="Recebido"><div class="v">${d(i.data_recebimento)}</div></td></tr>`).join("");
-  $("#sC").textContent = `${L.length} de ${SUP.length} itens`; if (canProj) document.querySelectorAll("#sT tr").forEach(tr => tr.onclick = () => editaItem(SUP.find(i => i.id == tr.dataset.id)));
+  $("#sT").innerHTML = L.map(i => `<tr data-id="${i.id}" style="${canProj ? "cursor:pointer" : ""}"><td class="h"><b>${esc(i.codigo_sap || "—")}</b></td><td data-l="Sphera"><div class="v">${esc(i.codigo_sphera || "—")}</div></td><td data-l="Descrição"><div class="v">${esc(i.descricao || "—")}</div></td><td data-l="Qtd"><div class="v">${i.quantidade ?? "—"} ${esc(i.unidade || "")}</div></td><td data-l="Valor unit."><div class="v">${fR(i.valor_unitario)}</div></td><td data-l="Valor total"><div class="v">${i.valor_total != null || i.valor_unitario != null ? fR(vTot(i)) : "—"}</div></td><td data-l="Situação"><div class="v"><span class="tag" style="--c:${cor(i)}">${sitTxt(i)}</span></div></td><td data-l="RC"><div class="v">${esc(i.rc_numero || "—")} <small>${i.rc_data ? d(i.rc_data) : ""}</small></div></td><td data-l="Pedido"><div class="v">${esc(i.pedido_numero || "—")} <small>${esc(i.fornecedor || "")}</small></div></td><td data-l="Prazo"><div class="v">${d(i.prazo_entrega)}</div></td><td data-l="Recebido"><div class="v">${d(i.data_recebimento)}</div></td></tr>`).join("");
+  $("#sC").textContent = `${L.length} de ${SUP.length} itens · valor total listado: ${fR(L.reduce((a, i) => a + (vTot(i) || 0), 0))}`; if (canProj) document.querySelectorAll("#sT tr").forEach(tr => tr.onclick = () => editaItem(SUP.find(i => i.id == tr.dataset.id)));
 }
 
 // ---- Item manual (inserir / editar / excluir) ----
@@ -1642,7 +1675,7 @@ function editaItem(it) {
   <p class="err" id="spE"></p><div class="bar" style="margin-top:12px"><button class="p">Salvar</button><button type="button" id="spCx">Cancelar</button>${it && canDelete ? '<button type="button" class="d" id="spDel">Excluir</button>' : ""}</div></form>`;
   $("#spCx").onclick = () => dl.close();
   if ($("#spDel")) $("#spDel").onclick = async () => { if (!confirm("Excluir este item de suprimentos?")) return; const { error } = await sb.from("suprimentos").delete().eq("id", it.id); if (error) return alert(error.message); logP("Excluiu item de suprimentos", it.codigo_sap || it.codigo_sphera || it.descricao || ""); dl.close(); await loadSup(); renderSup(); };
-  $("#spF").onsubmit = async e => { e.preventDefault(); const o = {}; new FormData(e.target).forEach((v, k) => { o[k] = cl(v); }); if (o.quantidade != null) o.quantidade = Number(o.quantidade);
+  $("#spF").onsubmit = async e => { e.preventDefault(); const o = {}; new FormData(e.target).forEach((v, k) => { o[k] = cl(v); }); ["quantidade", "valor_unitario", "valor_total"].forEach(k => { if (o[k] != null) o[k] = brNum(o[k]); });
     if (!o.codigo_sap && !o.codigo_sphera) return $("#spE").textContent = "Informe o código SAP ou o código Sphera.";
     const { error } = await (it ? sb.from("suprimentos").update(o).eq("id", it.id) : sb.from("suprimentos").insert({ ...o, projeto_id: proj.id, origem: "manual" }));
     if (error) return $("#spE").textContent = /duplicate|unique/i.test(error.message) ? "Já existe um item com esse código neste projeto." : error.message + (/suprimentos/.test(error.message) ? " — " + "execute fase3_01 e fase3_02." : "");
@@ -1657,13 +1690,13 @@ const tsv = () => I.tsv.split("\n").map(l => l.split("\t").map(s => s.trim())).f
 function plano() { const R = tsv(); if (R.length < 2) return { upd: [], ins: [] }; const g = (r, f) => I.map[f] === undefined || I.map[f] === "" ? "" : (r[+I.map[f]] || "");
   const bS = new Map(SUP.filter(i => i.codigo_sap).map(i => [i.codigo_sap, i])), bP = new Map(SUP.filter(i => i.codigo_sphera).map(i => [i.codigo_sphera, i])), upd = new Map(), ins = new Map();
   R.slice(1).forEach(r => { const sap = cl(g(r, "codigo_sap")), sph = cl(g(r, "codigo_sphera")); if (!sap && !sph) return; const p = {};
-    ORD.slice(2).forEach(k => { const f = ff(k), raw = g(r, k); let v = f[3] === "d" ? pdate(raw) : f[3] === "n" ? (raw === "" ? null : (Number(String(raw).replace(",", ".")) || null)) : cl(raw); if (v != null) p[k] = v; });
+    ORD.slice(2).forEach(k => { const f = ff(k), raw = g(r, k); let v = f[3] === "d" ? (k === "prazo_entrega" ? pdateLast(raw) : pdate(raw)) : f[3] === "n" ? brNum(raw) : cl(raw); if (v != null) p[k] = v; });
     const it = (sap && bS.get(sap)) || (sph && bP.get(sph));
     if (it) { if (sph && !it.codigo_sphera) p.codigo_sphera = sph; if (sap && !it.codigo_sap) p.codigo_sap = sap; upd.set(it.id, { ...(upd.get(it.id) || {}), ...p }); }
     else { const k = kk(sap, sph); ins.set(k, { ...(ins.get(k) || {}), ...p, codigo_sap: sap, codigo_sphera: sph }); } });
   return { upd: [...upd].map(([id, p]) => ({ id, p })), ins: [...ins.values()] }; }
 function impMap() { const R = tsv(), b = $("#iMap"); if (R.length < 2) { b.innerHTML = ""; return; } const used = new Set();
-  FLD.forEach(([k, l, re]) => { if (I.map[k] === undefined) { const i = R[0].findIndex((h, j) => !used.has(j) && re.test(h)); I.map[k] = i < 0 ? "" : String(i); } if (I.map[k] !== "") used.add(+I.map[k]); });
+  FLD.forEach(([k, l, re]) => { if (I.map[k] === undefined) { const i = R[0].findIndex((h, j) => !used.has(j) && re.test(nz(h))); I.map[k] = i < 0 ? "" : String(i); } if (I.map[k] !== "") used.add(+I.map[k]); });
   const pl = plano();
   b.innerHTML = "<b>Mapeamento de colunas</b>" + ORD.map(k => { const f = ff(k); return `<label>${f[1]}<select data-f="${k}"><option value="">— não usar —</option>${R[0].map((h, i) => `<option value="${i}" ${I.map[k] === String(i) ? "selected" : ""}>${esc(h || "Coluna " + (i + 1))}</option>`).join("")}</select></label>`; }).join("") + `<p><b>${pl.upd.length}</b> item(ns) existente(s) serão atualizados (casando por código SAP, ou Sphera se não houver SAP) e <b>${pl.ins.length}</b> novo(s) serão criados. Campos vazios na planilha não apagam dados.</p>`;
   b.querySelectorAll("select").forEach(s => s.onchange = () => { I.map[s.dataset.f] = s.value; impMap(); }); }
