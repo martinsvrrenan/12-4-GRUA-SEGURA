@@ -79,7 +79,7 @@ label{display:block;font-size:12px;font-weight:600;color:var(--mut);margin-top:1
 label input,label select,label textarea{width:100%;margin-top:4px;font-weight:400}
 #f .g,#pjF .g{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}#f .g .w,#pjF .g .w{grid-column:1/-1}
 #fnPrev{background:#fffaf0;border:1px solid #f3dfa4;border-radius:10px;padding:10px 12px;margin-top:10px}#fnPrev:empty{display:none}
-.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.chip{background:#fff;border:1px solid #e8d9a8;border-radius:8px;padding:5px 9px;font:600 12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--navy)}.chip i{font-style:normal;color:var(--mut);margin-right:7px}
+.sec{margin-top:16px;padding-top:12px;border-top:1px solid var(--line);font-size:13px;font-weight:800;color:var(--navy);letter-spacing:.2px}.cbx{display:flex;align-items:center;gap:10px;margin-top:4px;padding:9px 12px;border:1px solid #cdd4e1;border-radius:10px;background:#fff;min-height:42px;cursor:pointer;font-weight:400;color:var(--txt)}.cbx em{font-style:normal;font-size:14px}label .cbx input{width:20px;height:20px;min-height:0!important;margin:0;padding:0;flex:none}html[data-theme=dark] .cbx{background:#1a2336;border-color:#34405c}html[data-theme=dark] .sec{color:var(--ink)}.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.chip{background:#fff;border:1px solid #e8d9a8;border-radius:8px;padding:5px 9px;font:600 12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--navy)}.chip i{font-style:normal;color:var(--mut);margin-right:7px}
 a{color:var(--blue);font-weight:600}small{color:var(--mut)}.err{color:#c0362c}.hide{display:none!important}.v{display:block}
 @media(max-width:899px){
  nav{top:auto;bottom:0;width:100%;flex-direction:row;gap:0;justify-content:space-around;padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));border-right:0;border-top:1px solid var(--line);overflow:visible}
@@ -361,9 +361,11 @@ html[data-theme=dark] #mMenu{background:#151c2b}html[data-theme=dark] #mMenu .mi
  <label>Status do projeto<select name="status_projeto" id="fSt"></select></label>
  <label class="w">file_name (nome do desenho)<input name="file_name" autocomplete="off" placeholder="ex.: pr01-abc-001"></label>
  <label>Quantidade de folhas<input name="folhas" type="number" min="1" step="1" value="1" inputmode="numeric"></label>
+ <label>Desenho no SAP<span class="cbx"><input type="checkbox" name="desenho_sap"><em>Desenho cadastrado no SAP</em></span></label>
  <div class="w" id="fnPrev"></div>
- <label>Nº mestre SF (Sphera)<input name="sphera"></label>
- <label>Código SAP<input name="codigo_sap"></label>
+ <div class="w sec">Suprimentos</div>
+ <label>Nº mestre Sphera (SF)<input name="sphera" autocomplete="off"></label>
+ <label>Código SAP<input name="codigo_sap" autocomplete="off"></label>
  <label>Responsável<input name="responsavel"></label>
  <label class="w">Observações<textarea name="observacoes" rows="2"></textarea></label>
  </div>
@@ -393,9 +395,10 @@ function sheetNames(fn, n) {
 }
 const fnHtml = r => { if (!r.file_name) return ""; const n = Math.max(1, parseInt(r.folhas) || 1), ns = sheetNames(r.file_name, n);
   return `<span class="fn"><span class="n">${esc(ns[0] || r.file_name)}</span><span class="c">${n} ${n > 1 ? "folhas" : "folha"}</span>${ns.slice(1).map(x => `<span class="n x">${esc(x)}</span>`).join("")}</span>`; };
-const expRow = r => { const o = {}; for (const k in MAP) o[k] = r[MAP[k]]; if (r.file_name) o["Nomes das folhas"] = sheetNames(r.file_name, r.folhas).join(", "); return o; };
-let hasF = true, hasS = true;
+const expRow = r => { const o = {}; for (const k in MAP) o[k] = r[MAP[k]]; o["Desenho no SAP"] = r.desenho_sap ? "Sim" : "Não"; if (r.file_name) o["Nomes das folhas"] = sheetNames(r.file_name, r.folhas).join(", "); return o; };
+let hasF = true, hasS = true, hasD = true;
 const SQLS = "Para salvar o código SAP, crie a coluna no Supabase (SQL Editor):\nalter table pontos add column codigo_sap text;";
+const SQLD = "Para salvar \"Desenho no SAP\", crie a coluna no Supabase (SQL Editor):\nalter table pontos add column desenho_sap boolean not null default false;";
 const SQLF = "Para salvar a quantidade de folhas, crie a coluna no Supabase (SQL Editor):\nalter table pontos add column folhas integer default 1;";
 
 function fillSelect(el, items, first) {
@@ -568,7 +571,7 @@ async function load() {
   if (!proj) return;
   const { data, error } = await sb.from("pontos").select("*").eq("projeto_id", proj.id).order("area").order("equipamento").limit(5000);
   if (error) return alert("Erro ao carregar: " + error.message + (/projeto_id/.test(error.message) ? "\n\nExecute os scripts SQL da Fase 1 (fase1_01 a fase1_08) no Supabase." : ""));
-  rows = data; hasF = !rows.length || "folhas" in rows[0]; hasS = !rows.length || "codigo_sap" in rows[0]; hist = await fetchAll("historico", { projeto_id: proj.id });
+  rows = data; hasF = !rows.length || "folhas" in rows[0]; hasS = !rows.length || "codigo_sap" in rows[0]; hasD = !rows.length || "desenho_sap" in rows[0]; hist = await fetchAll("historico", { projeto_id: proj.id });
   const tps = [...new Set([...TIPOS, ...rows.map(r => r.tipo_projeto)])];
   $("#tps").innerHTML = tps.map(t => `<option value="${esc(t)}">`).join("");
   dash(); table();
@@ -606,7 +609,13 @@ function dash() {
   const eqs = Object.values(eqm), eqT = eqs.length, isLev = r => r.status_levantamento === "Levantado";
   const eqOk = eqs.filter(g => g.every(isLev)).length, eqPar = eqs.filter(g => !g.every(isLev) && g.some(isLev)).length, eqP = eqT ? Math.round(100 * eqOk / eqT) : 0;
   const equip = `<div class="card kpi" style="margin:0"><b>${eqP}%</b><span>Equipamentos levantados</span><small><em>${eqOk} de ${eqT} equipamentos</em><br><i>${eqT - eqOk} faltam</i>${eqPar ? ` · ${eqPar} parciais` : ""}</small><div class="pb"><u style="width:${eqP}%"></u></div></div>`;
-  $("#kpis").innerHTML = first + andam + card(["Levantados", lev]) + equip + [["Com desenho", c(2)], ["Cadastrados no Sphera", c(3)], ["Cadastrados no SAP", c(4)]].map(card).join("");
+  // Desenhos: conta quem tem file_name preenchido (sem nome não conta); SAP = caixa \"Desenho no SAP\" marcada
+  const dw = d.filter(r => String(r.file_name || "").trim()), dwS = dw.filter(r => r.desenho_sap), dwN = dw.filter(r => !r.desenho_sap);
+  const fol = a => a.reduce((t, r) => t + Math.max(1, parseInt(r.folhas) || 1), 0), dT = dw.length, dS = dwS.length, dN = dwN.length, dd = dT || 1;
+  const dCards = `<div class="card kpi" style="margin:0"><b>${dT}</b><span>Desenhos cadastrados (com nome)</span><small><em>${fol(dw)} folhas no total</em><br>${d.length - dT} linhas ainda sem desenho</small></div>`
+    + `<div class="card kpi" style="margin:0"><b>${dT ? Math.round(100 * dS / dd) : 0}%</b><span>Desenhos no SAP</span><small><em>${dS} de ${dT} desenhos · ${fol(dwS)} folhas</em><br><i>${dN} faltam</i></small><div class="pb"><u style="width:${dT ? Math.round(100 * dS / dd) : 0}%"></u></div></div>`
+    + `<div class="card kpi" style="margin:0"><b>${dN}</b><span>Desenhos não cadastrados no SAP</span><small><em>${fol(dwN)} folhas</em><br>${dT ? Math.round(100 * dN / dd) : 0}% dos desenhos</small><div class="pb"><u style="width:${dT ? Math.round(100 * dN / dd) : 0}%;background:#d9822b"></u></div></div>`;
+  $("#kpis").innerHTML = first + andam + card(["Levantados", lev]) + equip + [["Com desenho", c(2)], ["Cadastrados no Sphera", c(3)], ["Cadastrados no SAP", c(4)]].map(card).join("") + dCards;
   document.querySelectorAll("#kpis .seg button").forEach(b => b.onclick = () => { unit = b.dataset.u; dash(); });
   stack("c1", "area", d); stack("c3", "tipo_projeto", d, true); evoDash(d);
   charts.c2?.destroy();
@@ -806,7 +815,7 @@ const COLS = [
   ["Grade de piso", /grade/i, "Grade de piso (garagem de manutenção)"],
   ["Outros", null, ""]];
 const colOf = r => { const i = COLS.findIndex(c => c[1] && c[1].test(r.tipo_projeto || "")); return i < 0 ? COLS.length - 1 : i; };
-const cell = r => `<div class="ce" data-id="${r.id}" title="${esc(r.tipo_projeto)}"><b>${r.qtd ?? "•"}</b> <span class="tag" style="--c:${COL[si(r)]}">${esc(r.status_projeto)}</span>${r.status_levantamento === "Levantado" ? " ✓" : ""}${fnHtml(r)}</div>`;
+const cell = r => `<div class="ce" data-id="${r.id}" title="${esc(r.tipo_projeto)}"><b>${r.qtd ?? "•"}</b> <span class="tag" style="--c:${COL[si(r)]}">${esc(r.status_projeto)}</span>${r.status_levantamento === "Levantado" ? " ✓" : ""}${r.desenho_sap ? ' <span class="tag" style="--c:#0e9aa7">Desenho no SAP</span>' : ""}${fnHtml(r)}</div>`;
 function table() {
   const a = $("#fA").value, s = $("#fS").value, q = $("#fQ").value.toLowerCase();
   const d = rows.filter(r => (!a || r.area === a) && (!s || ST[si(r)] === s) &&
@@ -831,6 +840,7 @@ function edit(r, p) {
   f.elements.id.value = r?.id ?? "";
   if (r) for (const k in MAP) { const n = MAP[k]; if (f[n]) f[n].value = r[n] ?? ""; }
   else if (p) for (const k in p) if (f[k]) f[k].value = p[k];
+  f.elements.desenho_sap.checked = !!r?.desenho_sap;
   if (!f.elements.folhas.value) f.elements.folhas.value = 1;
   prev(); $("#dlg").showModal();
 }
@@ -841,6 +851,16 @@ function prev() {
     : `<small><b>${n} ${n > 1 ? "folhas" : "folha"}</b>${n > 1 ? " · nomes gerados:" : ""}</small><div class="chips">${ns.map((x, i) => `<span class="chip"><i>${i + 1}</i>${esc(x)}</span>`).join("")}</div>`;
 }
 ["file_name", "folhas"].forEach(k => $("#f").elements[k].addEventListener("input", prev));
+// Status automático: só dispara quando Nº mestre Sphera ou Código SAP são alterados; o status continua editável à mão.
+function autoStatus() {
+  const f = $("#f").elements, sph = f.sphera.value.trim(), sap = f.codigo_sap.value.trim(), i = ST.indexOf(f.status_projeto.value);
+  let t = f.status_projeto.value;
+  if (sap) { if (i < 4) t = ST[4]; }                                  // com Código SAP → Cadastrado no SAP (não rebaixa "Comprado")
+  else if (sph) { if (i < 3 || i >= 4) t = ST[3]; }                   // só Sphera → Cadastrado no Sphera (apagou o SAP volta para cá)
+  else if (i >= 3) t = f.file_name.value.trim() ? ST[2] : ST[1];      // sem nenhum dos dois → fase anterior
+  f.status_projeto.value = t;
+}
+["sphera", "codigo_sap"].forEach(k => $("#f").elements[k].addEventListener("input", autoStatus));
 $("#novo").onclick = () => edit(null); $("#cx").onclick = () => $("#dlg").close();
 $("#f").onsubmit = async e => {
   e.preventDefault();
@@ -849,12 +869,15 @@ $("#f").onsubmit = async e => {
   for (const k in o) if (o[k] === "") o[k] = null;
   if (ST.indexOf(o.status_projeto) >= 2 && !o.file_name) return alert("Informe o file_name do desenho para este status.");
   o.folhas = o.file_name ? Math.max(1, parseInt(o.folhas) || 1) : null;
+  o.desenho_sap = e.target.elements.desenho_sap.checked;
+  if (o.desenho_sap && !o.file_name) return alert("Informe o file_name do desenho para marcar \"Desenho no SAP\".");
   if (o.file_name && sheetNames(o.file_name, o.folhas).length < o.folhas) return alert("Para gerar mais de uma folha, o file_name precisa terminar em número (ex.: pr01-abc-001).");
   if (!hasF) { if (o.folhas > 1) return alert(SQLF); delete o.folhas; }
   if (!hasS) { if (o.codigo_sap) return alert(SQLS); delete o.codigo_sap; }
+  if (!hasD) { if (o.desenho_sap) return alert(SQLD); delete o.desenho_sap; }
   const id = o.id; delete o.id; if (!id) o.projeto_id = proj.id; // ponto novo nasce no projeto aberto
   const { error } = await (id ? sb.from("pontos").update(o).eq("id", id) : sb.from("pontos").insert(o));
-  if (error) return alert("Erro ao salvar: " + error.message + (/folhas/.test(error.message) ? "\n\n" + SQLF : /codigo_sap/.test(error.message) ? "\n\n" + SQLS : ""));
+  if (error) return alert("Erro ao salvar: " + error.message + (/folhas/.test(error.message) ? "\n\n" + SQLF : /codigo_sap/.test(error.message) ? "\n\n" + SQLS : /desenho_sap/.test(error.message) ? "\n\n" + SQLD : ""));
   logP(id ? "Editou ponto" : "Criou ponto", `${o.area} · ${o.equipamento} · ${o.tipo_projeto}`);
   $("#dlg").close(); load();
 };
@@ -1171,6 +1194,8 @@ $("#fi").onchange = async e => {
     if (!hasF) delete o.folhas;
     if (o.codigo_sap !== null) o.codigo_sap = String(o.codigo_sap);
     if (!hasS) delete o.codigo_sap;
+    o.desenho_sap = /^(sim|s|true|1|x)$/i.test(String(row["Desenho no SAP"] ?? "").trim());
+    if (!hasD) delete o.desenho_sap;
     o.projeto_id = proj.id; // toda linha importada pertence ao projeto aberto
     if (!AREAS.includes(o.area)) errs.push(`Linha ${i + 2}: área inválida (${o.area})`);
     else if (!o.equipamento || !o.tipo_projeto) errs.push(`Linha ${i + 2}: falta equipamento ou tipo de projeto`);
