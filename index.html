@@ -403,7 +403,7 @@ fillSelect($("#dA"), AREAS, "Todas as áreas"); fillSelect($("#rA"), AREAS, "Tod
 fillSelect($("#fS"), ST, "Status do projeto"); fillSelect($("#fArea"), AREAS); fillSelect($("#fSt"), ST);
 
 // ---------- Login e acesso ----------
-let papel = null, canEdit = false, canDelete = false, canImport = false, canProj = false, signup = false, me = null, myEmail = "", hb = null;
+let papel = null, canEdit = false, canDelete = false, canImport = false, canProj = false, canNew = false, signup = false, me = null, myEmail = "", hb = null;
 let proj = null, projs = [], sols = [], navSeq = 0; // projeto aberto, lista de projetos e controle de navegação
 const PAPEIS = [["pendente","Pendente (sem acesso)"],["visualizador","Visualizador"],["colaborador","Colaborador"],["editor","Editor"],["admin","Administrador"]];
 async function boot() {
@@ -421,9 +421,10 @@ async function enter(session) {
   canEdit = ["colaborador", "visualizador_editor", "editor", "admin"].includes(papel);
   canDelete = ["editor", "admin"].includes(papel);
   canImport = ["editor", "admin"].includes(papel);
-  canProj = ["editor", "admin"].includes(papel); // criar/editar projeto (e, nas próximas fases, parâmetros e suprimentos)
+  canProj = ["editor", "admin"].includes(papel); // EDITAR projeto, parâmetros e suprimentos (e solicitar exclusão)
+  canNew = ["colaborador", "editor", "admin"].includes(papel); // CRIAR projeto
   $("#novo").classList.toggle("hide", !canEdit); $("#imp-card").classList.toggle("hide", !canImport);
-  $("#del").classList.toggle("hide", !canDelete); $("#pNovo").classList.toggle("hide", !canProj);
+  $("#del").classList.toggle("hide", !canDelete); $("#pNovo").classList.toggle("hide", !canNew);
   document.querySelector('nav button[data-t="t3"]').classList.toggle("hide", !canImport);
   document.body.classList.toggle("adm", papel === "admin");
   $("#app").classList.remove("hide"); route();
@@ -1208,7 +1209,7 @@ function listaProjetos() {
       <div class="pp"><b>${p.pct}%</b><span>andamento total</span></div><div class="pbar"><u style="width:${p.pct}%"></u></div>
       ${solDe(p) ? `<div class="aviso">⏳ Exclusão solicitada por ${esc(solDe(p).solicitante_email || "um editor")}</div>` : ""}
       <div class="pfoot"><span>${diasTxt(p)}</span></div></article>`; }).join("")
-    : `<div class="card"><b>${projs.length ? "Nenhum projeto encontrado." : "Nenhum projeto cadastrado."}</b>${!projs.length && canProj ? "<p>Toque em “+ Novo projeto” para começar.</p>" : ""}</div>`;
+    : `<div class="card"><b>${projs.length ? "Nenhum projeto encontrado." : "Nenhum projeto cadastrado."}</b>${!projs.length && canNew ? "<p>Toque em “+ Novo projeto” para começar.</p>" : ""}</div>`;
   document.querySelectorAll("#pList .pc").forEach(c => {
     const abre = () => { location.hash = `#/projeto/${c.dataset.id}/dashboard`; };
     c.onclick = abre; c.onkeydown = e => { if (e.target === c && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); abre(); } };
@@ -1238,7 +1239,7 @@ function abrirUsuarios() { proj = null; setView("users", "t4"); setHeader("Usuá
 
 // ---------- Criar / editar / excluir projeto ----------
 function editarProjeto(p) {
-  if (!canProj) return;
+  if (p ? !canProj : !canNew) return;
   const f = $("#pjF"); f.reset(); f.elements.id.value = p?.id ?? "";
   $("#pjT").textContent = p ? "Editar projeto" : "Novo projeto";
   ["nome", "cliente", "localidade", "data_inicio", "data_fim"].forEach(k => { f.elements[k].value = p?.[k] ?? ""; });
@@ -1247,8 +1248,8 @@ function editarProjeto(p) {
 }
 $("#pNovo").onclick = () => editarProjeto(null); $("#pjCx").onclick = () => $("#pjDlg").close();
 $("#pjF").onsubmit = async e => {
-  e.preventDefault(); if (!canProj) return;
-  const o = Object.fromEntries(new FormData(e.target)), id = o.id; delete o.id;
+  e.preventDefault();
+  const o = Object.fromEntries(new FormData(e.target)), id = o.id; delete o.id; if (id ? !canProj : !canNew) return;
   o.nome = o.nome.trim(); o.cliente = o.cliente.trim() || null; o.localidade = o.localidade.trim() || null;
   if (!o.nome) return alert("Informe o nome do projeto.");
   if (o.data_fim < o.data_inicio) return alert("A data de término precisa ser igual ou posterior à data de início.");
@@ -1425,7 +1426,7 @@ function drawMap() { const R = tsv(), box = $("#w_map"); if (!box) return; if (R
     return `<label>${l}<select data-f="${f}"><option value="">— não usar —</option>${R[0].map((h, i) => `<option value="${i}" ${W.map[f] === String(i) ? "selected" : ""}>${esc(h || "Coluna " + (i + 1))}</option>`).join("")}</select></label>`; }).join("") +
     `<small>${pontosDe().length} linhas válidas serão criadas (só após a confirmação final).</small>`;
   box.querySelectorAll("select").forEach(s => s.onchange = () => { W.map[s.dataset.f] = s.value; drawMap(); }); }
-function wzOpen() { if (!canProj) return; W = { s: 1, b: {}, tsv: "", map: {}, tipos: "", areas: "", et: ETP2.map(e => e[0]) }; wzDraw(); wz.showModal(); }
+function wzOpen() { if (!canNew) return; W = { s: 1, b: {}, tsv: "", map: {}, tipos: "", areas: "", et: ETP2.map(e => e[0]) }; wzDraw(); wz.showModal(); }
 function wzDraw() {
   const s = W.s, b = W.b, v = x => esc(b[x] || ""); let h = `<h3>Novo projeto · passo ${s} de 4</h3>`;
   if (s === 1) h += `<label>Nome<input id="w_nome" maxlength="120" value="${v("nome")}"></label><label>Cliente<input id="w_cli" maxlength="120" value="${v("cli")}"></label><label>Local<input id="w_loc" maxlength="120" value="${v("loc")}"></label><label>Data de início<input id="w_ini" type="date" value="${v("ini")}"></label><label>Data de término<input id="w_fim" type="date" value="${v("fim")}"></label>`;
@@ -1452,7 +1453,7 @@ async function wzNext() {
   $("#w_nx").disabled = true; const m = await wzSave(); if (m) { err(m); $("#w_nx").disabled = false; }
 }
 async function wzSave() {
-  if (!canProj) return "Sem permissão.";
+  if (!canNew) return "Sem permissão.";
   const b = W.b, { data, error } = await sb.from("projetos").insert({ nome: b.nome, cliente: b.cli || null, localidade: b.loc || null, data_inicio: b.ini, data_fim: b.fim }).select();
   if (error || !data || !data.length) return error ? (/duplicate|unique/i.test(error.message) ? "Já existe um projeto com esse nome." : error.message) : "Sem permissão para criar projetos.";
   const id = data[0].id, L = t => uniq(t.split("\n").map(x => x.trim()));
