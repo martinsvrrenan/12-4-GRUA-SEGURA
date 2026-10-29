@@ -1456,7 +1456,7 @@ const ff = k => FLD.find(f => f[0] === k);
 // ---- Carga e migração automática ponto -> suprimento ----
 async function loadSup() {
   const { data, error } = await sb.from("suprimentos").select("*").eq("projeto_id", proj.id).order("id").limit(5000);
-  supOk = !error; SUP = error ? [] : data; if (supOk && canProj) await sync(false); resumo();
+  supOk = !error; SUP = error ? [] : data; if (supOk && canProj) await sync(false);
 }
 async function sync(ask) {
   const byP = new Map(SUP.filter(i => i.ponto_id != null).map(i => [String(i.ponto_id), i])), byK = new Map(SUP.map(i => [kk(i.codigo_sap, i.codigo_sphera), i]).filter(x => x[0]));
@@ -1477,12 +1477,6 @@ async function sync(ask) {
   if (ch) { const { data } = await sb.from("suprimentos").select("*").eq("projeto_id", proj.id).order("id").limit(5000); if (data) SUP = data; if (ins.length) logP("Migrou pontos para suprimentos", `${ins.length} novo(s)`); }
 }
 const _load = load; load = async function () { await _load(); if (proj) await loadSup(); };
-
-// ---- Resumo no Dashboard ----
-const rs = document.createElement("div"); rs.className = "card"; rs.id = "supRes"; $("#t1").insertBefore(rs, $("#t1 .grid"));
-function resumo() { const s = supStats(SUP);
-  rs.innerHTML = !supOk ? `<b>Suprimentos</b><p><small>Indisponível. Execute os scripts fase3_01 e fase3_02 no Supabase.</small></p>` : `<div class="evh"><b>Suprimentos</b><button id="rsGo">Abrir Suprimentos</button></div>` + (s.t ? `<div class="cards" style="margin:0">${[[s.t, "itens"], [pc3(s.rc, s.t), "com RC"], [pc3(s.pd, s.t), "com pedido"], [pc3(s.en, s.t), "entregues"], [s.at + " (" + pc3(s.at, s.t) + ")", "atrasados"]].map(([v, l]) => `<div class="card kpi" style="margin:0"><b class="sm">${v}</b><span>${l}</span></div>`).join("")}</div>` : "<small>Nenhum item. Códigos Sphera/SAP dos pontos entram aqui automaticamente.</small>");
-  if ($("#rsGo")) $("#rsGo").onclick = () => { location.hash = `#/projeto/${proj.id}/suprimentos`; }; }
 
 // ---- Aba Suprimentos ----
 const sec = document.createElement("section"); sec.id = "t7"; sec.className = "hide"; $("main").appendChild(sec); SEC.push("t7"); TABS.suprimentos = "t7";
