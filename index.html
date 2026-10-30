@@ -189,6 +189,17 @@ html[data-theme=dark] .mn{background:#1a2336;border-color:#34405c;box-shadow:0 1
 .lg-form .lnk{margin:10px 0 0;font-size:13px}
 html[data-theme=dark] #login{background:#151c2b;box-shadow:0 24px 60px #0008}
 @media(max-width:760px){#login{grid-template-columns:1fr;margin:12px auto}.lg-hero{padding:20px 20px 16px;gap:8px}.lg-hero h1{font-size:19px;margin-top:6px}.lg-hero p,.lg-ft,.lg-sf{display:none}.lg-form{padding:22px 20px 24px}.fld input{padding-top:11px;padding-bottom:11px}}
+.tic{width:22px;height:22px;flex:none;vertical-align:middle}
+.tema[data-txt] .tic,.mi.tema .tic{width:20px;height:20px;margin-right:10px;vertical-align:-5px}
+.mi.tema{display:flex!important;align-items:center}
+#tema{display:inline-flex;align-items:center;justify-content:center;padding:6px 10px}
+.cbx{margin:10px 0 2px}.cbx small{display:block;margin-top:6px;color:var(--mut);font-size:12.5px}
+.sw{display:inline-flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;margin:0}.sw input{position:absolute;opacity:0;width:0;height:0;min-height:0}
+.sw .tr{position:relative;flex:none;width:44px;height:24px;border-radius:12px;background:#b6bfce;transition:background .2s}
+.sw .tr::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0004;transition:transform .2s}
+.sw input:checked+.tr{background:#2e9e5b}.sw input:checked+.tr::after{transform:translateX(20px)}
+.sw input:focus-visible+.tr{outline:2px solid var(--blue);outline-offset:2px}.sw input:disabled+.tr{opacity:.5}
+#sBc:disabled{cursor:not-allowed}
 #mBtn{display:none}
 #mMenu{position:fixed;z-index:40;top:calc(var(--top) + 4px);right:10px;min-width:230px;max-height:calc(100vh - var(--top) - 20px);overflow:auto;padding:6px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 16px 40px #0f1b2d33}
 #mMenu .mi{display:block;width:100%;text-align:left;border:0;background:transparent;color:var(--txt);padding:12px 14px;border-radius:10px;font-weight:600;min-height:44px}
@@ -240,6 +251,7 @@ html[data-theme=dark] .bdg{background:#222d45;color:#c9d3e8;border-color:#34405c
 <div id="app" class="hide">
 <header><div class="brand"><button id="back" aria-label="Voltar para a lista de projetos" title="Voltar para a lista de projetos">←<span class="tx"> Projetos</span></button><svg class="logo" aria-hidden="true"><use href="#lg"/></svg><div><h1 id="hT">Grua Segura</h1><small id="hS">Gestão de projetos</small></div></div><div class="hb"><button id="hUsr" aria-label="Usuários" title="Usuários e log de ações"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c2 .6 3.3 2.2 3.5 5.2"/></svg><span class="hl">Usuários</span></button><button id="tema" class="tema" title="Alternar modo escuro" aria-label="Alternar modo escuro"></button><button id="out">Sair</button><button id="mBtn" aria-label="Menu" aria-haspopup="true" aria-expanded="false" title="Menu"><svg class="ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button></div></header>
 <div id="mMenu" class="hide" role="menu">
+ <button class="mi" id="mHome" role="menuitem">Projetos</button>
  <button class="mi" data-r="dashboard" role="menuitem">Dashboard</button>
  <button class="mi" data-r="suprimentos" role="menuitem">Suprimentos</button>
  <button class="mi" data-r="cadastro" role="menuitem">Cadastro</button>
@@ -416,7 +428,7 @@ fillSelect($("#fS"), ST, "Status do projeto"); fillSelect($("#fArea"), AREAS); f
 
 // ---------- Login e acesso ----------
 let papel = null, canEdit = false, canDelete = false, canImport = false, canProj = false, canNew = false, signup = false, me = null, myEmail = "", hb = null;
-let proj = null, projs = [], sols = [], navSeq = 0; // projeto aberto, lista de projetos e controle de navegação
+let proj = null, projs = [], sols = [], navSeq = 0, lastProjId = null; // projeto aberto, lista de projetos e controle de navegação
 const PAPEIS = [["pendente","Pendente (sem acesso)"],["visualizador","Visualizador"],["colaborador","Colaborador"],["editor","Editor"],["admin","Administrador"]];
 async function boot() {
   const { data } = await sb.auth.getSession();
@@ -486,11 +498,14 @@ $("#go").onclick = async () => {
 };
 $("#out").onclick = $("#wout").onclick = async () => { clearInterval(hb); await logAcao("Logout"); await sb.rpc("registrar_presenca", { p_login: false, p_online: false }); await sb.auth.signOut(); proj = null; projs = []; document.body.className = ""; enter(null); };
 // ---------- Modo escuro ----------
+// Ícones do tema: sol = capacete de obra amarelo com raios; lua = crescente com faíscas amarelas (luz de canteiro à noite)
+const ICO_SOL = '<svg class="tic" viewBox="0 0 24 24" aria-hidden="true"><g stroke="#ffc21a" stroke-width="1.8" stroke-linecap="round"><path d="M12 1.6v2.2M4.4 4.9l1.5 1.5M19.6 4.9l-1.5 1.5M1.6 12h2.2M20.2 12h2.2"/></g><path d="M5.6 17.2a6.4 6.4 0 0 1 12.8 0z" fill="#ffc21a"/><path d="M10.6 10.9h2.8v6.3h-2.8z" fill="#e0a300"/><rect x="3.6" y="17.2" width="16.8" height="2.6" rx="1.3" fill="#ffc21a"/><rect x="3.6" y="19.1" width="16.8" height="1.1" rx=".55" fill="#14284b" opacity=".35"/></svg>';
+const ICO_LUA = '<svg class="tic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4 14.6A8.6 8.6 0 0 1 9.4 3.6a8.6 8.6 0 1 0 11 11z" fill="currentColor"/><path d="M17.2 2.6l.7 1.7 1.7.7-1.7.7-.7 1.7-.7-1.7-1.7-.7 1.7-.7z" fill="#ffc21a"/><circle cx="21" cy="9.4" r="1" fill="#ffc21a"/></svg>';
 function aplicaTema(t, salvar) {
   const dark = t === "dark";
   document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
   document.querySelector('meta[name="theme-color"]').setAttribute("content", dark ? "#0f1a30" : "#14284b");
-  document.querySelectorAll(".tema").forEach(el => { el.textContent = el.dataset.txt ? (dark ? "☀️ Modo claro" : "🌙 Modo escuro") : (dark ? "☀️" : "🌙"); });
+  document.querySelectorAll(".tema").forEach(el => { const ic = dark ? ICO_SOL : ICO_LUA; el.innerHTML = el.dataset.txt ? ic + "<span>" + (dark ? "Modo claro" : "Modo escuro") + "</span>" : ic; el.title = el.getAttribute("aria-label") || ""; if (!el.dataset.txt) { el.title = dark ? "Mudar para modo claro" : "Mudar para modo escuro"; el.setAttribute("aria-label", el.title); } });
   Chart.defaults.color = dark ? "#b3bfd6" : "#5b6677"; Chart.defaults.borderColor = dark ? "#2b3550" : "rgba(0,0,0,0.1)";
   if (salvar) { try { localStorage.setItem("gs-tema", t); } catch (e) {} }
   try { if (proj && rows.length) dash(); } catch (e) {}
@@ -1390,7 +1405,7 @@ async function abrirProjeto(id, tab, seq) {
   }
   const t = tab === "dados" && !canImport ? "dashboard" : (TABS[tab] ? tab : "dashboard"), canon = `#/projeto/${id}/${t}`;
   if (location.hash !== canon) history.replaceState(null, "", location.pathname + location.search + canon);
-  setView("proj", TABS[t]); setHeader(proj.nome, [proj.cliente, proj.localidade].filter(Boolean).join(" · ") || perLabel());
+  lastProjId = proj.id; setView("proj", TABS[t]); setHeader(proj.nome, [proj.cliente, proj.localidade].filter(Boolean).join(" · ") || perLabel());
   document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x.dataset.t === TABS[t]));
 }
 function abrirUsuarios() { proj = null; setView("users", "t4"); setHeader("Usuários", "Acessos e log de ações"); users(); }
@@ -1722,20 +1737,63 @@ function renderSup() {
   <div class="bar">${canProj ? '<button class="p" id="sNew">+ Item</button><button class="p" id="sImp">Importar (Excel, Word, PDF)</button>' : ""}<button id="sExp">Exportar Excel</button></div></div>
   <div class="card" id="sB"><div class="evh"><b>Orçamento e gasto do projeto</b><small>Valores dos itens em R$ (SAP) · orçamento liberado em US$</small></div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0 12px"><label>Orçamento disponível (US$)<input id="sBu" type="number" min="0" step="any" value="${proj.orcamento_usd ?? ""}" ${canProj ? "" : "disabled"}></label>
-  <label>Câmbio (R$ por US$)<input id="sBc" type="number" min="0" step="any" value="${proj.cambio_usd_brl ?? ""}" ${canProj ? "" : "disabled"}></label><label>Orçamento em R$<input id="sBr" disabled></label></div><small class="err" id="sBe"></small>
+  <label>Câmbio (R$ por US$)<input id="sBc" type="number" min="0" step="any" value="${proj.cambio_usd_brl ?? ""}" ${canProj ? "" : "disabled"}></label><label>Orçamento em R$<input id="sBr" disabled></label></div>
+  <div class="cbx"><label class="sw"><input type="checkbox" id="sBauto" ${canProj ? "" : "disabled"}><span class="tr"></span><span class="lb">Atualizar câmbio automaticamente (todo dia)</span></label><small id="sBcs"></small></div><small class="err" id="sBe"></small>
   <div class="cards" id="sV" style="margin-top:10px"></div><div class="ch"><canvas id="c6"></canvas></div></div>
   <div class="cards" id="sK"></div><div class="grid"><div class="card"><b>Funil RC → Pedido → Entrega</b><div class="ch"><canvas id="c5"></canvas></div></div>
   <div class="card"><div class="evh"><b>Atenção</b><label style="margin:0">Sem RC há mais de <input id="sX" type="number" min="1" value="${X}" style="width:80px"> dias</label></div><div id="sA"></div></div></div>
   <div class="card tw"><table class="st"><thead><tr><th>Código SAP</th><th>Sphera</th><th>Descrição</th><th>Qtd</th><th>Valor unit.</th><th>Valor total</th><th>Situação</th><th>RC</th><th>Pedido</th><th>Prazo</th><th>Recebido</th>${xCampos().map(p => `<th>${esc(p.nome)}</th>`).join("")}</tr></thead><tbody id="sT"></tbody></table></div><small id="sC"></small>`;
   ["sFs:sit", "sFa:area", "sFt:tipo"].forEach(x => { const [i, k] = x.split(":"); $("#" + i).onchange = e => { F[k] = e.target.value; pinta(); }; }); $("#sFq").oninput = e => { F.q = e.target.value; pinta(); };
   $("#sX").onchange = e => { X = Math.max(1, +e.target.value || 15); pinta(); }; $("#sExp").onclick = exporta;
-  if (canProj) { $("#sNew").onclick = () => editaItem(null); $("#sImp").onclick = impOpen; $("#sBu").onchange = $("#sBc").onchange = salvaOrc; } pinta(); pintaOrc();
+  if (canProj) { $("#sNew").onclick = () => editaItem(null); $("#sImp").onclick = impOpen; $("#sBu").onchange = $("#sBc").onchange = salvaOrc; $("#sBauto").onchange = e => { if (!e.target.checked) { try { if (localStorage.getItem(cambManKey()) == null) localStorage.setItem(cambManKey(), $("#sBc").value); } catch (x) {} } cambSetAuto(e.target.checked); cambAplica().then(() => { if (canProj && !e.target.checked) salvaOrc(); }); }; } pinta(); pintaOrc(); cambAplica();
+}
+// ---------- Câmbio USD→BRL automático (PTAX do Banco Central; reserva: AwesomeAPI) ----------
+const CAMB_KEY = "gs-cambio-auto", CAMB_CACHE = "gs-cambio-cache";
+const cambAuto = () => { try { return localStorage.getItem(CAMB_KEY) !== "0"; } catch (e) { return true; } };
+const cambSetAuto = v => { try { localStorage.setItem(CAMB_KEY, v ? "1" : "0"); } catch (e) {} };
+const cambManKey = () => "gs-cambio-man-" + (proj ? proj.id : "0");
+const hojeISO = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+async function fetchJ(url, ms = 8000) { const c = new AbortController(), t = setTimeout(() => c.abort(), ms); try { const r = await fetch(url, { signal: c.signal, cache: "no-store" }); if (!r.ok) throw new Error("HTTP " + r.status); return await r.json(); } finally { clearTimeout(t); } }
+async function buscaCambio() { // 1 consulta por dia (cache local); devolve { v, fonte, ref }
+  try { const c = JSON.parse(localStorage.getItem(CAMB_CACHE) || "null"); if (c && c.d === hojeISO() && c.v > 0) return c; } catch (e) {}
+  const fmt = d => String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0") + "-" + d.getFullYear(), fim = new Date(), ini = new Date(Date.now() - 10 * 864e5);
+  let r = null;
+  try { // Banco Central do Brasil – PTAX (venda), último dia útil
+    const j = await fetchJ(`https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(dataInicial=@dataInicial,dataFinal=@dataFinal)?@dataInicial='${fmt(ini)}'&@dataFinal='${fmt(fim)}'&$orderby=dataHoraCotacao%20desc&$top=1&$format=json&$select=cotacaoVenda,dataHoraCotacao`);
+    const x = j && j.value && j.value[0]; if (x && x.cotacaoVenda > 0) r = { v: Number(x.cotacaoVenda), fonte: "Banco Central do Brasil (PTAX)", ref: String(x.dataHoraCotacao).slice(0, 10) };
+  } catch (e) { console.warn("PTAX indisponível:", e.message); }
+  if (!r) try { // reserva: AwesomeAPI
+    const j = await fetchJ("https://economia.awesomeapi.com.br/json/last/USD-BRL"), x = j && j.USDBRL; if (x && Number(x.bid) > 0) r = { v: Number(x.bid), fonte: "AwesomeAPI", ref: String(x.create_date || "").slice(0, 10) || hojeISO() };
+  } catch (e) { console.warn("AwesomeAPI indisponível:", e.message); }
+  if (!r) return null;
+  r.v = Math.round(r.v * 10000) / 10000; r.d = hojeISO();
+  try { localStorage.setItem(CAMB_CACHE, JSON.stringify(r)); } catch (e) {}
+  return r;
+}
+async function cambAplica() { // ajusta o campo conforme o botão ativar/desativar
+  const inp = $("#sBc"), tg = $("#sBauto"), st = $("#sBcs"); if (!inp || !tg || !proj) return;
+  const auto = cambAuto(); tg.checked = auto;
+  if (!auto) { // manual: campo liberado com o último valor manual (ou o salvo no projeto)
+    let man = null; try { man = localStorage.getItem(cambManKey()); } catch (e) {}
+    if (man != null && man !== "") { inp.value = man; proj.cambio_usd_brl = brNum(man); }
+    else inp.value = proj.cambio_usd_brl ?? "";
+    inp.disabled = !canProj; inp.readOnly = false; st.textContent = canProj ? "Digite o câmbio manualmente." : ""; pintaOrc(); return;
+  }
+  inp.disabled = true; st.textContent = "Buscando cotação do dia…";
+  const mySeq = navSeq, id = proj.id, r = await buscaCambio();
+  if (!proj || proj.id !== id || !$("#sBc") || !cambAuto()) return;
+  if (!r) { st.textContent = "Não foi possível obter a cotação agora; mantendo o último valor."; inp.value = proj.cambio_usd_brl ?? ""; pintaOrc(); return; }
+  const mudou = Number(proj.cambio_usd_brl) !== r.v;
+  inp.value = r.v; proj.cambio_usd_brl = r.v; const pj = projs.find(x => x.id === proj.id); if (pj) pj.cambio_usd_brl = r.v;
+  const [a, m, d] = (r.ref || "").split("-"); st.textContent = `Cotação automática: R$ ${r.v.toLocaleString("pt-BR", { minimumFractionDigits: 4 })} por US$ · ${r.fonte}${a ? " · ref. " + d + "/" + m + "/" + a : ""}`;
+  pintaOrc();
+  if (mudou && canProj) { const { error } = await sb.from("projetos").update({ cambio_usd_brl: r.v }).eq("id", proj.id); if (error) console.warn(error.message); }
 }
 async function salvaOrc() {
   const u = brNum($("#sBu").value), c = brNum($("#sBc").value); $("#sBe").textContent = "";
   const { data, error } = await sb.from("projetos").update({ orcamento_usd: u, cambio_usd_brl: c }).eq("id", proj.id).select("id");
   if (error || !data?.length) { $("#sBe").textContent = error ? error.message + (/orcamento|cambio/.test(error.message) ? " — execute a migração fase3_03." : "") : "Sem permissão para alterar o orçamento."; return; }
-  proj.orcamento_usd = u; proj.cambio_usd_brl = c; const pj = projs.find(x => x.id === proj.id); if (pj && pj !== proj) { pj.orcamento_usd = u; pj.cambio_usd_brl = c; }
+  proj.orcamento_usd = u; proj.cambio_usd_brl = c; if (!cambAuto()) { try { localStorage.setItem(cambManKey(), c == null ? "" : String(c)); } catch (e) {} } const pj = projs.find(x => x.id === proj.id); if (pj && pj !== proj) { pj.orcamento_usd = u; pj.cambio_usd_brl = c; }
   logP("Atualizou orçamento do projeto", `US$ ${u ?? "—"} · câmbio ${c ?? "—"}`); pintaOrc();
 }
 function pintaOrc() {
@@ -1847,18 +1905,23 @@ document.querySelectorAll("#login input").forEach(i=>i.addEventListener("keydown
   const m = $("#mMenu"), btn = $("#mBtn"), B = document.body;
   const close = () => { m.classList.add("hide"); btn.setAttribute("aria-expanded", "false"); };
   const refresh = () => {
-    const inProj = B.classList.contains("v-proj") && proj;
+    const inProj = B.classList.contains("v-proj") && proj, alvo = inProj ? proj.id : lastProjId; // na aba Usuários, as abas valem para o último projeto aberto
     m.querySelectorAll("[data-r]").forEach(b => {
       const nb = document.querySelector(`nav button[data-r="${b.dataset.r}"]`);
-      b.classList.toggle("hide", !(inProj && nb && !nb.classList.contains("hide")));
+      b.classList.toggle("hide", !(alvo && nb && !nb.classList.contains("hide")));
       b.classList.toggle("on", !!(inProj && nb && nb.classList.contains("on")));
     });
+    $("#mHome").classList.toggle("hide", B.classList.contains("v-home"));
+    $("#mHome").textContent = alvo && !inProj ? "Projetos" : "Projetos";
     $("#mUsr").classList.toggle("hide", !B.classList.contains("adm") || B.classList.contains("v-users"));
+    $("#mUsr").classList.toggle("on", B.classList.contains("v-users"));
   };
   btn.onclick = e => { e.stopPropagation(); if (m.classList.contains("hide")) { refresh(); m.classList.remove("hide"); btn.setAttribute("aria-expanded", "true"); } else close(); };
   m.addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return;
-    if (b.dataset.r && proj) location.hash = `#/projeto/${proj.id}/${b.dataset.r}`;
+    const alvo = proj ? proj.id : lastProjId;
+    if (b.dataset.r && alvo) location.hash = `#/projeto/${alvo}/${b.dataset.r}`;
+    else if (b.id === "mHome") location.hash = "#/";
     else if (b.id === "mUsr") location.hash = "#/usuarios";
     else if (b.id === "mOut") $("#out").click();
     close();
