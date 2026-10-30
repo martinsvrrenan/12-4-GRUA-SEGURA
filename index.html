@@ -1785,7 +1785,7 @@ const sitTxt = i => atras(i) ? "Atrasado" : semPrazo(i) ? "Sem prazo" : SIT[sitO
 function renderSup() {
   const ar = [...new Set(rows.map(r => r.area).filter(Boolean))].sort(), tp = [...new Set(rows.map(r => r.tipo_projeto).filter(Boolean))].sort(), op = (a, f) => a.map(x => `<option ${x === f ? "selected" : ""}>${esc(x)}</option>`).join("");
   sec.innerHTML = `<div class="card"><div class="bar"><select id="sFs"><option value="">Todas as situações</option>${op([...SIT, "Atrasado", "Sem prazo"], F.sit)}</select><select id="sFa"><option value="">Todas as áreas</option>${op(ar, F.area)}</select><select id="sFt"><option value="">Todos os tipos</option>${op(tp, F.tipo)}</select><input id="sFq" type="search" placeholder="Buscar código SAP, Sphera ou descrição…" value="${esc(F.q)}"></div>
-  <div class="bar">${canProj ? '<button class="p" id="sNew">+ Item</button><button class="p" id="sImp">Importar (Excel, Word, PDF)</button>' : ""}<button id="sExp">Exportar Excel</button></div></div>
+  <div class="bar">${canProj ? '<button class="p" id="sNew">+ Item</button><button class="p" id="sImp">Importar (Excel, Word, PDF)</button>' : ""}<button id="sExp">Exportar Excel</button>${canProj ? '<button id="sRcs">Copiar RCs</button>' : ""}</div></div>
   <div class="card" id="sB"><div class="evh"><b>Orçamento e gasto do projeto</b><small>Valores dos itens em R$ (SAP) · orçamento liberado em US$</small></div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0 12px"><label>Orçamento disponível (US$)<input id="sBu" type="number" min="0" step="any" value="${proj.orcamento_usd ?? ""}" ${canProj ? "" : "disabled"}></label>
   <label>Câmbio (R$ por US$)<input id="sBc" type="number" min="0" step="any" value="${proj.cambio_usd_brl ?? ""}" ${canProj ? "" : "disabled"}></label><label>Orçamento em R$<input id="sBr" disabled></label></div>
@@ -1795,7 +1795,7 @@ function renderSup() {
   <div class="card"><div class="evh"><b>Atenção</b><label style="margin:0">Sem RC há mais de <input id="sX" type="number" min="1" value="${X}" style="width:80px"> dias</label></div><div id="sA"></div></div></div>
   <div class="card tw"><table class="st"><thead><tr><th>Código SAP</th><th>Sphera</th><th>Descrição</th><th>Qtd</th><th>Valor unit.</th><th>Valor total</th><th>Situação</th><th>RC</th><th>Pedido</th><th>Prazo</th><th>Recebido</th>${xCampos().map(p => `<th>${esc(p.nome)}</th>`).join("")}</tr></thead><tbody id="sT"></tbody></table></div><small id="sC"></small>`;
   ["sFs:sit", "sFa:area", "sFt:tipo"].forEach(x => { const [i, k] = x.split(":"); $("#" + i).onchange = e => { F[k] = e.target.value; pinta(); }; }); $("#sFq").oninput = e => { F.q = e.target.value; pinta(); };
-  $("#sX").onchange = e => { X = Math.max(1, +e.target.value || 15); pinta(); }; $("#sExp").onclick = exporta;
+  $("#sX").onchange = e => { X = Math.max(1, +e.target.value || 15); pinta(); }; $("#sExp").onclick = exporta; if ($("#sRcs")) $("#sRcs").onclick = copiaRcs;
   if (canProj) { $("#sNew").onclick = () => editaItem(null); $("#sImp").onclick = impOpen; $("#sBu").onchange = $("#sBc").onchange = salvaOrc; $("#sBauto").onchange = e => { if (!e.target.checked) { try { if (localStorage.getItem(cambManKey()) == null) localStorage.setItem(cambManKey(), $("#sBc").value); } catch (x) {} } cambSetAuto(e.target.checked); cambAplica().then(() => { if (canProj && !e.target.checked) salvaOrc(); }); }; } pinta(); pintaOrc(); cambAplica();
 }
 // ---------- Câmbio USD→BRL automático (PTAX do Banco Central; reserva: AwesomeAPI) ----------
@@ -1937,8 +1937,9 @@ function plano() { const out = { upd: [], ins: [], rcs: new Map(), ign: 0 }, R =
     else { const k = (rc || "") + "|" + key, o = { ...(ins.get(k) || {}), ...q, codigo_sap: sap, codigo_sphera: sph }; if (blk) o.observacao = blk; ins.set(k, o); S.n++; } });
   out.upd = [...upd].filter(([id, pt]) => Object.keys(pt).length).map(([id, p]) => ({ id, p })); const ids = new Set(out.upd.map(u => u.id));
   out.rcs.forEach(S => { S.u = [...S.ch].filter(id => ids.has(id)).length; S.s = S.ch.size - S.u; }); out.ins = [...ins.values()]; return out; }
+const planoU = () => { const pl = plano(); if (I.so !== false && document.getElementById("iSo") && document.getElementById("iSo").checked) pl.ins = []; return pl; }; // "só atualizar": descarta itens novos
 function impMap() { const R = tab(), b = $("#iMap"); if (R.length < 2) { b.innerHTML = ""; return; } mapa(R);
-  const pl = plano();
+  const pl = planoU();
   b.innerHTML = "<b>Mapeamento de colunas</b>" + ORD.map(k => { const f = ff(k); return `<label>${f[1]}<select data-f="${k}"><option value="">— não usar —</option>${R[0].map((h, i) => `<option value="${i}" ${I.map[k] === String(i) ? "selected" : ""}>${esc(h || "Coluna " + (i + 1))}</option>`).join("")}</select></label>`; }).join("") + `<p><b>${pl.upd.length}</b> item(ns) serão atualizados (casando por RC + código do material) e <b>${pl.ins.length}</b> novo(s) serão criados. Campos vazios na planilha não apagam dados. As demais colunas vão para a Observação.</p>`;
   b.querySelectorAll("select").forEach(s => s.onchange = () => { I.map[s.dataset.f] = s.value; impMap(); }); }
 async function aplica(pl) { // grava no Supabase; devolve texto de erro ou ""
@@ -1968,7 +1969,7 @@ function impOpen() {
   <div id="iZ" tabindex="0" style="margin-top:10px;padding:14px;border:2px dashed #a9b8d6;border-radius:12px;text-align:center;cursor:pointer;font-weight:600"><span>📋 Cole um print aqui (Ctrl+V) ou arraste imagens — texto do MyItems ou planilha</span><input id="iZf" type="file" accept="image/*" multiple class="hide"></div>
   <small id="iM">Aceita: planilha/Word/PDF; texto do MyItems colado no campo abaixo; ou print (imagem) do texto ou da planilha. RC e Pedido entram sem o traço e o item (ex.: 4000668415-1 → 4000668415). Itens já existentes são atualizados.</small>
   <label>Texto do MyItems (cole aqui o texto copiado do chatbot)<textarea id="iR" rows="5" style="font:12px ui-monospace,monospace" placeholder="Reserva: 0284000225-31   Ver Requerimento em MyItems&#10;Status: ...&#10;Material: 74173232 – MANGUEIRA ... (PZA)&#10;..."></textarea></label>
-  <label>Prévia editável (colunas separadas por TAB; 1ª linha = cabeçalho)<textarea id="iT" rows="8" style="font:12px ui-monospace,monospace;white-space:pre"></textarea></label><div id="iMap"></div><p class="err" id="iE"></p>
+  <label>Prévia editável (colunas separadas por TAB; 1ª linha = cabeçalho)<textarea id="iT" rows="8" style="font:12px ui-monospace,monospace;white-space:pre"></textarea></label><label class="sw" style="margin:10px 0"><input type="checkbox" id="iSo" checked><span class="tr"></span><span class="lb">Só atualizar itens já cadastrados (não criar novos)</span></label><div id="iMap"></div><p class="err" id="iE"></p>
   <div class="bar" style="margin-top:12px"><button class="p" id="iOk">Confirmar importação</button><button id="iCx">Cancelar</button></div>`;
   const msg = t => { $("#iM").textContent = t; };
   const mostra = () => { $("#iT").value = I.tsv; I.map = null; $("#iE").textContent = ""; impMap(); };
@@ -1987,7 +1988,7 @@ function impOpen() {
     if (tab) { const base = I.tsv ? tsv() : []; const cur = base.length ? [...base, ...tab.slice(1)] : tab; I.tsv = matTsv(cur); mostra(); msg(`Planilha lida do print: ${cur.length - 1} linha(s). Confira a prévia (o OCR pode errar números) e clique em Confirmar importação.`); } }
   $("#iCx").onclick = () => di.close();
   $("#iT").oninput = e => { I.tsv = e.target.value; I.map = null; impMap(); };
-  $("#iR").oninput = deRaw;
+  $("#iR").oninput = deRaw; $("#iSo").onchange = () => impMap();
   $("#iZ").onclick = () => $("#iZf").click(); $("#iZf").onchange = e => { const fs = [...e.target.files]; e.target.value = ""; lerImagens(fs); };
   $("#iZ").ondragover = e => { e.preventDefault(); }; $("#iZ").ondrop = e => { e.preventDefault(); lerImagens([...e.dataTransfer.files]); };
   di.onpaste = e => { const fs = [...(e.clipboardData && e.clipboardData.files || [])].filter(isImg); if (fs.length) { e.preventDefault(); lerImagens(fs); } }; // Ctrl+V de print; texto continua colando normal
@@ -1998,9 +1999,25 @@ function impOpen() {
       if (m.rc_numero !== undefined && m.codigo_sap !== undefined) { const pl = plano(); msg("Aplicando…"); const er = await aplica(pl); if (er) { $("#iE").textContent = er; msg("Falhou ao gravar."); return; } di.close(); resumo(pl, falt); return; }
       msg(`${a.length} linhas lidas. Não achei as colunas Requisição de compra e Material: confira o mapeamento abaixo.`); impMap(); }
     catch (x) { msg("Não foi possível ler: " + x.message); } };
-  $("#iOk").onclick = async () => { const pl = plano(); if (!pl.upd.length && !pl.ins.length) return $("#iE").textContent = "Nada para importar: mapeie a coluna de código SAP ou Sphera."; $("#iOk").disabled = true;
+  $("#iOk").onclick = async () => { const pl = planoU(); if (!pl.upd.length && !pl.ins.length) return $("#iE").textContent = "Nada para importar: mapeie a coluna de código SAP ou Sphera."; $("#iOk").disabled = true;
     const er = await aplica(pl); if (er) { $("#iE").textContent = er; $("#iOk").disabled = false; return; } di.close(); resumo(pl, []); };
   di.showModal();
+}
+// ---- Copiar RCs: lista as RCs salvas para você colar, uma a uma, no chatbot do Exiros ----
+const dc = document.createElement("dialog"); dc.id = "spRc"; document.body.appendChild(dc);
+async function copiaTxt(t) { try { await navigator.clipboard.writeText(t); return true; } catch (e) { const x = document.createElement("textarea"); x.value = t; x.style.cssText = "position:fixed;opacity:0"; document.body.appendChild(x); x.select(); let ok = false; try { ok = document.execCommand("copy"); } catch (e2) {} x.remove(); return ok; } }
+const rcsLista = soPend => [...new Set(SUP.filter(i => !soPend || !i.data_recebimento).map(i => zn(i.rc_numero)).filter(Boolean))].sort();
+function copiaRcs(soPend = true) {
+  const L = rcsLista(soPend), feitas = new Set();
+  dc.innerHTML = `<h3>RCs salvas no projeto</h3><label class="sw" style="margin:6px 0"><input type="checkbox" id="rcP" ${soPend ? "checked" : ""}><span class="tr"></span><span class="lb">Só RCs ainda não recebidas</span></label>
+  <p><b>${L.length}</b> RC(s). Cole cada uma no chatbot do Exiros (responda “todos” quando ele pedir o item). Depois copie o texto das respostas e use <b>Importar</b> → campo “Texto do MyItems”.</p>
+  <div class="bar"><button class="p" id="rcAll">Copiar todas (uma por linha)</button><button id="rcImp">Importar respostas</button><button id="rcX">Fechar</button></div><small id="rcM"></small>
+  <div style="margin-top:8px">${L.map(r => `<div class="sl" style="padding:6px 0;margin:0"><b>${esc(r)}</b><span class="ac"><button data-rc="${esc(r)}" style="min-height:0;padding:4px 12px">Copiar</button></span></div>`).join("") || "<small>Nenhuma RC cadastrada nos itens.</small>"}</div>`;
+  $("#rcX").onclick = () => dc.close(); $("#rcImp").onclick = () => { dc.close(); impOpen(); };
+  $("#rcP").onchange = e => copiaRcs(e.target.checked);
+  $("#rcAll").onclick = async () => { $("#rcM").textContent = (await copiaTxt(L.join("\n"))) ? `${L.length} RC(s) copiadas.` : "Não consegui copiar: copie manualmente pela lista."; };
+  dc.querySelectorAll("[data-rc]").forEach(b => b.onclick = async () => { if (await copiaTxt(b.dataset.rc)) { feitas.add(b.dataset.rc); b.textContent = "✓ Copiada"; $("#rcM").textContent = `${feitas.size} de ${L.length} copiadas.`; } });
+  if (!dc.open) dc.showModal();
 }
 function exporta() {
   const XC = xCampos(), H = [...ORD.map(k => ff(k)[1]), ...XC.map(xCol)], out = SUP.map(i => ({ ...Object.fromEntries(ORD.map(k => [ff(k)[1], i[k] ?? ""])), ...Object.fromEntries(XC.map(p => [xCol(p), xVal(i, p)])), "Situação": sitTxt(i) })), wb = XLSX.utils.book_new();
