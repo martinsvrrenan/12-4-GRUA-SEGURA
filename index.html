@@ -1854,34 +1854,66 @@ function editaItem(it) {
 // ---- Importação (Excel/CSV, Word, PDF) com prévia editável, mapeamento e confirmação ----
 const di = document.createElement("dialog"); di.id = "spImp"; document.body.appendChild(di);
 let I = {};
+const nh = t => nz(t).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+// Cabeçalhos do padrão (planilha SAP / Word / PDF) -> campo do app
+const STRICT = { rc_numero: ["requisicao de compra", "requisicao compra"], codigo_sap: ["material"], descricao: ["texto breve"], quantidade: ["qtd solicitada", "quantidade solicitada"], unidade: ["unidade de medida"],
+  valor_unitario: ["preco avaliacao"], valor_total: ["valor total"], pedido_numero: ["pedido"], prazo_entrega: ["remessas de ate", "remessas"], rc_data: ["data da solicitacao"] };
 const tsv = () => I.tsv.split("\n").map(l => l.split("\t").map(s => s.trim())).filter(r => r.some(Boolean));
-function plano() { const R = tsv(); if (R.length < 2) return { upd: [], ins: [] }; const g = (r, f) => I.map[f] === undefined || I.map[f] === "" ? "" : (r[+I.map[f]] || "");
-  const bS = new Map(SUP.filter(i => i.codigo_sap).map(i => [i.codigo_sap, i])), bP = new Map(SUP.filter(i => i.codigo_sphera).map(i => [i.codigo_sphera, i])), upd = new Map(), ins = new Map();
-  R.slice(1).forEach(r => { const sap = cl(g(r, "codigo_sap")), sph = cl(g(r, "codigo_sphera")); if (!sap && !sph) return; const p = {};
-    ORD.slice(2).forEach(k => { const f = ff(k), raw = g(r, k); let v = f[3] === "d" ? (k === "prazo_entrega" ? pdateLast(raw) : pdate(raw)) : f[3] === "n" ? brNum(raw) : cl(raw); if (v != null) p[k] = v; });
-    const it = (sap && bS.get(sap)) || (sph && bP.get(sph));
-    if (it) { if (sph && !it.codigo_sphera) p.codigo_sphera = sph; if (sap && !it.codigo_sap) p.codigo_sap = sap; upd.set(it.id, { ...(upd.get(it.id) || {}), ...p }); }
-    else { const k = kk(sap, sph); ins.set(k, { ...(ins.get(k) || {}), ...p, codigo_sap: sap, codigo_sphera: sph }); } });
-  return { upd: [...upd].map(([id, p]) => ({ id, p })), ins: [...ins.values()] }; }
-function impMap() { const R = tsv(), b = $("#iMap"); if (R.length < 2) { b.innerHTML = ""; return; } const used = new Set();
-  FLD.forEach(([k, l, re]) => { if (I.map[k] === undefined) { const i = R[0].findIndex((h, j) => !used.has(j) && re.test(nz(h))); I.map[k] = i < 0 ? "" : String(i); } if (I.map[k] !== "") used.add(+I.map[k]); });
+function acheCab(R) { let best = 0, bi = 0; R.slice(0, 15).forEach((r, i) => { const n = r.filter(h => Object.values(STRICT).some(a => a.includes(nh(h)))).length; if (n > best) { best = n; bi = i; } }); return bi; }
+const tab = () => { const R = tsv(); return R.slice(acheCab(R)); }; // ignora linhas de título antes do cabeçalho (comum em Word/PDF)
+function autoMap(H) { const map = {}, used = new Set(), hn = H.map(nh);
+  Object.entries(STRICT).forEach(([k, a]) => { const i = hn.findIndex((h, j) => !used.has(j) && a.includes(h)); if (i >= 0) { map[k] = String(i); used.add(i); } });
+  FLD.forEach(([k, l, re]) => { if (STRICT[k]) return; const i = H.findIndex((h, j) => !used.has(j) && re.test(nz(h))); if (i >= 0) { map[k] = String(i); used.add(i); } });
+  return map; }
+const mapa = R => { if (!I.map) I.map = autoMap(R[0]); return I.map; };
+// Casamento: RC + código do material. Item já existente é atualizado (só o que mudou); senão é criado.
+function plano() { const out = { upd: [], ins: [], rcs: new Map(), ign: 0 }, R = tab(); if (R.length < 2) return out; mapa(R);
+  const g = (r, f) => I.map[f] === undefined || I.map[f] === "" ? "" : (r[+I.map[f]] || ""), usados = new Set(Object.values(I.map).filter(v => v !== "").map(Number));
+  const byKey = new Map(); SUP.forEach(i => { const k = kk(i.codigo_sap, i.codigo_sphera); if (k) (byKey.get(k) || byKey.set(k, []).get(k)).push(i); });
+  const claim = new Map(), upd = new Map(), ins = new Map(), diff = (n, o) => typeof n === "number" ? Number(o) !== n || o == null : String(o ?? "") !== String(n);
+  const st = rc => out.rcs.get(rc) || out.rcs.set(rc, { t: 0, u: 0, n: 0, s: 0, ch: new Set() }).get(rc);
+  R.slice(1).forEach(r => { const sap = cl(g(r, "codigo_sap")), sph = cl(g(r, "codigo_sphera")); if (!sap && !sph) { out.ign++; return; }
+    const rc = cl(g(r, "rc_numero")), q = {}; ORD.slice(2).forEach(k => { const f = ff(k), raw = g(r, k); let v = f[3] === "d" ? (k === "prazo_entrega" ? pdateLast(raw) : pdate(raw)) : f[3] === "n" ? brNum(raw) : cl(raw); if (v != null) q[k] = v; });
+    const ex = R[0].map((h, j) => usados.has(j) || !r[j] ? null : `${h}: ${r[j]}`).filter(Boolean).join(" · "), blk = ex ? "[Importado] " + ex : null; // demais colunas -> Observação (você decide se usa)
+    const key = kk(sap, sph), arr = byKey.get(key) || [], livre = i => !claim.has(i.id) || claim.get(i.id) === (rc || "");
+    const it = rc ? (arr.find(i => cl(i.rc_numero) === rc) || arr.find(i => !cl(i.rc_numero) && livre(i))) : arr[0], S = st(rc || "(sem RC)"); S.t++;
+    if (it) { claim.set(it.id, rc || ""); const pt = upd.get(it.id) || {};
+      Object.assign(pt, q);
+      Object.keys(pt).forEach(k => { if (!diff(pt[k], it[k])) delete pt[k]; });
+      if (sph && !it.codigo_sphera) pt.codigo_sphera = sph; if (sap && !it.codigo_sap) pt.codigo_sap = sap;
+      if (blk) { const base = String(it.observacao || "").replace(/\s*\[Importado\][^\n]*/g, "").trim(), nv = (base ? base + "\n" : "") + blk; if (nv !== String(it.observacao || "")) pt.observacao = nv; }
+      upd.set(it.id, pt); S.ch.add(it.id); }
+    else { const k = (rc || "") + "|" + key, o = { ...(ins.get(k) || {}), ...q, codigo_sap: sap, codigo_sphera: sph }; if (blk) o.observacao = blk; ins.set(k, o); S.n++; } });
+  out.upd = [...upd].filter(([id, pt]) => Object.keys(pt).length).map(([id, p]) => ({ id, p })); const ids = new Set(out.upd.map(u => u.id));
+  out.rcs.forEach(S => { S.u = [...S.ch].filter(id => ids.has(id)).length; S.s = S.ch.size - S.u; }); out.ins = [...ins.values()]; return out; }
+function impMap() { const R = tab(), b = $("#iMap"); if (R.length < 2) { b.innerHTML = ""; return; } mapa(R);
   const pl = plano();
-  b.innerHTML = "<b>Mapeamento de colunas</b>" + ORD.map(k => { const f = ff(k); return `<label>${f[1]}<select data-f="${k}"><option value="">— não usar —</option>${R[0].map((h, i) => `<option value="${i}" ${I.map[k] === String(i) ? "selected" : ""}>${esc(h || "Coluna " + (i + 1))}</option>`).join("")}</select></label>`; }).join("") + `<p><b>${pl.upd.length}</b> item(ns) existente(s) serão atualizados (casando por código SAP, ou Sphera se não houver SAP) e <b>${pl.ins.length}</b> novo(s) serão criados. Campos vazios na planilha não apagam dados.</p>`;
+  b.innerHTML = "<b>Mapeamento de colunas</b>" + ORD.map(k => { const f = ff(k); return `<label>${f[1]}<select data-f="${k}"><option value="">— não usar —</option>${R[0].map((h, i) => `<option value="${i}" ${I.map[k] === String(i) ? "selected" : ""}>${esc(h || "Coluna " + (i + 1))}</option>`).join("")}</select></label>`; }).join("") + `<p><b>${pl.upd.length}</b> item(ns) serão atualizados (casando por RC + código do material) e <b>${pl.ins.length}</b> novo(s) serão criados. Campos vazios na planilha não apagam dados. As demais colunas vão para a Observação.</p>`;
   b.querySelectorAll("select").forEach(s => s.onchange = () => { I.map[s.dataset.f] = s.value; impMap(); }); }
+async function aplica(pl) { // grava no Supabase; devolve texto de erro ou ""
+  for (let i = 0; i < pl.upd.length; i += 20) { const r = await Promise.all(pl.upd.slice(i, i + 20).map(u => sb.from("suprimentos").update(u.p).eq("id", u.id))), er = r.find(x => x.error); if (er) return er.error.message; }
+  const nv = pl.ins.map(o => ({ ...o, projeto_id: proj.id, origem: "importacao", unidade: o.unidade || "un" }));
+  for (let i = 0; i < nv.length; i += 200) { const { error } = await sb.from("suprimentos").insert(nv.slice(i, i + 200)); if (error) return "Importação parou: " + error.message + (/duplicate|unique/i.test(error.message) ? " — o mesmo material em outra RC exige ajustar a regra de unicidade no banco (veja o SQL enviado)." : ""); }
+  logP("Importou suprimentos", `${pl.upd.length} atualizados, ${pl.ins.length} novos`); await loadSup(); renderSup(); return ""; }
+const dr = document.createElement("dialog"); dr.id = "spRes"; document.body.appendChild(dr);
+function resumo(pl, falt) { const ts = [...pl.rcs.values()].reduce((a, x) => a + x.s, 0);
+  dr.innerHTML = `<h3>Importação concluída</h3><p><b>${pl.upd.length}</b> item(ns) atualizado(s) · <b>${pl.ins.length}</b> novo(s) · ${ts} sem alteração${pl.ign ? ` · ${pl.ign} linha(s) ignorada(s) (sem código)` : ""}</p>
+  <ul>${[...pl.rcs].map(([rc, x]) => `<li><b>RC ${esc(rc)}</b>: ${x.u} de ${x.t} item(ns) atualizado(s)${x.n ? `, ${x.n} novo(s)` : ""}</li>`).join("")}</ul>${falt && falt.length ? `<small>Colunas padrão não encontradas: ${esc(falt.join(", "))}</small>` : ""}
+  <div class="bar" style="margin-top:12px"><button class="p" id="rOk">OK</button></div>`; $("#rOk").onclick = () => dr.close(); dr.showModal(); }
 function impOpen() {
-  if (!canProj) return; I = { tsv: "", map: {} };
-  di.innerHTML = `<h3>Importar suprimentos</h3><label>Arquivo (.xlsx, .csv, .docx ou .pdf)<input id="iF" type="file" accept=".xlsx,.xls,.csv,.docx,.pdf"></label><small id="iM">Word e PDF podem vir com erros: corrija na prévia. Nada é gravado antes de “Confirmar”.</small>
+  if (!canProj) return; I = { tsv: "", map: null };
+  di.innerHTML = `<h3>Importar suprimentos</h3><label>Arquivo (.xlsx, .csv, .docx ou .pdf)<input id="iF" type="file" accept=".xlsx,.xls,.csv,.docx,.pdf"></label><small id="iM">Ao escolher o arquivo, RC, material, descrição, quantidade, valores, pedido, prazo e data são preenchidos sozinhos (itens já existentes são atualizados). Se as colunas padrão não forem reconhecidas, a prévia abre para ajuste.</small>
   <label>Prévia editável (colunas separadas por TAB; 1ª linha = cabeçalho)<textarea id="iT" rows="8" style="font:12px ui-monospace,monospace;white-space:pre"></textarea></label><div id="iMap"></div><p class="err" id="iE"></p>
   <div class="bar" style="margin-top:12px"><button class="p" id="iOk">Confirmar importação</button><button id="iCx">Cancelar</button></div>`;
-  $("#iCx").onclick = () => di.close(); $("#iT").oninput = e => { I.tsv = e.target.value; I.map = {}; impMap(); };
+  $("#iCx").onclick = () => di.close(); $("#iT").oninput = e => { I.tsv = e.target.value; I.map = null; impMap(); };
   $("#iF").onchange = async e => { const f = e.target.files[0]; if (!f) return; $("#iM").textContent = "Lendo arquivo…";
-    try { const a = await window.lerArq(f); I.tsv = a.map(r => r.map(c => String(c ?? "").replace(/[\t\r\n]+/g, " ")).join("\t")).join("\n"); I.map = {}; $("#iT").value = I.tsv; $("#iM").textContent = `${a.length} linhas lidas. Confira e corrija se preciso.`; impMap(); }
+    try { const a = await window.lerArq(f); I.tsv = a.map(r => r.map(c => String(c ?? "").replace(/[\t\r\n]+/g, " ")).join("\t")).join("\n"); I.map = null; $("#iT").value = I.tsv;
+      const R = tab(), m = R.length > 1 ? mapa(R) : {}, falt = Object.keys(STRICT).filter(k => m[k] === undefined).map(k => ff(k)[1]);
+      if (m.rc_numero !== undefined && m.codigo_sap !== undefined) { const pl = plano(); $("#iM").textContent = "Aplicando…"; const er = await aplica(pl); if (er) { $("#iE").textContent = er; $("#iM").textContent = "Falhou ao gravar."; return; } di.close(); resumo(pl, falt); return; }
+      $("#iM").textContent = `${a.length} linhas lidas. Não achei as colunas Requisição de compra e Material: confira o mapeamento abaixo.`; impMap(); }
     catch (x) { $("#iM").textContent = "Não foi possível ler: " + x.message; } };
   $("#iOk").onclick = async () => { const pl = plano(); if (!pl.upd.length && !pl.ins.length) return $("#iE").textContent = "Nada para importar: mapeie a coluna de código SAP ou Sphera."; $("#iOk").disabled = true;
-    for (let i = 0; i < pl.upd.length; i += 20) { const r = await Promise.all(pl.upd.slice(i, i + 20).map(u => sb.from("suprimentos").update(u.p).eq("id", u.id))), er = r.find(x => x.error); if (er) { $("#iE").textContent = er.error.message; $("#iOk").disabled = false; return; } }
-    const nv = pl.ins.map(o => ({ ...o, projeto_id: proj.id, origem: "importacao", unidade: o.unidade || "un" }));
-    for (let i = 0; i < nv.length; i += 200) { const { error } = await sb.from("suprimentos").insert(nv.slice(i, i + 200)); if (error) { $("#iE").textContent = "Importação parou: " + error.message; $("#iOk").disabled = false; return; } }
-    logP("Importou suprimentos", `${pl.upd.length} atualizados, ${pl.ins.length} novos`); di.close(); await loadSup(); renderSup(); };
+    const er = await aplica(pl); if (er) { $("#iE").textContent = er; $("#iOk").disabled = false; return; } di.close(); resumo(pl, []); };
   di.showModal();
 }
 function exporta() {
