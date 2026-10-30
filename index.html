@@ -1579,12 +1579,16 @@ async function editPar(p, cat) {
 }
 
 // ---- Leitura do escopo (Excel/CSV, Word, PDF) -> matriz de linhas ----
+async function lerBuf(f) { // lê o arquivo; tenta de novo por outro método e dá uma mensagem clara se o navegador perder o acesso
+  try { return await f.arrayBuffer(); } catch (e1) {
+    try { return await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => no(r.error); r.readAsArrayBuffer(f); }); }
+    catch (e2) { throw new Error("o navegador perdeu o acesso ao arquivo. Copie o arquivo para a Área de Trabalho (fora do OneDrive/rede), feche-o no Excel/leitor de PDF e selecione de novo."); } } }
 async function lerArq(f) {
   const n = f.name.toLowerCase();
-  if (/\.(xlsx|xls|csv)$/.test(n)) { const wb = XLSX.read(await f.arrayBuffer()); return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "", blankrows: false }); }
-  if (/\.docx$/.test(n)) { await lib(MAM); const h = (await mammoth.convertToHtml({ arrayBuffer: await f.arrayBuffer() })).value, d = new DOMParser().parseFromString(h, "text/html"), t = d.querySelector("table");
+  if (/\.(xlsx|xls|csv)$/.test(n)) { const wb = XLSX.read(await lerBuf(f)); return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "", blankrows: false }); }
+  if (/\.docx$/.test(n)) { await lib(MAM); const h = (await mammoth.convertToHtml({ arrayBuffer: await lerBuf(f) })).value, d = new DOMParser().parseFromString(h, "text/html"), t = d.querySelector("table");
     return t ? [...t.rows].map(r => [...r.cells].map(c => c.textContent.trim())) : [...d.body.children].map(e => [e.textContent.trim()]).filter(r => r[0]); }
-  if (/\.pdf$/.test(n)) { await lib(PDFJS); pdfjsLib.GlobalWorkerOptions.workerSrc = PDFW; const pdf = await pdfjsLib.getDocument({ data: await f.arrayBuffer() }).promise, out = [];
+  if (/\.pdf$/.test(n)) { await lib(PDFJS); pdfjsLib.GlobalWorkerOptions.workerSrc = PDFW; const pdf = await pdfjsLib.getDocument({ data: await lerBuf(f) }).promise, out = [];
     for (let i = 1; i <= pdf.numPages; i++) { const tc = await (await pdf.getPage(i)).getTextContent(), ls = {};
       tc.items.forEach(it => { const y = Math.round(it.transform[5] / 3); (ls[y] = ls[y] || []).push(it); });
       Object.keys(ls).sort((a, b) => b - a).forEach(y => { const cols = []; let last = null; ls[y].sort((a, b) => a.transform[4] - b.transform[4]).forEach(it => {
