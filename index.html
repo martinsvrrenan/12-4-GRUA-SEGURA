@@ -1683,6 +1683,53 @@ function supStats(L) { const t = L.length, c = f => L.filter(f).length, h = hj()
   const pm = L.filter(i => i.pedido_data && i.prazo_entrega).map(i => dias(i.pedido_data, i.prazo_entrega));
   return { t, rc: c(i => sitOf(i) >= 1), pd: c(i => sitOf(i) >= 2), pz: c(i => i.prazo_entrega), en: c(i => sitOf(i) === 3), at: c(atras), sp: c(semPrazo),
     a7: av(7), a15: av(15), a30: av(30), pm: pm.length ? Math.round(pm.reduce((a, b) => a + b, 0) / pm.length) : null }; }
+
+// ---- Texto do MyItems (chatbot) -> tabela no mesmo padrão da planilha SAP ----
+const zn = v => { v = cl(v); return v == null ? v : v.replace(/^0+(?=\d)/, ""); }; // compara RC/pedido ignorando zeros à esquerda
+const ky = t => String(t ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+const MES = { jan: 1, fev: 2, mar: 3, abr: 4, mai: 5, jun: 6, jul: 7, ago: 8, set: 9, out: 10, nov: 11, dez: 12 };
+function dTxt(v) { v = String(v ?? "").trim(); if (!v || v === "-") return ""; const m = v.match(/^(\d{1,2})\s*(?:de\s+)?([A-Za-zçÇ]{3})[A-Za-zçÇ]*\.?\s*(?:de\s+)?(\d{4})$/), mes = m && MES[ky(m[2])];
+  if (mes) return String(m[1]).padStart(2, "0") + "/" + String(mes).padStart(2, "0") + "/" + m[3]; return pdate(v) ? v : ""; } // "20 ago. 2026" -> "20/08/2026"
+function nroLimpo(v) { v = String(v ?? "").replace(/[\s\u00a0]+/g, "").replace(/[\u2010-\u2015\u2212]/g, "-"); if (!v || v === "-") return ""; v = v.split("-")[0]; return /^[\dOo]+$/.test(v) ? v.replace(/[Oo]/g, "0").replace(/^0+(?=\d)/, "") : v; } // "4000668415-1" -> "4000668415"; "0033983723-10" -> "33983723" (tira o traço, o item e os zeros à esquerda)
+const MY_EXTRAS = [["reserva", "Reserva"], ["status", "Status"], ["data de necessidade", "Data de necessidade"], ["quantidade expedida", "Quantidade expedida"], ["quantidade pendente", "Quantidade pendente"], ["ordem de servico", "Ordem de serviço"],
+  ["rc exiros", "RC Exiros"], ["data de liberacao da rc", "Data de liberação da RC"], ["comprador", "Comprador"], ["planejador", "Planejador"], ["contrato", "Contrato"], ["numero da licitacao", "Número da licitação"], ["status da licitacao", "Status da licitação"],
+  ["data de abertura da licitacao", "Data de abertura da licitação"], ["data de encerramento da licitacao", "Data de encerramento da licitação"], ["data original de entrega do pedido", "Data original de entrega do pedido"],
+  ["quantidade de reprogramacoes do pedido", "Quantidade de reprogramações do pedido"], ["comentarios do fornecedor", "Comentários do fornecedor"], ["motivo do fornecedor", "Motivo do fornecedor"]];
+const ehMyItems = t => /(^|\n)\s*Material\s*:\s*[A-Za-z0-9]{4,}/i.test(String(t || "")) && /(^|\n)\s*(Reserva|RC)\s*:/i.test(String(t || ""));
+function parseMyItems(txt) { // devolve { blocks:[{kind,f}], rows:[cabeçalho, ...linhas] }; ignora o ruído do chat (Card, Perfeito, Digite...)
+  const blocks = []; let b = null, last = null;
+  String(txt ?? "").split(/\r?\n/).map(l => l.replace(/[\u00a0\t]+/g, " ").trim()).forEach(ln => {
+    if (!ln) return;
+    if (/^Solicitar a[cç][aã]o/i.test(ln)) { b = null; last = null; return; }
+    if (/^(Card\s*-|Perfeito|Qual tipo|A consulta ser|Digite|Para alter)/i.test(ln)) { if (/^(Perfeito|Qual tipo|A consulta|Digite)/i.test(ln)) { b = null; last = null; } return; }
+    const m = ln.match(/^([A-Za-zÀ-ÿ][^:]{1,50}?)\s*:\s*(.*)$/), k = m ? ky(m[1]) : null, val = m ? m[2].replace(/\s*Ver\s+Requerimento.*$/i, "").trim() : "";
+    if (k === "reserva") { b = { kind: "reserva", f: {} }; blocks.push(b); b.f.reserva = val; last = "reserva"; return; }
+    if (k === "rc" && (!b || b.kind === "rc")) { b = { kind: "rc", f: {} }; blocks.push(b); b.f.rc = val; last = "rc"; return; }  // "RC: 0033983723-10 Ver Requerimento..." abre um item
+    if (!b) return;
+    if (m && k && ky(m[1]).split(" ").length <= 8) { b.f[k] = val; last = k; return; }
+    if (last) b.f[last] = (b.f[last] + " " + ln).trim(); }); // linha quebrada: continua o valor anterior
+  const CONHECIDOS = ["material", "quantidade requerida", "data de criacao da rc", "data de liberacao da rc", "pedido", "fornecedor", "data prevista de entrega do pedido", "data real de entrega do pedido", ...MY_EXTRAS.map(e => e[0])];
+  const dist = (a, b) => { const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]); for (let j = 1; j <= b.length; j++) d[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; };
+  blocks.forEach(x => { const nf = {}; Object.keys(x.f).forEach(k => { let c = k; if (!CONHECIDOS.includes(k) && k !== "rc" && k !== "reserva" && k.length >= 7) { let best = 3; CONHECIDOS.forEach(q => { const dd = dist(k, q); if (dd < best && dd <= Math.max(1, Math.floor(q.length / 6))) { best = dd; c = q; } }); } if (!(c in nf) || x.f[k]) nf[c] = x.f[k]; }); x.f = nf; }); // corrige rótulos com erro de OCR (ex.: "criagao" -> "criacao")
+  const bl = blocks.filter(x => x.f.material);
+  const linha = x => { const f = x.f, mt = String(f.material).match(/^\s*([A-Za-z0-9]+)\s*[-\u2010-\u2015\u2212]\s*(.*?)\s*(?:\(([^()\s]{1,6})\))?\s*$/) || String(f.material).match(/^\s*(\d{4,})\s+(.*?)\s*(?:\(([^()\s]{1,6})\))?\s*$/) || [0, String(f.material), "", ""];
+    const cod = /^[\dOo]+$/.test(mt[1]) ? mt[1].replace(/[Oo]/g, "0") : mt[1], v = k => { const z = String(f[k] ?? "").trim(); return /^[-\u2010-\u2015\u2212]$/.test(z) ? "" : z; };
+    const ex = MY_EXTRAS.map(([k]) => k === "status" ? v(k).replace(/\s*\(.*$/, "") : /^data /.test(k) ? dTxt(v(k)) : v(k));
+    return { ex, base: [nroLimpo(f.rc), cod, mt[2] || "", v("quantidade requerida"), mt[3] || "", nroLimpo(f.pedido), dTxt(v("data prevista de entrega do pedido")), dTxt(v("data de criacao da rc")), v("fornecedor"), dTxt(v("data real de entrega do pedido"))] }; };
+  const L = bl.map(linha), usa = MY_EXTRAS.map((_, i) => L.some(x => x.ex[i])), H = ["Requisição de compra", "Material", "Texto breve", "Qtd solicitada", "Unidade de medida", "Pedido", "Remessas de até", "Data da solicitação", "Fornecedor", "Data de recebimento", ...MY_EXTRAS.filter((_, i) => usa[i]).map(e => e[1])];
+  return { blocks: bl, rows: bl.length ? [H, ...L.map(x => [...x.base, ...x.ex.filter((_, i) => usa[i])])] : [] }; }
+const matTsv = R => R.map(r => r.map(c => String(c ?? "").replace(/[\t\r\n]+/g, " ")).join("\t")).join("\n");
+// ---- Print da planilha (OCR por palavras com posição) -> matriz de células ----
+function tabelaDePalavras(ws, achaCab) { ws = (ws || []).filter(w => w && String(w.text || "").trim() && w.bbox && (w.confidence == null || w.confidence >= 25));
+  if (!ws.length) return [];
+  const hs = ws.map(w => w.bbox.y1 - w.bbox.y0).sort((a, b) => a - b), h = hs[Math.floor(hs.length / 2)] || 10, lin = [];
+  ws.slice().sort((a, b) => (a.bbox.y0 + a.bbox.y1) - (b.bbox.y0 + b.bbox.y1)).forEach(w => { const cy = (w.bbox.y0 + w.bbox.y1) / 2, L = lin.find(l => Math.abs(l.cy - cy) < h * 0.6); if (L) { L.w.push(w); L.cy = (L.cy * (L.w.length - 1) + cy) / L.w.length; } else lin.push({ cy, w: [w] }); });
+  const LN = lin.sort((a, b) => a.cy - b.cy).map(l => { const ps = l.w.sort((a, b) => a.bbox.x0 - b.bbox.x0), cs = []; ps.forEach(w => { const c = cs[cs.length - 1]; if (c && w.bbox.x0 - c.x1 < h * 0.7) { c.t += " " + w.text.trim(); c.x1 = w.bbox.x1; } else cs.push({ t: w.text.trim(), x0: w.bbox.x0, x1: w.bbox.x1 }); }); return { cs, ps }; });
+  const txt = LN.map(l => l.cs.map(c => c.t)), hi = achaCab ? achaCab(txt) : 0, cab = LN[hi] && LN[hi].cs;
+  if (!achaCab || !cab || cab.length < 2) return txt;
+  const xs = cab.map(c => c.x0), out = [cab.map(c => c.t)]; // demais linhas: cada palavra vai para a coluna do cabeçalho mais próxima à esquerda
+  LN.forEach((l, i) => { if (i <= hi) return; const o = xs.map(() => ""); l.ps.forEach(w => { let j = 0; xs.forEach((x, q) => { if (x <= w.bbox.x0 + h * 0.6) j = q; }); o[j] = (o[j] ? o[j] + " " : "") + w.text.trim(); }); out.push(o); });
+  return out; }
 //#/PURE
 const pc3 = (x, n) => n ? Math.round(100 * x / n) + "%" : "0%";
 let SUP = [], F = { sit: "", area: "", tipo: "", q: "" }, X = 15, supOk = true;
@@ -1858,7 +1905,7 @@ function editaItem(it) {
 // ---- Importação (Excel/CSV, Word, PDF) com prévia editável, mapeamento e confirmação ----
 const di = document.createElement("dialog"); di.id = "spImp"; document.body.appendChild(di);
 let I = {};
-const nh = t => nz(t).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+const nh = t => nz(String(t ?? "").replace(/[¢©]/g, "c")).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 // Cabeçalhos do padrão (planilha SAP / Word / PDF) -> campo do app
 const STRICT = { rc_numero: ["requisicao de compra", "requisicao compra"], codigo_sap: ["material"], descricao: ["texto breve"], quantidade: ["qtd solicitada", "quantidade solicitada"], unidade: ["unidade de medida"],
   valor_unitario: ["preco avaliacao"], valor_total: ["valor total"], pedido_numero: ["pedido"], prazo_entrega: ["remessas de ate", "remessas"], rc_data: ["data da solicitacao"] };
@@ -1880,10 +1927,10 @@ function plano() { const out = { upd: [], ins: [], rcs: new Map(), ign: 0 }, R =
     const rc = cl(g(r, "rc_numero")), q = {}; ORD.slice(2).forEach(k => { const f = ff(k), raw = g(r, k); let v = f[3] === "d" ? (k === "prazo_entrega" ? pdateLast(raw) : pdate(raw)) : f[3] === "n" ? brNum(raw) : cl(raw); if (v != null) q[k] = v; });
     const ex = R[0].map((h, j) => usados.has(j) || !r[j] ? null : `${h}: ${r[j]}`).filter(Boolean).join(" · "), blk = ex ? "[Importado] " + ex : null; // demais colunas -> Observação (você decide se usa)
     const key = kk(sap, sph), arr = byKey.get(key) || [], livre = i => !claim.has(i.id) || claim.get(i.id) === (rc || "");
-    const it = rc ? (arr.find(i => cl(i.rc_numero) === rc) || arr.find(i => !cl(i.rc_numero) && livre(i))) : arr[0], S = st(rc || "(sem RC)"); S.t++;
+    const it = rc ? (arr.find(i => zn(i.rc_numero) === zn(rc)) || arr.find(i => !cl(i.rc_numero) && livre(i))) : arr[0], S = st(rc || "(sem RC)"); S.t++;
     if (it) { claim.set(it.id, rc || ""); const pt = upd.get(it.id) || {};
       Object.assign(pt, q);
-      Object.keys(pt).forEach(k => { if (!diff(pt[k], it[k])) delete pt[k]; });
+      Object.keys(pt).forEach(k => { if (!diff(pt[k], it[k]) || ((k === "rc_numero" || k === "pedido_numero") && zn(pt[k]) === zn(it[k]))) delete pt[k]; });
       if (sph && !it.codigo_sphera) pt.codigo_sphera = sph; if (sap && !it.codigo_sap) pt.codigo_sap = sap;
       if (blk) { const base = String(it.observacao || "").replace(/\s*\[Importado\][^\n]*/g, "").trim(), nv = (base ? base + "\n" : "") + blk; if (nv !== String(it.observacao || "")) pt.observacao = nv; }
       upd.set(it.id, pt); S.ch.add(it.id); }
@@ -1904,18 +1951,53 @@ function resumo(pl, falt) { const ts = [...pl.rcs.values()].reduce((a, x) => a +
   dr.innerHTML = `<h3>Importação concluída</h3><p><b>${pl.upd.length}</b> item(ns) atualizado(s) · <b>${pl.ins.length}</b> novo(s) · ${ts} sem alteração${pl.ign ? ` · ${pl.ign} linha(s) ignorada(s) (sem código)` : ""}</p>
   <ul>${[...pl.rcs].map(([rc, x]) => `<li><b>RC ${esc(rc)}</b>: ${x.u} de ${x.t} item(ns) atualizado(s)${x.n ? `, ${x.n} novo(s)` : ""}</li>`).join("")}</ul>${falt && falt.length ? `<small>Colunas padrão não encontradas: ${esc(falt.join(", "))}</small>` : ""}
   <div class="bar" style="margin-top:12px"><button class="p" id="rOk">OK</button></div>`; $("#rOk").onclick = () => dr.close(); dr.showModal(); }
+// ---- Leitura de prints (OCR no navegador, em português) ----
+const TESS = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js", TESS_LANG = "https://cdn.jsdelivr.net/npm/@tesseract.js-data/por/4.0.0_best_int";
+const libJS = u => new Promise((ok, no) => { if (document.querySelector(`script[src="${u}"]`)) return ok(); const x = document.createElement("script"); x.src = u; x.onload = ok; x.onerror = () => no(new Error("não consegui carregar o leitor de imagens (rede da empresa bloqueando cdn.jsdelivr.net?)")); document.head.appendChild(x); });
+let tW = null, tProg = null;
+async function ocrWorker() { await libJS(TESS); if (!tW) tW = await Tesseract.createWorker("por", 1, { langPath: TESS_LANG, logger: m => { if (tProg && m.status === "recognizing text") tProg(Math.round(m.progress * 100)); } }); return tW; }
+async function imgCanvas(f) { const url = URL.createObjectURL(f); try { const im = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error("imagem inválida")); i.src = url; });
+  const k = Math.min(3, Math.max(1, 2200 / im.naturalWidth)), c = document.createElement("canvas"); c.width = Math.round(im.naturalWidth * k); c.height = Math.round(im.naturalHeight * k);
+  const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); x.imageSmoothingQuality = "high"; try { x.filter = "grayscale(1) contrast(1.15)"; } catch (e) {} x.drawImage(im, 0, 0, c.width, c.height); return c; } finally { URL.revokeObjectURL(url); } }
+async function ocrImagem(f) { const w = await ocrWorker(), r = await w.recognize(await imgCanvas(f)), d = r.data;
+  const ws = d.words || (d.blocks || []).flatMap(b => (b.paragraphs || []).flatMap(p => (p.lines || []).flatMap(l => l.words || []))); return { text: d.text || "", words: ws }; }
+const isImg = f => /^image\//.test(f.type) || /\.(png|jpe?g|webp|bmp|gif)$/i.test(f.name);
 function impOpen() {
   if (!canProj) return; I = { tsv: "", map: null };
-  di.innerHTML = `<h3>Importar suprimentos</h3><label>Arquivo (.xlsx, .csv, .docx ou .pdf)<input id="iF" type="file" accept=".xlsx,.xls,.csv,.docx,.pdf"></label><small id="iM">Ao escolher o arquivo, RC, material, descrição, quantidade, valores, pedido, prazo e data são preenchidos sozinhos (itens já existentes são atualizados). Se as colunas padrão não forem reconhecidas, a prévia abre para ajuste.</small>
+  di.innerHTML = `<h3>Importar suprimentos</h3><label>Arquivo (.xlsx, .csv, .docx, .pdf ou imagem)<input id="iF" type="file" accept=".xlsx,.xls,.csv,.docx,.pdf,image/*" multiple></label>
+  <div id="iZ" tabindex="0" style="margin-top:10px;padding:14px;border:2px dashed #a9b8d6;border-radius:12px;text-align:center;cursor:pointer;font-weight:600"><span>📋 Cole um print aqui (Ctrl+V) ou arraste imagens — texto do MyItems ou planilha</span><input id="iZf" type="file" accept="image/*" multiple class="hide"></div>
+  <small id="iM">Aceita: planilha/Word/PDF; texto do MyItems colado no campo abaixo; ou print (imagem) do texto ou da planilha. RC e Pedido entram sem o traço e o item (ex.: 4000668415-1 → 4000668415). Itens já existentes são atualizados.</small>
+  <label>Texto do MyItems (cole aqui o texto copiado do chatbot)<textarea id="iR" rows="5" style="font:12px ui-monospace,monospace" placeholder="Reserva: 0284000225-31   Ver Requerimento em MyItems&#10;Status: ...&#10;Material: 74173232 – MANGUEIRA ... (PZA)&#10;..."></textarea></label>
   <label>Prévia editável (colunas separadas por TAB; 1ª linha = cabeçalho)<textarea id="iT" rows="8" style="font:12px ui-monospace,monospace;white-space:pre"></textarea></label><div id="iMap"></div><p class="err" id="iE"></p>
   <div class="bar" style="margin-top:12px"><button class="p" id="iOk">Confirmar importação</button><button id="iCx">Cancelar</button></div>`;
-  $("#iCx").onclick = () => di.close(); $("#iT").oninput = e => { I.tsv = e.target.value; I.map = null; impMap(); };
-  $("#iF").onchange = async e => { const f = e.target.files[0]; if (!f) return; $("#iM").textContent = "Lendo arquivo…";
+  const msg = t => { $("#iM").textContent = t; };
+  const mostra = () => { $("#iT").value = I.tsv; I.map = null; $("#iE").textContent = ""; impMap(); };
+  function deRaw() { const t = $("#iR").value; if (!t.trim()) return false;
+    if (ehMyItems(t)) { const p = parseMyItems(t); if (p.rows.length > 1) { I.tsv = matTsv(p.rows); mostra(); const rcs = new Set(p.rows.slice(1).map(r => r[0]).filter(Boolean)); msg(`Texto do MyItems reconhecido: ${p.rows.length - 1} item(ns), ${rcs.size} RC(s). Confira a prévia e o mapeamento e clique em Confirmar importação.`); return true; } }
+    if (t.includes("\t")) { I.tsv = t; mostra(); msg("Tabela colada reconhecida. Confira e clique em Confirmar importação."); return true; }
+    msg("Não reconheci o padrão do MyItems (preciso das linhas “Material:” e “Reserva:”/“RC:”). Confira o texto colado."); return false; }
+  async function lerImagens(fs) { fs = fs.filter(isImg); if (!fs.length) return; $("#iE").textContent = ""; let raw = false, tab = null;
+    for (let n = 0; n < fs.length; n++) { const pre = `Lendo imagem ${n + 1}/${fs.length}`; msg(pre + " (OCR; na 1ª vez baixa o idioma, pode levar um pouco)…"); tProg = p => msg(`${pre}: ${p}%`);
+      try { const r = await ocrImagem(fs[n]);
+        if (ehMyItems(r.text)) { $("#iR").value = ($("#iR").value ? $("#iR").value.replace(/\s+$/, "") + "\n" : "") + r.text; raw = true; }
+        else { const R = tabelaDePalavras(r.words, acheCab); if (R.length) { const hi = acheCab(R); tab = tab ? [...tab, ...R.slice(hi + 1)] : R.slice(hi); } else msg(`Imagem ${n + 1}: não encontrei texto.`); }
+      } catch (x) { msg("Falha ao ler a imagem: " + x.message); $("#iE").textContent = "Dica: se a rede bloqueia o leitor de imagens, cole o texto no campo do MyItems."; return; } }
+    tProg = null;
+    if (raw && deRaw()) { msg($("#iM").textContent + " (Veio de imagem: confira números e códigos, o OCR pode errar.)"); return; }
+    if (tab) { const base = I.tsv ? tsv() : []; const cur = base.length ? [...base, ...tab.slice(1)] : tab; I.tsv = matTsv(cur); mostra(); msg(`Planilha lida do print: ${cur.length - 1} linha(s). Confira a prévia (o OCR pode errar números) e clique em Confirmar importação.`); } }
+  $("#iCx").onclick = () => di.close();
+  $("#iT").oninput = e => { I.tsv = e.target.value; I.map = null; impMap(); };
+  $("#iR").oninput = deRaw;
+  $("#iZ").onclick = () => $("#iZf").click(); $("#iZf").onchange = e => { const fs = [...e.target.files]; e.target.value = ""; lerImagens(fs); };
+  $("#iZ").ondragover = e => { e.preventDefault(); }; $("#iZ").ondrop = e => { e.preventDefault(); lerImagens([...e.dataTransfer.files]); };
+  di.onpaste = e => { const fs = [...(e.clipboardData && e.clipboardData.files || [])].filter(isImg); if (fs.length) { e.preventDefault(); lerImagens(fs); } }; // Ctrl+V de print; texto continua colando normal
+  $("#iF").onchange = async e => { const all = [...e.target.files]; if (!all.length) return; const im = all.filter(isImg); if (im.length) { e.target.value = ""; return lerImagens(im); }
+    const f = all[0]; msg("Lendo arquivo…");
     try { const a = await window.lerArq(f); I.tsv = a.map(r => r.map(c => String(c ?? "").replace(/[\t\r\n]+/g, " ")).join("\t")).join("\n"); I.map = null; $("#iT").value = I.tsv;
       const R = tab(), m = R.length > 1 ? mapa(R) : {}, falt = Object.keys(STRICT).filter(k => m[k] === undefined).map(k => ff(k)[1]);
-      if (m.rc_numero !== undefined && m.codigo_sap !== undefined) { const pl = plano(); $("#iM").textContent = "Aplicando…"; const er = await aplica(pl); if (er) { $("#iE").textContent = er; $("#iM").textContent = "Falhou ao gravar."; return; } di.close(); resumo(pl, falt); return; }
-      $("#iM").textContent = `${a.length} linhas lidas. Não achei as colunas Requisição de compra e Material: confira o mapeamento abaixo.`; impMap(); }
-    catch (x) { $("#iM").textContent = "Não foi possível ler: " + x.message; } };
+      if (m.rc_numero !== undefined && m.codigo_sap !== undefined) { const pl = plano(); msg("Aplicando…"); const er = await aplica(pl); if (er) { $("#iE").textContent = er; msg("Falhou ao gravar."); return; } di.close(); resumo(pl, falt); return; }
+      msg(`${a.length} linhas lidas. Não achei as colunas Requisição de compra e Material: confira o mapeamento abaixo.`); impMap(); }
+    catch (x) { msg("Não foi possível ler: " + x.message); } };
   $("#iOk").onclick = async () => { const pl = plano(); if (!pl.upd.length && !pl.ins.length) return $("#iE").textContent = "Nada para importar: mapeie a coluna de código SAP ou Sphera."; $("#iOk").disabled = true;
     const er = await aplica(pl); if (er) { $("#iE").textContent = er; $("#iOk").disabled = false; return; } di.close(); resumo(pl, []); };
   di.showModal();
