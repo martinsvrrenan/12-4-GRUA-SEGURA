@@ -280,7 +280,7 @@ html[data-theme=dark] .bdg{background:#222d45;color:#c9d3e8;border-color:#34405c
   </div>
   <div class="card">
    <div class="evh"><b>Evolução e andamento</b>
-    <div class="bar"><select id="evS" title="O que acompanhar no gráfico"><option value="tot" selected>Andamento total</option><option value="lev">Levantados</option><option value="des">Com desenho</option><option value="sph">No Sphera</option><option value="sap">No SAP</option></select><span class="evd" id="evD"><label>Início<input type="date" id="evI"></label><label>Fim<input type="date" id="evF"></label><button type="button" id="evR" title="Voltar às datas padrão desta opção">↺</button></span><select id="evP"><option value="p">Ano fiscal 2026/2027</option><option value="w">Semanal (12 semanas)</option><option value="m">Mensal (6 meses)</option></select></div></div>
+    <div class="bar"><select id="evS" title="O que acompanhar no gráfico"><option value="tot" selected>Andamento total</option><option value="lev">Levantamento</option><option value="des">Com desenho</option><option value="sph">No Sphera</option><option value="sap">No SAP</option></select><span class="evd" id="evD"><label>Início<input type="date" id="evI"></label><label>Fim<input type="date" id="evF"></label><button type="button" id="evR" title="Voltar às datas padrão desta opção">↺</button></span><select id="evP"><option value="p">Ano fiscal 2026/2027</option><option value="w">Semanal (12 semanas)</option><option value="m">Mensal (6 meses)</option></select></div></div>
    <div class="cards" id="evk"></div>
    <div class="ch"><canvas id="c4"></canvas></div>
    <small id="evn"></small>
@@ -683,24 +683,24 @@ function dash() {
   const eqm = {}; d.forEach(r => { const k = `${r.area}|${String(r.equipamento || "").trim().toLowerCase()}`; (eqm[k] = eqm[k] || []).push(r); });
   const eqs = Object.values(eqm), eqT = eqs.length, isLev = r => r.status_levantamento === "Levantado";
   const eqOk = eqs.filter(g => g.every(isLev)).length, eqPar = eqs.filter(g => !g.every(isLev) && g.some(isLev)).length, eqP = eqT ? Math.round(100 * eqOk / eqT) : 0;
-  const equip = `<div class="card kpi" style="margin:0"><b>${eqP}%</b><span>Equipamentos levantados</span><small><em>${eqOk} de ${eqT} equipamentos</em><br><i>${eqT - eqOk} faltam</i>${eqPar ? ` · ${eqPar} parciais` : ""}</small><div class="pb"><u style="width:${eqP}%"></u></div></div>`;
+  const equip = `<div class="card kpi" style="margin:0"><b>${eqP}%</b><span>Equipamentos com levantamento</span><small><em>${eqOk} de ${eqT} equipamentos</em><br><i>${eqT - eqOk} faltam</i>${eqPar ? ` · ${eqPar} parciais` : ""}</small><div class="pb"><u style="width:${eqP}%"></u></div></div>`;
   // Desenhos: conta quem tem file_name preenchido (sem nome não conta); SAP = caixa \"Desenho no SAP\" marcada
   const dw = d.filter(r => String(r.file_name || "").trim()), dwS = dw.filter(r => r.desenho_sap), dwN = dw.filter(r => !r.desenho_sap);
   const fol = a => a.reduce((t, r) => t + Math.max(1, parseInt(r.folhas) || 1), 0), dT = dw.length, dS = dwS.length, dN = dwN.length, dd = dT || 1;
   const dCards = `<div class="card kpi" style="margin:0"><b>${dT}</b><span>Desenhos cadastrados (com nome)</span><small><em>${fol(dw)} folhas no total</em><br>${d.length - dT} linhas ainda sem desenho</small></div>`
     + `<div class="card kpi" style="margin:0"><b>${dS}</b><span>Desenhos cadastrados no SAP</span><small><em>${fol(dwS)} folhas · ${dT ? Math.round(100 * dS / dd) : 0}% dos ${dT} desenhos</em><br><i>${dN} faltam</i></small><div class="pb"><u style="width:${dT ? Math.round(100 * dS / dd) : 0}%"></u></div></div>`
     + `<div class="card kpi" style="margin:0"><b>${dN}</b><span>Desenhos não cadastrados no SAP</span><small><em>${fol(dwN)} folhas</em><br>${dT ? Math.round(100 * dN / dd) : 0}% dos desenhos</small><div class="pb"><u style="width:${dT ? Math.round(100 * dN / dd) : 0}%;background:#d9822b"></u></div></div>`;
-  $("#kpis").innerHTML = first + andam + card(["Levantados", lev]) + equip + [["Com desenho", c(2)], ["Cadastrados no Sphera", c(3)], ["Cadastrados no SAP", c(4)]].map(card).join("") + dCards;
+  $("#kpis").innerHTML = first + andam + card(["Levantamento", lev]) + equip + [["Com desenho", c(2)], ["Cadastrados no Sphera", c(3)], ["Cadastrados no SAP", c(4)]].map(card).join("") + dCards;
   const dTab = (t, l, c) => l.length ? `<p style="margin:12px 0 4px"><span class="tag" style="--c:${c}">${t}</span> <small>${l.length} ${l.length > 1 ? "desenhos" : "desenho"} · ${fol(l)} folhas</small></p><div class="tw"><table class="st" style="min-width:560px"><thead><tr><th>Desenho (file_name)</th><th>Folhas</th><th>Área</th><th>Equipamento</th><th>Tipo</th></tr></thead><tbody>${l.map(r => `<tr><td class="h"><b>${esc(r.file_name)}</b></td><td data-l="Folhas"><div class="v">${Math.max(1, parseInt(r.folhas) || 1)}</div></td><td data-l="Área"><div class="v">${esc(r.area)}</div></td><td data-l="Equipamento"><div class="v">${esc(r.equipamento)}</div></td><td data-l="Tipo"><div class="v">${esc(r.tipo_projeto)}</div></td></tr>`).join("")}</tbody></table></div>` : `<p style="margin:12px 0 4px"><span class="tag" style="--c:${c}">${t}</span> <small>nenhum desenho</small></p>`;
   $("#dsapCnt").textContent = dT; $("#dsapN").textContent = `${dS} no SAP · ${dN} fora do SAP · clique para ver a lista`;
   $("#dsapL").innerHTML = dTab("Cadastrados no SAP", dwS, "#2e9e5b") + dTab("Não cadastrados no SAP", dwN, "#d9822b");
   document.querySelectorAll("#kpis .seg button").forEach(b => b.onclick = () => { unit = b.dataset.u; dash(); });
   stack("c1", "area", d); stack("c3", "tipo_projeto", d, true); evoDash(d);
   charts.c2?.destroy();
-  charts.c2 = new Chart($("#c2"), { type: "bar", data: { labels: ["Total", "Levantados", "Desenho concluído+", "No Sphera+", "No SAP+"],
+  charts.c2 = new Chart($("#c2"), { type: "bar", data: { labels: ["Total", "Levantamento", "Desenho concluído+", "No Sphera+", "No SAP+"],
     datasets: [{ data: [tot, lev, c(2), c(3), c(4)], backgroundColor: ["#b0b7c3", "#f2a93b", "#3b82c4", "#7a5cc7", "#0e9aa7"] }] },
     options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
-  const p1 = d.filter(r => r.status_levantamento === "Levantado" && si(r) < 2).map(r => [r, "Levantado, sem desenho"]);
+  const p1 = d.filter(r => r.status_levantamento === "Levantado" && si(r) < 2).map(r => [r, "Levantamento feito, sem desenho"]);
   const p2 = d.filter(r => si(r) === 2).map(r => [r, "Desenho pronto, falta Sphera"]);
   const p3 = d.filter(r => si(r) === 3).map(r => [r, "No Sphera, falta SAP"]);
   const p = [...p1, ...p2, ...p3];
@@ -745,7 +745,7 @@ function evo(d, mode) {
   });
   return { labels, rows: rowsOut, mode };
 }
-const EH = ["Período", "Levantados", "Com desenho", "No Sphera", "No SAP", "Comprados", "Movimentações"];
+const EH = ["Período", "Levantamento", "Com desenho", "No Sphera", "No SAP", "Comprados", "Movimentações"], EHD = EH;
 const evoLines = e => e.rows.map((x, i) => [(e.mode === "w" ? "Semana de " : "") + e.labels[i], x.lev, x.des, x.sph, x.sap, x.comp, x.mov]).reverse();
 let PROJ = { ini: new Date(2026, 7, 1), fim: new Date(2027, 5, 30, 23, 59, 59, 999), fyM: 7 }; // período do projeto aberto + mês em que começa o ano fiscal (definidos em abrirProjeto)
 const dtBR = d => d.toLocaleDateString("pt-BR");
@@ -768,7 +768,7 @@ const evIsProj = v => v === "all" || /^fy:/.test(v);
 function curWin() { const v = $("#evP") ? $("#evP").value : ""; if (v === "all") return winAll(); if (/^fy:/.test(v)) return fyWin(+v.slice(3));
   return fyWin(Math.min(fyAno(PROJ.fim, PROJ.fyM), Math.max(fyAno(PROJ.ini, PROJ.fyM), fyAno(new Date(), PROJ.fyM)))); } // relatórios: ano fiscal atual
 const fyLabel = win => (win || curWin()).label;
-const STG = [["Andamento total", "tot", "#14284b"], ["Levantados", "lev", "#f2a93b"], ["Com desenho", "des", "#3b82c4"], ["No Sphera", "sph", "#7a5cc7"], ["No SAP", "sap", "#0e9aa7"]];
+const STG = [["Andamento total", "tot", "#14284b"], ["Levantamento", "lev", "#f2a93b"], ["Com desenho", "des", "#3b82c4"], ["No Sphera", "sph", "#7a5cc7"], ["No SAP", "sap", "#0e9aa7"]];
 const MES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 function evoProj(d, key, pts, win, rng) {
   win = win || curWin(); rng = rng || {};
@@ -871,14 +871,14 @@ function evoDash(d) {
 function evoDashHist(d) {
   const mode = $("#evP").value, e = evo(d, mode), R = e.rows, last = R[R.length - 1], prev = R[R.length - 2] || { lev: 0, des: 0, sph: 0, sap: 0, comp: 0 };
   const dl = (a, b) => (a >= b ? "+" : "") + (a - b), per = mode === "w" ? "Nesta semana" : "Neste mês";
-  $("#evk").innerHTML = [["Levantados", dl(last.lev, prev.lev)], ["Com desenho", dl(last.des, prev.des)], ["No Sphera", dl(last.sph, prev.sph)], ["No SAP", dl(last.sap, prev.sap)], ["Movimentações", String(last.mov)]]
+  $("#evk").innerHTML = [["Levantamento", dl(last.lev, prev.lev)], ["Com desenho", dl(last.des, prev.des)], ["No Sphera", dl(last.sph, prev.sph)], ["No SAP", dl(last.sap, prev.sap)], ["Movimentações", String(last.mov)]]
     .map(([l, v]) => `<div class="card kpi" style="margin:0"><b>${v}</b><span>${per}: ${l}</span></div>`).join("");
   charts.c4?.destroy();
-  charts.c4 = new Chart($("#c4"), { type: "line", data: { labels: e.labels, datasets: [["Levantados", "lev", "#f2a93b"], ["Com desenho", "des", "#3b82c4"], ["No Sphera", "sph", "#7a5cc7"], ["No SAP", "sap", "#0e9aa7"]]
+  charts.c4 = new Chart($("#c4"), { type: "line", data: { labels: e.labels, datasets: [["Levantamento", "lev", "#f2a93b"], ["Com desenho", "des", "#3b82c4"], ["No Sphera", "sph", "#7a5cc7"], ["No SAP", "sap", "#0e9aa7"]]
     .map(([n, k, c]) => ({ label: n, data: R.map(x => x[k]), borderColor: c, backgroundColor: c, tension: .25 })) },
     options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } }, plugins: { legend: { position: "bottom" } } } });
-  $("#evt").innerHTML = `<table class="st" style="min-width:560px"><thead><tr>${EH.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${evoLines(e).map(l =>
-    `<tr><td class="h"><b>${l[0]}</b></td>${l.slice(1).map((v, i) => `<td data-l="${EH[i + 1]}"><div class="v">${v}</div></td>`).join("")}</tr>`).join("")}</tbody></table>`;
+  $("#evt").innerHTML = `<table class="st" style="min-width:560px"><thead><tr>${EHD.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${evoLines(e).map(l =>
+    `<tr><td class="h"><b>${l[0]}</b></td>${l.slice(1).map((v, i) => `<td data-l="${EHD[i + 1]}"><div class="v">${v}</div></td>`).join("")}</tr>`).join("")}</tbody></table>`;
 }
 $("#evP").onchange = dash; $("#evS").onchange = dash;
 $("#dA").onchange = dash;
@@ -984,14 +984,14 @@ function stats0(d) {
 }
 function stats(d) { const s = stats0(d), K = window.etapasAtivas ? window.etapasAtivas() : ["lev", "des", "sph", "sap"], pj = d.filter(r => si(r) >= 1), cn = { ...s, proj: pj.length }, cp = { ...s.p, proj: psum(pj) };
   s.K = K; s.a1 = K.reduce((t, k) => t + cn[k], 0); s.a2 = K.reduce((t, k) => t + cp[k], 0); return s; }
-const ETP = [["Levantados", "lev"], ["Com desenho", "des"], ["No Sphera", "sph"], ["No SAP", "sap"], ["Comprados", "comp"]];
+const ETP = [["Levantamento", "lev"], ["Com desenho", "des"], ["No Sphera", "sph"], ["No SAP", "sap"], ["Comprados", "comp"]];
 const EFH = ["Etapa", "Linhas realizadas", "Linhas faltam", "% linhas", "Pontos realizados", "Pontos faltam", "% pontos"];
 const etapaRows = s => { const m = a => Math.round(a * 10) / 10, sl = s.a1 / s.K.length, sp = s.a2 / s.K.length;
   return [["Total no escopo", s.n, "", "", s.p.n, "", ""], ...ETP.map(([l, k]) => [l, s[k], s.n - s[k], pc(s[k], s.n), s.p[k], s.p.n - s.p[k], pc(s.p[k], s.p.n)]),
     ["Andamento total", m(sl), m(s.n - sl), pc(sl, s.n), m(sp), m(s.p.n - sp), pc(sp, s.p.n)]]; };
 const pc = (x, n) => n ? Math.round(100 * x / n) + "%" : "0%";
 function repData() { const a = $("#rA").value; return { a, d: a ? rows.filter(r => r.area === a) : rows }; }
-function pendList(d) { return [...d.filter(r => lv(r) && si(r) < 2).map(r => [r, "Levantado, sem desenho"]), ...d.filter(r => si(r) === 2).map(r => [r, "Desenho pronto, falta Sphera"]), ...d.filter(r => si(r) === 3).map(r => [r, "No Sphera, falta SAP"])]; }
+function pendList(d) { return [...d.filter(r => lv(r) && si(r) < 2).map(r => [r, "Levantamento feito, sem desenho"]), ...d.filter(r => si(r) === 2).map(r => [r, "Desenho pronto, falta Sphera"]), ...d.filter(r => si(r) === 3).map(r => [r, "No Sphera, falta SAP"])]; }
 function matrix(d, field, pts) {
   const keys = [...new Set(d.map(r => r[field] || "—"))].sort();
   const cnt = a => pts ? psum(a) : a.length;
@@ -1002,7 +1002,7 @@ function resumoRows(a, d) {
   rs.push(["Total", stats(d)]);
   return rs.map(([n, s]) => [n, s.n, s.p.n, s.lev, s.p.lev, s.des, s.p.des, s.sph, s.p.sph, s.sap, s.p.sap, s.comp, s.p.comp, pc(s.des, s.n), pc(s.p.des, s.p.n)]);
 }
-const RH = ["Área", "Linhas de projeto", "Pontos de adequação", "Levantados (linhas)", "Levantados (pontos)", "Com desenho (linhas)", "Com desenho (pontos)", "No Sphera (linhas)", "No Sphera (pontos)", "No SAP (linhas)", "No SAP (pontos)", "Comprados (linhas)", "Comprados (pontos)", "% com desenho (linhas)", "% com desenho (pontos)"];
+const RH = ["Área", "Linhas de projeto", "Pontos de adequação", "Levantamento (linhas)", "Levantamento (pontos)", "Com desenho (linhas)", "Com desenho (pontos)", "No Sphera (linhas)", "No Sphera (pontos)", "No SAP (linhas)", "No SAP (pontos)", "Comprados (linhas)", "Comprados (pontos)", "% com desenho (linhas)", "% com desenho (pontos)"];
 
 $("#rx").onclick = () => {
   logP("Gerou relatório Excel", $("#rA").value || "Todas as áreas");
@@ -1027,7 +1027,7 @@ $("#rx").onclick = () => {
 const TC = { orange: "FF9900", gray: "666666", mid: "7F7F7F", light: "D3D3D3", foot: "999999", soft: "F4F4F4", blue: "01688A", navy: "003366", green: "00B351" };
 const TSTAGE = ["BFBFBF", "FF9900", "01688A", "003366", "666666", "00B351"]; // A projetar → Comprado
 const TCH = () => TKEYS.slice(0, 4); // séries dos gráficos (sem Comprados)
-const TKEYS = [["Levantados", "lev", "FF9900"], ["Com desenho", "des", "01688A"], ["No Sphera", "sph", "003366"], ["No SAP", "sap", "666666"], ["Comprados", "comp", "00B351"]];
+const TKEYS = [["Levantamento", "lev", "FF9900"], ["Com desenho", "des", "01688A"], ["No Sphera", "sph", "003366"], ["No SAP", "sap", "666666"], ["Comprados", "comp", "00B351"]];
 const TFOOT = "Ternium  |  Manutenção Central";
 const tdash = x => (x === "" || x === null || x === undefined) ? "—" : String(x);
 const areaRows = (d, ar, pts) => ar.map(name => { const z = stats(d.filter(r => r.area === name)), q = pts ? z.p : z; return [name, q.n, q.comp, q.n - q.comp]; });
@@ -1085,7 +1085,7 @@ $("#rp").onclick = () => {
     `<section class="page cover" style="background-image:url(${TERN.bg})"><div class="cdate">${esc2(today())}</div><img class="clogo" src="${TERN.logo}" alt="Ternium"><div class="ctitle"><h1>${esc2(proj.nome)}</h1><p>${esc2([proj.cliente, proj.localidade].filter(Boolean).join(" · ") || "Acompanhamento do avanço do projeto")} · ${esc2(perLabel())}${a ? " · " + esc2(a) : ""}</p></div></section>`,
     `<section class="page">${hd("Visão geral do projeto", `Indicadores consolidados · ${scope}`)}<div class="kpis">${kp}</div>
 <div class="cols"><div><h2>Realizado x faltam por etapa</h2>${tbl(EFH, etapaRows(s), true)}</div><div><h2>Resumo por área</h2>${tbl(areaHead(false), areaRows(d, ar, false))}<div class="gap"></div>${tbl(areaHead(true), areaRows(d, ar, true))}</div></div>
-<p class="note">Linha = ponto levantado com projeto próprio. Ponto de adequação = soma das quantidades de cada linha. Pendências identificadas: ${pd.length}.</p>${ft(2)}</section>`,
+<p class="note">Linha = ponto com levantamento feito e projeto próprio. Ponto de adequação = soma das quantidades de cada linha. Pendências identificadas: ${pd.length}.</p>${ft(2)}</section>`,
     `<section class="page">${hd("Evolução do projeto", "Marcos acumulados registrados no histórico do aplicativo")}<div class="charts"><div>${chartSvg(ew, "Semanal · últimas 12 semanas")}</div><div>${chartSvg(em, "Mensal · últimos 6 meses")}</div></div>
 <p class="note">As linhas mostram a quantidade acumulada de itens em cada etapa. O histórico é registrado a partir da ativação desta função; períodos anteriores podem aparecer sem movimento, o que não significa ausência de atividade.</p>${ft(3)}</section>`,
     `<section class="page">${hd(fyLabel(), `${dtBR(new Date(pj.T0))} a ${dtBR(new Date(pj.T1))}` + " · andamento total em pontos de adequação (média das 4 etapas: levantamento, desenho, Sphera e SAP)")}<div class="kpis k5">${projKpis(pj, "pontos", "Andamento total").map(([v, l]) => `<div class="kpi"><strong>${esc2(v)}</strong><em>${esc2(l)}</em></div>`).join("")}</div>
@@ -1176,7 +1176,7 @@ $("#rpp").onclick = async () => {
   sl = content("Visão geral do projeto", `Indicadores consolidados · ${scope}`);
   kpiList(s).forEach((k, i) => kpi(sl, 0.527 + i * 1.77, 1.4, 1.67, k));
   h2(sl, "Avanço por etapa", 0.527, 3.35, 6);
-  const labs = ["Total no escopo", "Levantados", "Desenho concluído ou além", "Sphera ou além", "SAP ou além"];
+  const labs = ["Total no escopo", "Levantamento", "Desenho concluído ou além", "Sphera ou além", "SAP ou além"];
   sl.addChart(P.ChartType.bar, [{ name: "Linhas", labels: labs, values: [s.n, s.lev, s.des, s.sph, s.sap] }, { name: "Pontos de adequação", labels: labs, values: [s.p.n, s.p.lev, s.p.des, s.p.sph, s.p.sap] }], {
     x: 0.527, y: 3.7, w: 6.4, h: 3.4, barDir: "bar", barGrouping: "clustered", chartColors: [TC.gray, TC.orange], catAxisOrientation: "maxMin",
     catAxisLabelFontFace: FT, catAxisLabelFontSize: 10, catAxisLabelColor: TC.gray, valAxisLabelFontFace: FT, valAxisLabelFontSize: 9, valAxisLabelColor: TC.mid, valAxisMinVal: 0,
@@ -2319,7 +2319,7 @@ const pref=()=>{try{return JSON.parse(localStorage.getItem("gs-painel")||"{}")}c
 const apply=()=>{const o=pref();BL.forEach(([k])=>$("#t1").classList.toggle("gx-off-"+k,o[k]===false))};
 function gxInit(){const t1=$("#t1"),k=$("#kpis");if(!t1||!k)return;
  const top=document.createElement("div");top.id="gxTop";k.before(top);
- const dI=det("Todos os indicadores","linhas, levantados, Sphera, SAP e desenhos");dI.id="gxInd";k.before(dI);dI.appendChild(k);
+ const dI=det("Todos os indicadores","linhas, levantamento, Sphera, SAP e desenhos");dI.id="gxInd";k.before(dI);dI.appendChild(k);
  const g=t1.querySelector(":scope>.grid");if(g){const d=det("Gráficos detalhados","por área, funil e por tipo de projeto");d.id="gxGraf";g.before(d);d.appendChild(g)}
  const c4=$("#c4");if(c4)c4.closest(".card").id="gxEvo";
  $("#dsapD")&&$("#dsapD").closest(".card").classList.add("gx-doc");$("#pdd")&&$("#pdd").closest(".card").classList.add("gx-pend");
