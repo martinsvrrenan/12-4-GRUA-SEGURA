@@ -214,6 +214,13 @@ html[data-theme=dark] #mMenu{background:#151c2b}html[data-theme=dark] #mMenu .mi
 .bdg.admin{background:#14284b;color:#fff;border-color:#14284b}.bdg.editor{background:#e3ecff;color:#1d47a0;border-color:#c9d9ff}.bdg.colaborador{background:#e2f5ea;color:#1f7a47;border-color:#c4ead3}.bdg.pendente{background:#fff0c7;color:#8a5a00;border-color:#ffe08a}
 html[data-theme=dark] .bdg{background:#222d45;color:#c9d3e8;border-color:#34405c}html[data-theme=dark] .bdg.admin{background:#2456b8;color:#fff;border-color:#2456b8}html[data-theme=dark] .bdg.editor{background:#1d3566;color:#b9d0ff;border-color:#2c4c8f}html[data-theme=dark] .bdg.colaborador{background:#16382a;color:#9fe0bb;border-color:#24593f}html[data-theme=dark] .bdg.pendente{background:#4a3a0e;color:#ffd978;border-color:#6b5415}
 #usDlg{width:min(420px,94vw)}#usDlg label{display:block;margin-top:10px;font-size:13px;color:var(--mut);font-weight:600}#usDlg label input,#usDlg label select{display:block;width:100%;margin-top:4px}
+.av{width:34px;height:34px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex:none}
+.ucel{display:flex;gap:10px;align-items:center;min-width:0}.ucel b{overflow-wrap:anywhere}.ubd{display:flex;gap:6px;flex-wrap:wrap;margin-top:3px}.ubd:empty{display:none}
+.bdg.bloq{background:#fde4e4;color:#a32626;border-color:#f5c2c2}html[data-theme=dark] .bdg.bloq{background:#4a1d1d;color:#ffb3b3;border-color:#6b2a2a}
+.lk{border:0;background:none;padding:0;min-height:0;color:var(--blue);font-weight:700;cursor:pointer;text-decoration:underline}.lk:hover{background:none}
+.utool{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}.utool input{flex:1 1 220px}
+.um hr{border:0;border-top:1px solid var(--line);margin:4px 0}
+.prow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line);margin:0;font-size:inherit;color:inherit}.prow input{width:22px;height:22px;min-height:0;flex:none}
 </style>
 </head>
 <body>
@@ -328,9 +335,10 @@ html[data-theme=dark] .bdg{background:#222d45;color:#c9d3e8;border-color:#34405c
  </section>
 
  <section id="t4" class="hide">
+  <div class="cards" id="uKpis"></div>
   <div class="card">
    <div class="bar" style="justify-content:space-between;margin-bottom:4px"><b>Usuários</b><button class="p" id="uNew">+ Criar conta</button></div>
-   <p>Contas novas entram como “Pendente” e só veem os dados depois que você liberar. Online = usou o app nos últimos 2 minutos.</p>
+   <p>Contas novas entram como “Pendente” e só veem os dados depois que você liberar o perfil e os projetos. Online = usou o app nos últimos 2 minutos.</p>
    <div class="uf hide" id="uForm">
     <input id="uEm" type="email" placeholder="E-mail do usuário" autocomplete="off">
     <input id="uPw" type="text" placeholder="Senha (mín. 6 caracteres)" autocomplete="off">
@@ -338,7 +346,9 @@ html[data-theme=dark] .bdg{background:#222d45;color:#c9d3e8;border-color:#34405c
     <div class="bar" style="margin:0"><button class="p" id="uOk">Criar</button><button id="uNo">Cancelar</button></div>
     <small id="uMsg" style="grid-column:1/-1"></small>
    </div>
-   <div class="tw"><table class="st" style="min-width:980px"><thead><tr><th>E-mail</th><th>Status</th><th>Perfil</th><th>Último login</th><th>Última ação</th><th>Criada em</th><th style="width:56px"></th></tr></thead><tbody id="ub"></tbody></table></div>
+   <div class="utool"><input id="uQ" type="search" placeholder="Buscar por e-mail…" aria-label="Buscar usuário" autocomplete="off"><select id="uF" aria-label="Filtrar usuários"></select></div>
+   <div class="tw"><table class="st" style="min-width:1040px"><thead><tr><th>Usuário</th><th>Status</th><th>Perfil</th><th>Projetos</th><th>Último login</th><th>Última ação</th><th>Criada em</th><th style="width:56px"></th></tr></thead><tbody id="ub"></tbody></table></div>
+   <small id="uCnt"></small>
   </div>
   <div class="card">
    <div class="evh"><b>Log de ações</b><div class="bar"><select id="lgU"><option value="">Todos os usuários</option></select><button class="p" id="lgX">Exportar histórico (Excel)</button></div></div>
@@ -521,48 +531,127 @@ const dtf = (x, seg) => x ? new Date(x).toLocaleString("pt-BR", { dateStyle: "sh
 const SQLU = "Execute os arquivos usuarios_logs_parte1.sql e usuarios_logs_parte2.sql (nessa ordem) no SQL Editor do Supabase e tente novamente.";
 fillSelect($("#uPap"), PAPEIS.map(p => p[0]));
 document.querySelectorAll("#uPap option").forEach((o, i) => { o.textContent = PAPEIS[i][1]; }); $("#uPap").value = "visualizador";
+// ---------- Usuários (administrador) ----------
+const PAPEL_LBL = { pendente: "Pendente", visualizador: "Visualizador", colaborador: "Colaborador", editor: "Editor", admin: "Administrador" };
+const SQLX = "Rode o arquivo fase5_admin_usuarios.sql no SQL Editor do Supabase e tente de novo.";
+let UL = []; // usuários já carregados (perfil + situação da conta + nº de projetos)
+const noSql = e => /function|schema cache|does not exist/i.test(e.message);
+const onlineAgora = u => u.id === me || (u.online_ate && new Date(u.online_ate).getTime() > Date.now());
+const avisoErro = (e, sql) => e.message + (noSql(e) ? " " + sql : "");
+
 async function users() {
-  const [pr, lg] = await Promise.all([sb.from("perfis").select("*").order("created_at"),
-    sb.from("logs_acao").select("user_id,acao,detalhe,created_at").order("created_at", { ascending: false }).limit(1500)]);
+  const [pr, lg, ex, mb] = await Promise.all([sb.from("perfis").select("*").order("created_at"),
+    sb.from("logs_acao").select("user_id,acao,detalhe,created_at").order("created_at", { ascending: false }).limit(1500),
+    sb.rpc("admin_usuarios_extra"), sb.from("projeto_membros").select("user_id")]);
   if (pr.error) return;
-  const last = {}; (lg.data || []).forEach(l => { if (l.user_id && !last[l.user_id]) last[l.user_id] = l; });
-  const now = Date.now();
-  $("#ub").innerHTML = pr.data.map(u => {
-    const on = u.id === me || (u.online_ate && new Date(u.online_ate).getTime() > now), l = last[u.id];
-    return `<tr ${u.papel === "pendente" ? 'class="pend"' : ""}><td class="h"><b>${esc(u.email)}</b>${u.id === me ? " <small>(você)</small>" : ""}</td>
-    <td data-l="Status"><div class="v"><span class="dot ${on ? "on" : ""}"></span>${on ? "Online" : "Offline"}</div></td>
-    <td data-l="Perfil"><div class="v"><span class="bdg ${esc(u.papel)}">${esc(PAPEL_LBL[u.papel] || u.papel)}</span></div></td>
-    <td data-l="Último login"><div class="v">${dtf(u.ultimo_login)}</div></td>
-    <td data-l="Última ação"><div class="v">${l ? `${esc(l.acao)}${l.detalhe ? " · " + esc(l.detalhe) : ""}<br><small>${dtf(l.created_at)}</small>` : "—"}</div></td>
-    <td data-l="Criada em"><div class="v">${new Date(u.created_at).toLocaleDateString("pt-BR")}</div></td>
-    <td><div class="v"><button class="km uk" data-u="${u.id}" data-em="${esc(u.email)}" data-pap="${esc(u.papel)}" aria-label="Opções de ${esc(u.email)}" aria-haspopup="menu" aria-expanded="false">⋮</button></div></td></tr>`;
-  }).join("");
-  document.querySelectorAll("#ub .uk").forEach(bt => bt.onclick = e => { e.stopPropagation(); abrirMenuUsuario(bt); });
+  const last = {}, nProj = {}, extra = Object.fromEntries((ex.data || []).map(x => [x.uid, x]));
+  (lg.data || []).forEach(l => { if (l.user_id && !last[l.user_id]) last[l.user_id] = l; });
+  (mb.data || []).forEach(m => { nProj[m.user_id] = (nProj[m.user_id] || 0) + 1; });
+  UL = pr.data.map(u => ({ ...u, last: last[u.id], on: onlineAgora(u), conf: ex.error ? null : extra[u.id]?.confirmado, blq: !!extra[u.id]?.bloqueado, nProj: mb.error ? null : nProj[u.id] || 0, extras: !ex.error }));
+  usuariosTela();
   const cur = $("#lgU").value;
   $("#lgU").innerHTML = '<option value="">Todos os usuários</option>' + pr.data.map(u => `<option value="${u.id}">${esc(u.email)}</option>`).join("");
   $("#lgU").value = cur; lgLoad();
 }
-// ---------- Menu ⋮ de usuários: alterar acesso, alterar senha, excluir ----------
-const PAPEL_LBL = { pendente: "Pendente", visualizador: "Visualizador", colaborador: "Colaborador", editor: "Editor", admin: "Administrador" };
+
+// Resumo no topo, busca, filtro e tabela. Redesenha a partir de UL, sem nova consulta.
+function usuariosTela() {
+  const q = $("#uQ").value.trim().toLowerCase(), f = $("#uF").value;
+  const kpi = (n, rotulo, filtro) => `<div class="card kpi" style="margin:0${filtro ? ";cursor:pointer" : ""}" ${filtro ? `data-f="${filtro}" role="button" tabindex="0"` : ""}><b>${n}</b><span>${rotulo}</span></div>`;
+  $("#uKpis").innerHTML = kpi(UL.length, "Usuários", "") + kpi(UL.filter(u => u.on).length, "Online agora", "online") + kpi(UL.filter(u => u.papel === "pendente").length, "Aguardando liberação", "pendente")
+    + (UL.some(u => u.extras) ? kpi(UL.filter(u => u.blq).length, "Contas bloqueadas", "bloqueada") : "");
+  document.querySelectorAll("#uKpis [data-f]").forEach(c => { const abre = () => { $("#uF").value = c.dataset.f; usuariosTela(); }; c.onclick = abre; c.onkeydown = e => { if (e.key === "Enter") abre(); }; });
+  const filtra = u => (!q || u.email.toLowerCase().includes(q)) && (!f || (f === "online" ? u.on : f === "bloqueada" ? u.blq : u.papel === f));
+  const lista = UL.filter(filtra);
+  $("#ub").innerHTML = lista.map(u => {
+    const eu = u.id === me, l = u.last;
+    const projetos = u.papel === "admin" ? "Todos" : u.nProj == null ? "—" : `<button type="button" class="lk" data-pj="${u.id}">${u.nProj} ${u.nProj === 1 ? "projeto" : "projetos"}</button>`;
+    return `<tr class="${u.papel === "pendente" ? "pend" : ""}"><td class="h"><div class="ucel"><span class="av" aria-hidden="true">${esc(u.email.charAt(0).toUpperCase())}</span>
+      <div><b>${esc(u.email)}</b>${eu ? " <small>(você)</small>" : ""}<div class="ubd">${u.conf === false ? '<span class="bdg pendente">E-mail não confirmado</span>' : ""}${u.blq ? '<span class="bdg bloq">Conta bloqueada</span>' : ""}</div></div></div></td>
+      <td data-l="Status"><div class="v"><span class="dot ${u.on ? "on" : ""}"></span>${u.on ? "Online" : "Offline"}</div></td>
+      <td data-l="Perfil"><div class="v"><span class="bdg ${esc(u.papel)}">${esc(PAPEL_LBL[u.papel] || u.papel)}</span></div></td>
+      <td data-l="Projetos"><div class="v">${projetos}</div></td>
+      <td data-l="Último login"><div class="v">${dtf(u.ultimo_login)}</div></td>
+      <td data-l="Última ação"><div class="v">${l ? `${esc(l.acao)}${l.detalhe ? " · " + esc(l.detalhe) : ""}<br><small>${dtf(l.created_at)}</small>` : "—"}</div></td>
+      <td data-l="Criada em"><div class="v">${new Date(u.created_at).toLocaleDateString("pt-BR")}</div></td>
+      <td><div class="v"><button class="km uk" data-u="${u.id}" aria-label="Opções de ${esc(u.email)}" aria-haspopup="menu" aria-expanded="false">⋮</button></div></td></tr>`;
+  }).join("") || '<tr><td colspan="8">Nenhum usuário encontrado.</td></tr>';
+  $("#uCnt").textContent = `${lista.length} de ${UL.length} usuários`;
+  document.querySelectorAll("#ub .uk").forEach(bt => bt.onclick = e => { e.stopPropagation(); abrirMenuUsuario(bt); });
+  document.querySelectorAll("#ub [data-pj]").forEach(bt => bt.onclick = () => dlgProjetosUsuario(UL.find(u => u.id === bt.dataset.pj)));
+}
+$("#uF").innerHTML = '<option value="">Todos os perfis</option>' + PAPEIS.map(p => `<option value="${p[0]}">${p[1]}</option>`).join("") + '<option value="online">Online agora</option><option value="bloqueada">Contas bloqueadas</option>';
+$("#uQ").oninput = usuariosTela; $("#uF").onchange = usuariosTela;
+
+// ---------- Menu ⋮ do usuário ----------
 let umEl = null;
 function fecharMenuUsuario() { if (umEl) { umEl.remove(); umEl = null; } document.querySelectorAll("#ub .uk[aria-expanded=true]").forEach(b => b.setAttribute("aria-expanded", "false")); }
 function abrirMenuUsuario(bt) {
   const abria = bt.getAttribute("aria-expanded") === "true";
   fecharMenuUsuario(); if (abria) return;
-  const u = { id: bt.dataset.u, em: bt.dataset.em, pap: bt.dataset.pap }, eu = u.id === me;
+  const u = UL.find(x => x.id === bt.dataset.u); if (!u) return; const eu = u.id === me;
+  const grupos = [
+    [["proj", "Gerenciar projetos", u.papel !== "admin"], ["pap", "Alterar nível de acesso", !eu]],
+    [["pw", "Alterar senha", true], ["link", "Enviar link de redefinição de senha", true], ["conf", "Confirmar e-mail", u.conf === false], ["ses", "Encerrar sessões", !eu]],
+    [["log", "Ver atividade", true], ["copy", "Copiar e-mail", true]],
+    [["blq", u.blq ? "Desbloquear conta" : "Bloquear conta", !eu && u.extras], ["del", "Excluir conta", !eu, "dg"]]];
   const m = document.createElement("div"); m.className = "mn um"; m.setAttribute("role", "menu");
-  m.innerHTML = (eu ? "" : '<button role="menuitem" data-a="pap">Alterar nível de acesso</button>') +
-    '<button role="menuitem" data-a="pw">Alterar senha</button>' +
-    (eu ? "" : '<button role="menuitem" data-a="del" class="dg">Excluir</button>');
+  m.innerHTML = grupos.map(g => g.filter(i => i[2]).map(i => `<button role="menuitem" data-a="${i[0]}" class="${i[3] || ""}">${i[1]}</button>`).join("")).filter(Boolean).join("<hr>");
   document.body.appendChild(m); umEl = m; bt.setAttribute("aria-expanded", "true");
   const r = bt.getBoundingClientRect(), w = m.offsetWidth, h = m.offsetHeight;
   m.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.right - w)) + "px";
   m.style.top = (r.bottom + h + 8 > innerHeight ? Math.max(8, r.top - h - 4) : r.bottom + 4) + "px";
-  m.onclick = e => { const a = e.target.closest("button")?.dataset.a; if (!a) return; fecharMenuUsuario(); if (a === "pap") dlgAcesso(u); else if (a === "pw") dlgSenha(u); else excluirUsuario(u); };
+  m.onclick = e => { const a = e.target.closest("button")?.dataset.a; if (!a) return; fecharMenuUsuario(); acaoUsuario(a, u); };
 }
 document.addEventListener("click", e => { if (umEl && !e.target.closest(".um")) fecharMenuUsuario(); });
 document.addEventListener("keydown", e => { if (e.key === "Escape") fecharMenuUsuario(); });
 addEventListener("scroll", fecharMenuUsuario, true); addEventListener("resize", fecharMenuUsuario);
+
+const ACOES_USUARIO = {
+  proj: u => dlgProjetosUsuario(u),
+  pap: u => dlgAcesso({ id: u.id, em: u.email, pap: u.papel }),
+  pw: u => dlgSenha({ id: u.id, em: u.email }),
+  del: u => excluirUsuario({ id: u.id, em: u.email }),
+  copy: async u => { try { await navigator.clipboard.writeText(u.email); } catch (e) { prompt("Copie o e-mail:", u.email); } },
+  log: u => { $("#lgU").value = u.id; $("#lgd").open = true; lgLoad(); $("#lgd").scrollIntoView({ behavior: "smooth", block: "center" }); },
+  link: async u => { const { error } = await sb.auth.resetPasswordForEmail(u.email); if (error) return alert("Não foi possível enviar: " + error.message); logAcao("Enviou link de redefinição de senha", u.email); alert(`Enviamos um link de redefinição de senha para ${u.email}.`); },
+  conf: async u => chamarAdmin("admin_confirmar_email", { p_id: u.id }, "Confirmou e-mail", u.email, "E-mail confirmado."),
+  ses: async u => { if (confirm(`Encerrar as sessões de ${u.email}? A pessoa precisará entrar de novo.`)) chamarAdmin("admin_encerrar_sessoes", { p_id: u.id }, "Encerrou sessões", u.email, "Sessões encerradas."); },
+  blq: async u => { const bloquear = !u.blq; if (confirm(bloquear ? `Bloquear a conta de ${u.email}? Ela não conseguirá entrar enquanto estiver bloqueada.` : `Desbloquear a conta de ${u.email}?`))
+    chamarAdmin("admin_bloquear_conta", { p_id: u.id, p_bloquear: bloquear }, bloquear ? "Bloqueou conta" : "Desbloqueou conta", u.email, bloquear ? "Conta bloqueada." : "Conta desbloqueada."); }
+};
+const acaoUsuario = (a, u) => ACOES_USUARIO[a](u);
+async function chamarAdmin(fn, args, acao, alvo, ok) {
+  const { data, error } = await sb.rpc(fn, args);
+  if (error) return alert("Não foi possível concluir: " + avisoErro(error, SQLX));
+  if (data === false) return alert("Usuário não encontrado.");
+  logAcao(acao, alvo); users(); alert(ok);
+}
+
+// Projetos que o usuário pode acessar (liga e desliga cada um)
+async function dlgProjetosUsuario(u) {
+  const d = document.createElement("dialog");
+  d.innerHTML = `<h3>Projetos de ${esc(u.email)}</h3><small>${u.papel === "admin" ? "Administradores veem todos os projetos." : "Marque os projetos que esta pessoa pode acessar."}</small>
+    <p data-msg class="err"></p><div data-lista>Carregando…</div><div class="bar" style="margin-top:12px"><button type="button" data-cx>Fechar</button></div>`;
+  document.body.appendChild(d);
+  const msg = d.querySelector("[data-msg]"), lista = d.querySelector("[data-lista]");
+  const fim = () => { d.close(); d.remove(); users(); };
+  d.querySelector("[data-cx]").onclick = fim; d.addEventListener("cancel", e => { e.preventDefault(); fim(); });
+  d.showModal();
+  const [pj, mb] = await Promise.all([sb.from("projetos").select("id,nome,cliente,criado_por").order("nome"), sb.from("projeto_membros").select("projeto_id").eq("user_id", u.id)]);
+  if (pj.error || mb.error) { lista.innerHTML = ""; msg.textContent = avisoErro(pj.error || mb.error, SQLA); return; }
+  const tem = new Set(mb.data.map(m => m.projeto_id)), admin = u.papel === "admin";
+  lista.innerHTML = pj.data.map(p => { const criador = p.criado_por === u.id;
+    return `<label class="prow"><span><b>${esc(p.nome)}</b><br><small>${esc(p.cliente || "—")}${criador ? " · criador do projeto" : ""}</small></span>
+      <input type="checkbox" data-p="${p.id}" ${admin || criador || tem.has(p.id) ? "checked" : ""} ${admin || criador ? "disabled" : ""}></label>`; }).join("") || "<small>Nenhum projeto cadastrado.</small>";
+  lista.querySelectorAll("input[data-p]").forEach(c => c.onchange = async () => {
+    msg.textContent = ""; c.disabled = true;
+    const { error } = await (c.checked ? sb.rpc("projeto_convidar", { p_projeto: c.dataset.p, p_email: u.email }) : sb.rpc("projeto_remover_membro", { p_projeto: c.dataset.p, p_user: u.id }));
+    c.disabled = false;
+    if (error) { c.checked = !c.checked; msg.textContent = avisoErro(error, SQLA); return; }
+    logAcao(c.checked ? "Liberou projeto" : "Removeu projeto", `${u.email} · ${c.closest("label").querySelector("b").textContent}`);
+  });
+}
 
 function dlgUsuario(titulo, corpo, rotulo, onOk) {
   const d = document.createElement("dialog"); d.id = "usDlg";
@@ -1468,7 +1557,7 @@ function listaProjetos() {
   const nz = x => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, ""), q = nz($("#hQ").value), d = projs.filter(p => !q || nz([p.nome, p.cliente, p.localidade].join(" ")).includes(q));
   $("#pList").innerHTML = d.length ? d.map(p => { const sit = situacao(p, p.pct), pe = periodo(p);
     return `<article class="card pc" tabindex="0" role="link" data-id="${p.id}" aria-label="Abrir ${esc(p.nome)}">
-      <div class="pt"><h3>${esc(p.nome)}</h3><span class="tag" style="--c:${sit.c}">${sit.t}</span>${canProj ? menuHtml(p) : ""}</div>
+      <div class="pt"><h3>${esc(p.nome)}</h3><span class="tag" style="--c:${sit.c}">${sit.t}</span>${canProj || gerencia(p) ? menuHtml(p) : ""}</div>
       <div class="ps cli">${logoHtml(p)}<span>${esc([p.cliente, p.localidade].filter(Boolean).join(" · ") || "—")}</span></div>
       <div class="ps">${dtBR(pe.ini)} a ${dtBR(pe.fim)}</div>
       <div class="pp"><b>${p.pct}%</b><span>andamento total</span></div><div class="pbar"><u style="width:${p.pct}%"></u></div>
@@ -1482,6 +1571,7 @@ function listaProjetos() {
   });
   document.querySelectorAll("#pList .km").forEach(b => b.onclick = e => { e.stopPropagation(); const mn = b.nextElementSibling, abrir = mn.classList.contains("hide"); fecharMenus(); mn.classList.toggle("hide", !abrir); b.setAttribute("aria-expanded", String(abrir)); });
   document.querySelectorAll("#pList .mn").forEach(m => m.onclick = e => e.stopPropagation());
+  document.querySelectorAll("#pList [data-pe]").forEach(b => b.onclick = () => { fecharMenus(); pessoasProjeto(projs.find(p => p.id == b.dataset.pe)); });
   document.querySelectorAll("#pList [data-ed]").forEach(b => b.onclick = () => { fecharMenus(); editarProjeto(projs.find(p => p.id == b.dataset.ed)); });
   document.querySelectorAll("#pList [data-rm]").forEach(b => b.onclick = () => { fecharMenus(); excluirProjeto(projs.find(p => p.id == b.dataset.rm)); });
 }
@@ -1490,7 +1580,7 @@ $("#hQ").oninput = listaProjetos;
 async function abrirProjeto(id, tab, seq) {
   if (!proj || proj.id !== id) {
     let p = projs.find(x => x.id === id);
-    if (!p) { const { data, error } = await sb.from("projetos").select("*").eq("id", id).maybeSingle(); if (seq !== navSeq) return; if (error || !data) { alert(error ? "Erro ao abrir o projeto: " + error.message : "Projeto não encontrado."); location.hash = "#/"; return; } p = data; }
+    if (!p) { const { data, error } = await sb.from("projetos").select("*").eq("id", id).maybeSingle(); if (seq !== navSeq) return; if (error || !data) { alert(error ? "Erro ao abrir o projeto: " + error.message : "Projeto não encontrado ou sem acesso."); location.hash = "#/"; return; } p = data; }
     proj = p; const pe = periodo(p); PROJ = { ini: pe.ini, fim: pe.fim, fyM: fyMes(p) };
     rows = []; hist = []; unit = "l"; ["dA", "fA", "fS", "rA"].forEach(i => { $("#" + i).value = ""; }); $("#fQ").value = ""; $("#evS").value = "tot";
     evoOpts(); // anos fiscais do projeto + duração total
@@ -1533,9 +1623,48 @@ $("#pjF").onsubmit = async e => {
 // ---------- Menu ⋮ do card, exclusão com senha e solicitações ----------
 const solDe = p => sols.find(x => x.projeto_id === p.id);
 const menuHtml = p => `<div class="mw"><button class="km" aria-label="Opções do projeto ${esc(p.nome)}" aria-haspopup="menu" aria-expanded="false">⋮</button><div class="mn hide" role="menu">
-  <button role="menuitem" data-ed="${p.id}">Editar</button>
-  <button role="menuitem" class="dg" data-rm="${p.id}" ${solDe(p) ? "disabled" : ""}>${solDe(p) ? "Exclusão já solicitada" : "Excluir"}</button></div></div>`;
+  ${gerencia(p) ? `<button role="menuitem" data-pe="${p.id}">Pessoas com acesso</button>` : ""}
+  ${canProj ? `<button role="menuitem" data-ed="${p.id}">Editar</button>
+  <button role="menuitem" class="dg" data-rm="${p.id}" ${solDe(p) ? "disabled" : ""}>${solDe(p) ? "Exclusão já solicitada" : "Excluir"}</button>` : ""}</div></div>`;
+const gerencia = p => papel === "admin" || p.criado_por === me; // quem pode convidar e remover pessoas do projeto
 function fecharMenus() { document.querySelectorAll("#pList .mn").forEach(m => m.classList.add("hide")); document.querySelectorAll("#pList .km").forEach(b => b.setAttribute("aria-expanded", "false")); }
+// ---------- Pessoas com acesso ao projeto ----------
+const SQLA = "Rode o arquivo fase4_acesso_projetos.sql no SQL Editor do Supabase e tente de novo.";
+async function pessoasProjeto(p) {
+  if (!p) return;
+  const d = document.createElement("dialog");
+  d.innerHTML = `<h3>Pessoas com acesso</h3><small>${esc(p.nome)}</small>
+    <form class="bar" style="margin-top:12px"><input type="email" required autocomplete="off" placeholder="E-mail da pessoa" style="flex:1 1 220px"><button class="p">Convidar</button></form>
+    <p data-msg></p><div data-lista>Carregando…</div>
+    <div class="bar" style="margin-top:12px"><button type="button" data-cx>Fechar</button></div>`;
+  document.body.appendChild(d);
+  const msg = d.querySelector("[data-msg]"), lista = d.querySelector("[data-lista]"), campo = d.querySelector("input");
+  const aviso = (t, erro) => { msg.className = erro ? "err" : ""; msg.textContent = t; };
+  const falha = e => aviso(e.message + (/function|schema cache|does not exist/i.test(e.message) ? " " + SQLA : ""), true);
+  const fim = () => { d.close(); d.remove(); };
+  d.querySelector("[data-cx]").onclick = fim; d.addEventListener("cancel", e => { e.preventDefault(); fim(); });
+  async function atualizar() {
+    const { data, error } = await sb.rpc("projeto_membros_listar", { p_projeto: p.id });
+    if (error) { lista.innerHTML = ""; return falha(error); }
+    lista.innerHTML = data.map(x => `<div style="display:flex;gap:10px;align-items:center;justify-content:space-between;padding:9px 0;border-top:1px solid var(--line)">
+      <div style="min-width:0"><b style="overflow-wrap:anywhere">${esc(x.mail)}</b><br><small>${x.convite ? "Convite pendente · acesso quando criar a conta" : esc(PAPEL_LBL[x.papel_global] || x.papel_global) + (x.criador ? " · criador do projeto" : "") + (x.papel_global === "pendente" ? " · aguardando liberação do administrador" : "")}</small></div>
+      ${x.criador ? "" : `<button type="button" data-rm="${esc(x.convite ? x.mail : x.uid)}" data-c="${x.convite ? 1 : 0}" data-m="${esc(x.mail)}">Remover</button>`}</div>`).join("") || "<small>Ninguém ainda.</small>";
+    lista.querySelectorAll("[data-rm]").forEach(b => b.onclick = async () => {
+      if (!confirm(`Remover ${b.dataset.m} deste projeto?`)) return;
+      const { error } = await (b.dataset.c === "1" ? sb.rpc("projeto_cancelar_convite", { p_projeto: p.id, p_email: b.dataset.rm }) : sb.rpc("projeto_remover_membro", { p_projeto: p.id, p_user: b.dataset.rm }));
+      if (error) return falha(error);
+      logAcao("Removeu pessoa do projeto", `${p.nome}: ${b.dataset.m}`); aviso(""); atualizar();
+    });
+  }
+  d.querySelector("form").onsubmit = async e => {
+    e.preventDefault(); const email = campo.value.trim(), bt = e.target.querySelector("button"); bt.disabled = true; aviso("");
+    const { data, error } = await sb.rpc("projeto_convidar", { p_projeto: p.id, p_email: email }); bt.disabled = false;
+    if (error) return falha(error);
+    logAcao("Convidou para o projeto", `${p.nome}: ${email}`); campo.value = "";
+    aviso(data === "convite" ? `${email} ainda não tem conta. Terá acesso assim que criar a conta com este e-mail.` : `${email} agora tem acesso ao projeto.`); atualizar();
+  };
+  d.showModal(); atualizar(); campo.focus();
+}
 document.addEventListener("click", fecharMenus); document.addEventListener("keydown", e => { if (e.key === "Escape") fecharMenus(); });
 
 // Confere a senha do usuário logado num cliente temporário (não troca a sessão do app)
