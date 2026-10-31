@@ -529,8 +529,8 @@ async function presenca(login) { try { await sb.rpc("registrar_presenca", { p_lo
 
 const dtf = (x, seg) => x ? new Date(x).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: seg ? "medium" : "short" }) : "—";
 const SQLU = "Execute os arquivos usuarios_logs_parte1.sql e usuarios_logs_parte2.sql (nessa ordem) no SQL Editor do Supabase e tente novamente.";
-fillSelect($("#uPap"), PAPEIS.map(p => p[0]));
-document.querySelectorAll("#uPap option").forEach((o, i) => { o.textContent = PAPEIS[i][1]; }); $("#uPap").value = "visualizador";
+$("#uPap").innerHTML = PAPEIS.map(([valor, rotulo]) => `<option value="${valor}">${rotulo}</option>`).join(""); // valor (minúsculo, como o banco exige) separado do rótulo
+$("#uPap").value = "visualizador";
 // ---------- Usuários (administrador) ----------
 const PAPEL_LBL = { pendente: "Pendente", visualizador: "Visualizador", colaborador: "Colaborador", editor: "Editor", admin: "Administrador" };
 const SQLX = "Rode o arquivo fase5_admin_usuarios.sql no SQL Editor do Supabase e tente de novo.";
