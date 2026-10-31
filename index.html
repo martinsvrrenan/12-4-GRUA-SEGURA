@@ -1625,21 +1625,33 @@ function renderPar() {
     logP(p.ativo ? "Desativou parâmetro" : "Ativou parâmetro", `${p.categoria}: ${p.nome}`); await recarrega(); });
 }
 async function recarrega() { await loadCfg(); renderPar(); dash(); }
-async function editPar(p, cat) {
-  if (!canProj) return; const c = p ? p.categoria : cat, cf = Object.assign({}, p && p.config);
-  if (c === "etapa" && !p) { // etapas disponíveis = as do fluxo que ainda não foram cadastradas neste projeto
-    const usadas = par("etapa").map(x => x.config && x.config.chave), livres = ETP2.filter(e => !usadas.includes(e[0]));
+function editPar(p, cat) {
+  if (!canProj) return; const c = p ? p.categoria : cat, cf = Object.assign({}, p && p.config), tit = (CAT.find(x => x[0] === c) || [0, "Parâmetro"])[1];
+  let corpo = "", livres = [];
+  if (c === "etapa" && !p) { // etapas do fluxo que ainda não foram cadastradas neste projeto
+    const usadas = par("etapa").map(x => x.config && x.config.chave); livres = ETP2.filter(e => !usadas.includes(e[0]));
     if (!livres.length) return alert("Todas as etapas do fluxo já estão cadastradas neste projeto.");
-    const r = parseInt(prompt("Qual etapa deseja adicionar? Digite o número:\n" + livres.map((e, i) => `${i + 1} - ${e[1]}`).join("\n"), "1"), 10), e = livres[r - 1];
-    if (!e) return; cf.chave = e[0]; var nome = e[1];
-  } else var nome = (prompt("Nome:", p ? p.nome : "") || "").trim();
-  if (!nome) return;
-  if (c === "tipo") cf.unidade = (prompt("Unidade (ex.: un, m, m²):", cf.unidade || "un") || "un").trim();
-  if (c === "campo" || c === "sup_campo") { const t = (prompt("Tipo do campo: texto, número, data ou lista", cf.tipo || "texto") || "texto").trim().toLowerCase(); cf.tipo = ["texto", "número", "numero", "data", "lista"].includes(t) ? t : "texto";
-    if (cf.tipo === "lista") cf.opcoes = (prompt("Opções separadas por ;", (cf.opcoes || []).join(";")) || "").split(";").map(s => s.trim()).filter(Boolean); }
-  const o = { nome, config: cf }, { error } = await (p ? sb.from("projeto_parametros").update(o).eq("id", p.id) : sb.from("projeto_parametros").insert({ ...o, projeto_id: proj.id, categoria: c, ordem: par(c).length + 1 }));
-  if (error) return alert(/duplicate|unique/i.test(error.message) ? "Já existe um parâmetro com esse nome." : "Erro: " + error.message);
-  logP(p ? "Editou parâmetro" : "Criou parâmetro", `${c}: ${nome}`); await recarrega();
+    corpo = `<label>Etapa<select name="chave">${livres.map(e => `<option value="${e[0]}">${e[1]}</option>`).join("")}</select></label><small>O andamento total do projeto é a média das etapas ativas.</small>`;
+  } else {
+    corpo = `<label>Nome<input name="nome" required maxlength="120" autocomplete="off" value="${esc(p ? p.nome : "")}"></label>`;
+    if (c === "tipo") corpo += `<label>Unidade<input name="unidade" maxlength="20" autocomplete="off" placeholder="un, m, m²" value="${esc(cf.unidade || "un")}"></label>`;
+    if (c === "campo" || c === "sup_campo") { const t = cf.tipo === "numero" ? "número" : (cf.tipo || "texto");
+      corpo += `<label>Tipo do campo<select name="tipo">${["texto", "número", "data", "lista"].map(x => `<option ${x === t ? "selected" : ""}>${x}</option>`).join("")}</select></label>
+      <label id="peOp" class="${t === "lista" ? "" : "hide"}">Opções (separadas por ;)<input name="opcoes" autocomplete="off" placeholder="Ex.: Sim; Não; N/A" value="${esc((cf.opcoes || []).join("; "))}"></label>`; }
+  }
+  dlgUsuario(`${p ? "Editar" : "Adicionar"} · ${tit}`, corpo, "Salvar", async d => {
+    const f = d.querySelector("form").elements; let nome;
+    if (c === "etapa" && !p) { const e = livres.find(x => x[0] === f.chave.value); if (!e) return "Escolha uma etapa."; cf.chave = e[0]; nome = e[1]; }
+    else nome = f.nome.value.trim();
+    if (!nome) return "Informe o nome.";
+    if (c === "tipo") cf.unidade = f.unidade.value.trim() || "un";
+    if (c === "campo" || c === "sup_campo") { cf.tipo = f.tipo.value;
+      if (cf.tipo === "lista") { cf.opcoes = f.opcoes.value.split(";").map(x => x.trim()).filter(Boolean); if (!cf.opcoes.length) return "Informe ao menos uma opção para a lista."; } else delete cf.opcoes; }
+    const o = { nome, config: cf }, { error } = await (p ? sb.from("projeto_parametros").update(o).eq("id", p.id) : sb.from("projeto_parametros").insert({ ...o, projeto_id: proj.id, categoria: c, ordem: par(c).length + 1 }));
+    if (error) return /duplicate|unique/i.test(error.message) ? "Já existe um parâmetro com esse nome." : "Erro: " + error.message;
+    logP(p ? "Editou parâmetro" : "Criou parâmetro", `${c}: ${nome}`); await recarrega();
+  });
+  const tp = document.querySelector("#usDlg select[name=tipo]"); if (tp) tp.onchange = () => document.querySelector("#peOp").classList.toggle("hide", tp.value !== "lista");
 }
 
 // ---- Leitura do escopo (Excel/CSV, Word, PDF) -> matriz de linhas ----
