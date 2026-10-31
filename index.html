@@ -1385,12 +1385,18 @@ async function abrirHome(seq) {
   const [pr, pt, so] = await Promise.all([sb.from("projetos").select("*").or("ativo.is.null,ativo.eq.true").order("data_inicio", { ascending: false }).order("id"),
     fetchCols("pontos", "projeto_id,status_levantamento,status_projeto"),
     canProj ? sb.from("projeto_exclusoes").select("*").eq("status", "pendente").order("created_at") : Promise.resolve({ data: [] })]);
-  if (seq !== navSeq) return;
+  if (seq !== navSeq && !document.body.classList.contains("v-home")) return; // só descarta se a pessoa já saiu da tela inicial
   if (pr.error || pt.error) return $("#pList").innerHTML = `<div class="card"><b>Não foi possível carregar os projetos.</b><p class="err">${esc((pr.error || pt.error).message)}</p><p>${SQLP}</p></div>`;
-  const by = {}; pt.data.forEach(r => (by[r.projeto_id] = by[r.projeto_id] || []).push(r));
-  projs = pr.data.map(p => ({ ...p, pct: andamento(by[p.id] || []) }));
-  sols = so.error ? [] : so.data; // sem a tabela (SQL 07/08 não rodado) o app segue funcionando
-  listaProjetos(); painelSolic();
+  try {
+    const by = {}; pt.data.forEach(r => (by[r.projeto_id] = by[r.projeto_id] || []).push(r));
+    projs = pr.data.map(p => { let pct = 0; try { pct = andamento(by[p.id] || []); } catch (e) { console.error(e); } return { ...p, pct }; });
+    sols = so.error ? [] : so.data; // sem a tabela (SQL 07/08 não rodado) o app segue funcionando
+    listaProjetos(); painelSolic();
+  } catch (e) {
+    console.error(e);
+    $("#pList").innerHTML = `<div class="card"><b>Não foi possível exibir os projetos.</b><p class="err">${esc(e && e.message || String(e))}</p><p><button type="button" id="hRe">Tentar de novo</button></p></div>`;
+    $("#hRe").onclick = () => abrirHome(++navSeq);
+  }
 }
 // ---------- Logo automático da empresa (campo Cliente) ----------
 const LOGO_FIXOS = [[/ternium/i, () => TERN.logo]]; // marcas com logo próprio já embutido no app
