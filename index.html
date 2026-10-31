@@ -321,8 +321,9 @@ html[data-theme=dark] .bdg{background:#222d45;color:#c9d3e8;border-color:#34405c
     <button class="p" id="rx">Relatório em Excel (.xlsx)</button>
     <button class="p" id="rp">Relatório em PDF</button>
     <button class="p" id="rpp">Apresentação PowerPoint (.pptx)</button>
+    <button class="p" id="rh">Relatório interativo (.html)</button>
    </div>
-   <small>O PDF abre numa nova janela: use “Imprimir” e escolha “Salvar como PDF”. Se nada abrir, permita pop-ups para este site.</small>
+   <small>O relatório interativo é um arquivo único, com painel e suprimentos em gráficos interativos, que abre em qualquer navegador e pode ser publicado como site. Mostra os dados de agora, sem atualizar sozinho. Todas as áreas já vêm no arquivo. O PDF abre numa nova janela: use “Imprimir” e escolha “Salvar como PDF”. Se nada abrir, permita pop-ups para este site.</small>
   </div>
  </section>
 
@@ -1008,8 +1009,8 @@ const etapaRows = s => { const m = a => Math.round(a * 10) / 10, out = [["Total 
   if (s.K.length) { const sl = s.a1 / s.K.length, sp = s.a2 / s.K.length; out.push(["Andamento total", m(sl), m(s.n - sl), pc(sl, s.n), m(sp), m(s.p.n - sp), pc(sp, s.p.n)]); }
   return out; };
 const pc = (x, n) => n ? Math.round(100 * x / n) + "%" : "0%";
-function repData() { const a = $("#rA").value, ina = window.inativo || (() => false); // itens inativos em Parâmetros (área / tipo) não entram nos relatórios
-  const d = rows.filter(r => !ina("area", r.area) && !ina("tipo", r.tipo_projeto)); return { a, d: a ? d.filter(r => r.area === a) : d }; }function pendList(d) { const K = cfgK(), has = (...k) => k.every(x => K.includes(x)); // cada pendência só existe se as etapas envolvidas estiverem ativas
+const rowsAtivas = () => { const ina = window.inativo || (() => false); return rows.filter(r => !ina("area", r.area) && !ina("tipo", r.tipo_projeto)); }; // itens inativos em Parâmetros (área / tipo) não entram nos relatórios
+function repData() { const a = $("#rA").value, d = rowsAtivas(); return { a, d: a ? d.filter(r => r.area === a) : d }; }function pendList(d) { const K = cfgK(), has = (...k) => k.every(x => K.includes(x)); // cada pendência só existe se as etapas envolvidas estiverem ativas
   return [...(has("lev", "des") ? d.filter(r => lv(r) && si(r) < 2).map(r => [r, "Levantamento feito, sem desenho"]) : []), ...(has("des", "sph") ? d.filter(r => si(r) === 2).map(r => [r, "Desenho pronto, falta Sphera"]) : []), ...(has("sph", "sap") ? d.filter(r => si(r) === 3).map(r => [r, "No Sphera, falta SAP"]) : [])]; }const STI = () => ST.map((x, i) => i).filter(i => i === 0 || i === 5 || cfgK().includes(["", "proj", "des", "sph", "sap"][i])); // colunas de status: só as etapas ativas
 function matrix(d, field, pts) {
   const keys = [...new Set(d.map(r => r[field] || "—"))].sort();
@@ -2053,11 +2054,14 @@ function editaGasto(g) {
 }
 function filtrados() { const q = F.q.toLowerCase(); return SUP.filter(i => { const p = pontoDe(i);
   return (!F.sit || sitTxt(i) === F.sit || (F.sit === "Sem prazo" && semPrazo(i))) && (!F.area || (p && p.area === F.area)) && (!F.tipo || (p && p.tipo_projeto === F.tipo)) && (!q || [i.codigo_sap, i.codigo_sphera, i.descricao, ...xCampos().map(p => xVal(i, p))].join(" ").toLowerCase().includes(q)); }); }
+const prazoKpis = s => [[s.t, "itens"], [pc3(s.rc, s.t), "com RC"], [pc3(s.pd, s.t), "com pedido"], [pc3(s.pz, s.t), "com prazo"], [pc3(s.en, s.t), "entregues"], [`${s.at} (${pc3(s.at, s.t)})`, "atrasados"], [s.sp, "pedidos sem prazo"], [`${s.a7} / ${s.a15} / ${s.a30}`, "a vencer em 7 / 15 / 30 dias"], [s.pm == null ? "—" : s.pm + " d", "prazo médio (pedido → entrega)"]];
+const atencao = L => { const hojeS = ymd(hj()), d = x => x ? dtBR(parseD(x)) : "—"; // itens que pedem ação: acima do previsto, aguardando aprovação, atrasados e sem RC há muito tempo
+  return [...L.filter(i => i.valor_estimado != null && vTot(i) > Number(i.valor_estimado) + 0.005).map(i => [i, "Acima do previsto (+" + fR(vTot(i) - Number(i.valor_estimado)) + ")"]), ...L.filter(i => /aguard/i.test(i.aprovacao || "") && !i.pedido_numero).map(i => [i, "Aguardando aprovação"]), ...L.filter(atras).map(i => [i, "Atrasado desde " + d(i.prazo_entrega)]), ...L.filter(i => sitOf(i) === 0 && i.created_at && dias(i.created_at.slice(0, 10), hojeS) > X).map(i => [i, `Sem RC há ${dias(i.created_at.slice(0, 10), hojeS)} dias`])]; };
 function pinta() {
-  const L = filtrados(), s = supStats(L), d = x => x ? dtBR(parseD(x)) : "—", cd = [[s.t, "itens"], [pc3(s.rc, s.t), "com RC"], [pc3(s.pd, s.t), "com pedido"], [pc3(s.pz, s.t), "com prazo"], [pc3(s.en, s.t), "entregues"], [`${s.at} (${pc3(s.at, s.t)})`, "atrasados"], [s.sp, "pedidos sem prazo"], [`${s.a7} / ${s.a15} / ${s.a30}`, "a vencer em 7 / 15 / 30 dias"], [s.pm == null ? "—" : s.pm + " d", "prazo médio (pedido → entrega)"]];
+  const L = filtrados(), s = supStats(L), d = x => x ? dtBR(parseD(x)) : "—", cd = prazoKpis(s);
   $("#sK").innerHTML = cd.map(([v, l]) => `<div class="card kpi" style="margin:0"><b class="sm">${v}</b><span>${l}</span></div>`).join("");
   charts.c5?.destroy(); charts.c5 = new Chart($("#c5"), { type: "bar", data: { labels: ["Total", "Com RC", "Com pedido", "Entregues"], datasets: [{ data: [s.t, s.rc, s.pd, s.en], backgroundColor: ["#b0b7c3", "#f2a93b", "#3b82c4", "#2e9e5b"] }] }, options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
-  const hojeS = ymd(hj()), at = [...L.filter(i => i.valor_estimado != null && vTot(i) > Number(i.valor_estimado) + 0.005).map(i => [i, "Acima do previsto (+" + fR(vTot(i) - Number(i.valor_estimado)) + ")"]), ...L.filter(i => /aguard/i.test(i.aprovacao || "") && !i.pedido_numero).map(i => [i, "Aguardando aprovação"]), ...L.filter(atras).map(i => [i, "Atrasado desde " + d(i.prazo_entrega)]), ...L.filter(i => sitOf(i) === 0 && i.created_at && dias(i.created_at.slice(0, 10), hojeS) > X).map(i => [i, `Sem RC há ${dias(i.created_at.slice(0, 10), hojeS)} dias`])];
+  const at = atencao(L);
   $("#sA").innerHTML = at.length ? at.slice(0, 15).map(([i, t]) => `<div class="sl"><div><b>${esc(i.codigo_sap || i.codigo_sphera || "—")}</b> <small>${esc(i.descricao || "")}</small></div><span class="tag" style="--c:#d64545">${t}</span></div>`).join("") + (at.length > 15 ? `<small>+${at.length - 15} itens</small>` : "") : "Nenhum item em atenção.";
   const cor = i => atras(i) ? "#d64545" : semPrazo(i) ? "#d9822b" : ["#b0b7c3", "#f2a93b", "#3b82c4", "#2e9e5b"][sitOf(i)];
   $("#sT").innerHTML = L.map(i => `<tr data-id="${i.id}" style="${canProj ? "cursor:pointer" : ""}"><td class="h"><b>${esc(i.codigo_sap || "—")}</b></td><td data-l="Sphera"><div class="v">${esc(i.codigo_sphera || "—")}</div></td><td data-l="Descrição"><div class="v">${esc(i.descricao || "—")}</div></td><td data-l="Qtd"><div class="v">${i.quantidade ?? "—"} ${esc(i.unidade || "")}</div></td><td data-l="Valor unit."><div class="v">${fR(i.valor_unitario)}</div></td><td data-l="Valor total"><div class="v">${i.valor_total != null || i.valor_unitario != null ? fR(vTot(i)) : "—"}</div></td><td data-l="Situação"><div class="v"><span class="tag" style="--c:${cor(i)}">${sitTxt(i)}</span></div></td><td data-l="RC"><div class="v">${esc(i.rc_numero || "—")} <small>${i.rc_data ? d(i.rc_data) : ""}</small></div></td><td data-l="Pedido"><div class="v">${esc(i.pedido_numero || "—")} <small>${esc(i.fornecedor || "")}</small></div></td><td data-l="Prazo"><div class="v">${d(i.prazo_entrega)}</div></td><td data-l="Recebido"><div class="v">${d(i.data_recebimento)}</div></td>${xCampos().map(p => `<td data-l="${esc(p.nome)}"><div class="v">${esc(xFmt(i, p))}</div></td>`).join("")}</tr>`).join("");
@@ -2237,16 +2241,31 @@ function gastoFin(img) {
   if (!ev.length && orc == null && !comp) return null;
   const pct = orc ? Math.round(100 * comp / orc) : null, ser = gastoSerie(ev), dt = d => dtBR(parseD(d));
   const kp = [[orc != null ? fR(orc) : u != null ? fU(u) : "—", "Orçamento disponível" + (u != null && orc != null ? ` (${fU(u)})` : "")], [fR(comp), "Utilizado do orçamento" + (pct != null ? ` (${pct}%)` : "")], [sal != null ? fR(sal) : "—", sal != null && sal < 0 ? "Estouro do orçamento" : "Saldo livre"], [fR(og), "Outros gastos (projeto, fiscal…)"], [fR(v.rec), "Itens recebidos (realizado)"]];
-  const hs = ev.filter(e => e.k !== 1).sort((a, b) => b.d.localeCompare(a.d)), out = { orc, comp, og, sal, kp, hist: hs.map(e => [dt(e.d), e.t, e.o, fR(e.v)]), hrows: hs.map(e => ({ "Data": dt(e.d), "Descrição": e.t, "Origem": e.o, "Valor (R$)": e.v })), img1: null, img2: null };
+  const hs = ev.filter(e => e.k !== 1).sort((a, b) => b.d.localeCompare(a.d)), out = { orc, comp, og, sal, kp, hist: hs.map(e => [dt(e.d), e.t, e.o, fR(e.v)]), hrows: hs.map(e => ({ "Data": dt(e.d), "Descrição": e.t, "Origem": e.o, "Valor (R$)": e.v })), img1: null, img2: null,
+    ser: ser ? { labels: ser.keys.map(k => k.slice(5) + "/" + k.slice(2, 4)), s0: ser.s0, s1: ser.s1 } : null,
+    parts: [["Recebido", v.rec, "#2e9e5b"], ["Em pedido", v.pd, "#3b82c4"], ["Em RC", v.rc, "#f2a93b"], ["Outros gastos", og, "#8b5cf6"], ["Saldo livre", sal != null && sal > 0 ? sal : 0, "#d5dae2"]].filter(x => x[1] > 0) };
   if (img) {
     if (ser) { const ds = [{ label: "Utilizado (comprometido)", data: ser.s0, borderColor: "#3b82c4", backgroundColor: "#3b82c433", fill: true, tension: .25, borderWidth: 4, pointRadius: 4 }, { label: "Realizado (recebido + outros gastos)", data: ser.s1, borderColor: "#2e9e5b", tension: .25, borderWidth: 4, pointRadius: 4 }];
       if (orc != null) ds.push({ label: "Orçamento disponível", data: ser.keys.map(() => orc), borderColor: "#d64545", borderDash: [12, 8], borderWidth: 3, pointRadius: 0, fill: false });
       out.img1 = gastoImg(1260, 385, { type: "line", data: { labels: ser.keys.map(k => k.slice(5) + "/" + k.slice(2, 4)), datasets: ds }, options: { responsive: false, animation: false, devicePixelRatio: 1, scales: { x: { ticks: { font: gfo(16), color: "#666666" }, grid: { display: false } }, y: { beginAtZero: true, ticks: { font: gfo(16), color: "#666666", callback: gcp }, grid: { color: "#D3D3D3" } } }, plugins: { legend: { position: "bottom", labels: { font: gfo(16), color: "#666666", boxWidth: 30 } } } } }); }
-    const parts = [["Recebido", v.rec, "#2e9e5b"], ["Em pedido", v.pd, "#3b82c4"], ["Em RC", v.rc, "#f2a93b"], ["Outros gastos", og, "#8b5cf6"], ["Saldo livre", sal != null && sal > 0 ? sal : 0, "#d5dae2"]].filter(x => x[1] > 0);
+    const parts = out.parts;
     if (parts.length) out.img2 = gastoImg(880, 400, { type: "doughnut", data: { labels: parts.map(x => x[0]), datasets: [{ data: parts.map(x => x[1]), backgroundColor: parts.map(x => x[2]) }] }, options: { responsive: false, animation: false, devicePixelRatio: 1, plugins: { legend: { position: "right", labels: { font: gfo(18), color: "#666666", boxWidth: 28 } } } } });
   }
   return out;
 }
+window.supSite = () => { // dados de suprimentos para o relatório interativo (site HTML)
+  const fin = gastoFin(); if (!SUP.length && !fin) return null;
+  const ok = (cat, v, fb) => v && !(window.inativo && window.inativo(cat, String(v))) ? v : fb; // parâmetro inativo não aparece
+  const grp = f => { const m = new Map(); SUP.forEach(i => { const v = vTot(i) || 0, k = f(i); if (v && k) m.set(k, (m.get(k) || 0) + v); }); return [...m]; };
+  const top = l => l.sort((a, b) => b[1] - a[1]), cat = (window.parSup ? window.parSup("sup_campo") : []).find(p => /categoria/i.test(p.nome));
+  const mes = grp(i => String(i.rc_data || i.pedido_data || "").slice(0, 7)).sort((a, b) => a[0].localeCompare(b[0])).map(([k, v]) => [k.split("-").reverse().join("/"), v]);
+  const analise = [["Por fornecedor", top(grp(i => ok("sup_fornecedor", i.fornecedor, "Sem informação")))],
+    ["Por área", top(grp(i => { const p = pontoDe(i); return p ? ok("area", p.area, "Sem informação") : "Sem vínculo com ponto"; }))],
+    ["Por tipo de adequação", top(grp(i => { const p = pontoDe(i); return p ? ok("tipo", p.tipo_projeto, "Sem informação") : "Sem informação"; }))],
+    ...(cat ? [["Por categoria", top(grp(i => (i.extras || {})[String(cat.id)] || "Sem informação"))]] : []), ["Por mês (data da RC ou do pedido)", mes]].filter(a => a[1].length);
+  const s = supStats(SUP), funil = [["Total", s.t, "#b0b7c3"], ["Com RC", s.rc, "#f2a93b"], ["Com pedido", s.pd, "#3b82c4"], ["Entregues", s.en, "#2e9e5b"]];
+  return { kpis: prazoKpis(s), funil, fin: fin && { kp: fin.kp, parts: fin.parts, ser: fin.ser, orc: fin.orc },
+    att: atencao(SUP).map(([i, t]) => [i.codigo_sap || i.codigo_sphera || "—", i.descricao || "—", t]), analise, itens: window.supRel().all }; };
 window.supRel = (img) => { const s = supStats(SUP), d = x => x ? dtBR(parseD(x)) : "—", okv = (cat, v) => !(window.inativo && v && window.inativo(cat, String(v))); // parâmetros inativos não aparecem nos relatórios; // dados de suprimentos para os relatórios
   return { t: s.t, fin: gastoFin(img), kp: [[s.t, "itens"], [pc3(s.rc, s.t), "com RC"], [pc3(s.pd, s.t), "com pedido"], [pc3(s.en, s.t), "entregues"], [`${s.at} (${pc3(s.at, s.t)})`, "atrasados"]],
     att: SUP.filter(i => atras(i) || semPrazo(i)).map(i => [i.codigo_sap || i.codigo_sphera || "—", i.descricao || "—", sitTxt(i), d(i.prazo_entrega)]),
@@ -2415,6 +2434,240 @@ function btnGroup(sel){
  setInterval(draw,300);draw();
 }
 btnGroup($("#evS"));btnGroup($("#evP"));btnGroup($("#dA"));
+})();
+</script>
+<script>
+/* ---------- Relatório interativo (site HTML) ----------
+   Gera um único arquivo .html com painel e suprimentos. Os números vêm prontos do app
+   (mesmas funções dos demais relatórios); a página só desenha e filtra. */
+(function () {
+  const CHART_URL = "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js";
+  const hex = c => "#" + c;
+
+  // ---- Dados do painel, calculados por área (filtro) e por unidade (linhas / pontos) ----
+  const pack = m => ({ labels: m.keys, series: STI().map((st, c) => ({ name: ST[st], color: COL[st], data: m.m.map(r => r[c]) })) });
+
+  function scopeData(d) {
+    const K = cfgK(), s = stats(d), u = {};
+    ["l", "p"].forEach(unit => {
+      const pts = unit === "p", q = pts ? s.p : s, feito = pts ? s.a2 : s.a1, sch = {};
+      K.forEach(k => { const nome = ETP.find(e => e[1] === k)[0]; sch[k] = schedule(d, k, pts, nome); });
+      if (K.length) sch.tot = schedule(d, "tot", pts, "Andamento total");
+      u[unit] = {
+        total: q.n, andamento: K.length && q.n ? Math.round(100 * feito / (K.length * q.n)) : null,
+        etapas: TKEYS.filter(k => RS(k[1])).map(([nome, k, cor]) => ({ nome, cor: hex(cor), feito: q[k] })),
+        porArea: pack(matrix(d, "area", pts)), porTipo: pack(matrix(d, "tipo_projeto", pts)), cronograma: sch };
+    });
+    const hist = mode => { const e = evo(d, mode); return { labels: e.labels, series: TCH().map(([nome, k, cor]) => ({ nome, cor: hex(cor), data: e.rows.map(r => r[k]) })) }; };
+    return { u, hist: { w: hist("w"), m: hist("m") }, pendencias: pendList(d).map(([r, t]) => [r.area, r.equipamento, r.tipo_projeto || "—", pw(r), t]) };
+  }
+
+  function schedule(d, key, pts, nome) {
+    const pr = evoProj(d, key, pts, undefined, evrRange(key, curWin()));
+    return { labels: pr.labels, real: pr.real, proj: pr.proj, plan: pr.plan, kpis: projKpis(pr, pts ? "pontos" : "linhas", nome) };
+  }
+
+  function siteData() {
+    const d = rowsAtivas(), areas = AREAS.filter(a => d.some(r => r.area === a)), scopes = { "": scopeData(d) };
+    areas.forEach(a => { scopes[a] = scopeData(d.filter(r => r.area === a)); });
+    const etapas = cfgK().length ? [["tot", "Andamento total"], ...ETP.filter(e => cfgK().includes(e[1])).map(e => [e[1], e[0]])] : [];
+    return { meta: { nome: proj.nome, cliente: proj.cliente || "", local: proj.localidade || "", periodo: perLabel(), gerado: today() },
+      areas, etapas, scopes, sup: window.supSite ? window.supSite() : null };
+  }
+
+  // ---- Página exportada: roda no navegador de quem abrir o arquivo (função autônoma, sem acesso ao app) ----
+  function sitePage(D) {
+    const $ = (s, r = document) => r.querySelector(s);
+    const num = v => Number(v).toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+    const brl = v => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const fill = (el, items, value) => { el.innerHTML = items.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join(""); if (value != null) el.value = value; };
+    const card = (valor, rotulo, extra = "") => `<div class="kpi"><b>${esc(valor)}</b><span>${esc(rotulo)}</span>${extra}</div>`;
+    const bar = pct => `<div class="pb"><u style="width:${Math.min(100, pct)}%"></u></div>`;
+    const table = (head, rows) => `<table><thead><tr>${head.map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    const charts = {};
+    const draw = (id, config) => { charts[id]?.destroy(); charts[id] = new Chart($("#" + id), config); };
+    const base = (extra = {}) => ({ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, ...extra });
+    const stacked = (data, horizontal) => ({ type: "bar", data: { labels: data.labels, datasets: data.series.map(s => ({ label: s.name, data: s.data, backgroundColor: s.color })) },
+      options: base({ indexAxis: horizontal ? "y" : "x", scales: { x: { stacked: true, beginAtZero: true }, y: { stacked: true, beginAtZero: true } } }) });
+    const hbar = (labels, values, colors, tip) => ({ type: "bar", data: { labels, datasets: [{ data: values, backgroundColor: colors }] },
+      options: base({ indexAxis: "y", plugins: { legend: { display: false }, tooltip: { callbacks: { label: t => " " + (tip ? tip(t.parsed.x) : num(t.parsed.x)) } } } }) });
+    Chart.defaults.font.family = 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif';
+    Chart.defaults.color = "#5b6677";
+
+    // ----- cabeçalho e abas -----
+    $("#titulo").textContent = D.meta.nome;
+    $("#sub").textContent = [D.meta.cliente, D.meta.local, D.meta.periodo].filter(Boolean).join(" · ");
+    $("#gerado").textContent = "Dados de " + D.meta.gerado;
+    const abas = document.querySelectorAll("nav button"), painel = { p: $("#painel"), s: $("#suprimentos") };
+    if (!D.sup) { $("nav [data-t=s]").hidden = true; }
+    const mostrar = t => { abas.forEach(b => b.classList.toggle("on", b.dataset.t === t)); Object.entries(painel).forEach(([k, el]) => { el.hidden = k !== t; });
+      Object.values(charts).forEach(c => c.resize()); };
+    abas.forEach(b => { b.onclick = () => mostrar(b.dataset.t); });
+
+    // ----- painel -----
+    const st = { area: "", unit: "l", etapa: "tot", modo: "p" };
+    const escopo = () => D.scopes[st.area], dado = () => escopo().u[st.unit];
+    fill($("#fArea"), [["", "Todas as áreas"], ...D.areas.map(a => [a, a])]);
+    fill($("#evEtapa"), D.etapas.map(e => e), st.etapa);
+    fill($("#evModo"), [["p", "Cronograma do projeto"], ["w", "Semanal (12 semanas)"], ["m", "Mensal (6 meses)"]], st.modo);
+
+    function kpisPainel() {
+      const x = dado(), un = st.unit === "p" ? "pontos" : "linhas", n = x.total || 1;
+      const cardEtapa = e => card(Math.round(100 * e.feito / n) + "%", e.nome, `<small>${num(e.feito)} de ${num(x.total)} ${un} · faltam ${num(x.total - e.feito)}</small>${bar(100 * e.feito / n)}`);
+      $("#kpis").innerHTML = card(num(x.total), st.unit === "p" ? "Pontos de adequação" : "Linhas de projeto")
+        + (x.andamento == null ? card("—", "Andamento total", "<small>Nenhuma etapa cadastrada</small>") : card(x.andamento + "%", "Andamento total", `<small>média das etapas ativas</small>${bar(x.andamento)}`))
+        + x.etapas.map(cardEtapa).join("");
+    }
+    function graficosPainel() {
+      const x = dado(), cores = ["#b0b7c3", ...x.etapas.map(e => e.cor)];
+      draw("cArea", stacked(x.porArea));
+      draw("cTipo", stacked(x.porTipo, true));
+      draw("cFunil", hbar(["Total", ...x.etapas.map(e => e.nome)], [x.total, ...x.etapas.map(e => e.feito)], cores));
+    }
+    function evolucao() {
+      const x = dado(), e = D.etapas.find(a => a[0] === st.etapa) || D.etapas[0], cron = st.modo === "p";
+      $("#evEtapa").hidden = !cron; $("#evVazio").hidden = D.etapas.length > 0; $("#evBox").hidden = !D.etapas.length;
+      if (!D.etapas.length) return;
+      if (!cron) {
+        $("#evKpis").innerHTML = "";
+        const h = escopo().hist[st.modo];
+        return draw("cEvo", { type: "line", data: { labels: h.labels, datasets: h.series.map(s => ({ label: s.nome, data: s.data, borderColor: s.cor, backgroundColor: s.cor, tension: .25 })) },
+          options: base({ scales: { y: { beginAtZero: true } } }) });
+      }
+      const c = x.cronograma[e[0]], cor = (x.etapas.find(a => a.nome === e[1]) || { cor: "#14284b" }).cor;
+      $("#evKpis").innerHTML = c.kpis.map(([v, l]) => card(v, l)).join("");
+      draw("cEvo", { type: "line", data: { labels: c.labels, datasets: [
+        { label: `${e[1]} (realizado)`, data: c.real, borderColor: cor, backgroundColor: cor, tension: .2 },
+        { label: "Projeção no ritmo atual", data: c.proj, borderColor: cor, backgroundColor: cor, borderDash: [7, 5], pointStyle: "rectRot" },
+        { label: "Meta linear do cronograma", data: c.plan, borderColor: "#8892a6", backgroundColor: "#8892a6", borderDash: [2, 4], pointRadius: 0 }] },
+        options: base({ scales: { y: { beginAtZero: true } } }) });
+    }
+    function pendencias() {
+      const p = escopo().pendencias;
+      $("#pendN").textContent = p.length;
+      $("#pendT").innerHTML = p.length ? table(["Área", "Equipamento", "Tipo de projeto", "Pontos", "Situação"], p) : "<p>Nenhuma pendência identificada.</p>";
+    }
+    const painelCompleto = () => { kpisPainel(); graficosPainel(); evolucao(); pendencias(); };
+    $("#fArea").onchange = e => { st.area = e.target.value; painelCompleto(); };
+    $("#evEtapa").onchange = e => { st.etapa = e.target.value; evolucao(); };
+    $("#evModo").onchange = e => { st.modo = e.target.value; evolucao(); };
+    document.querySelectorAll("#unidade button").forEach(b => { b.onclick = () => { st.unit = b.dataset.u;
+      document.querySelectorAll("#unidade button").forEach(a => a.classList.toggle("on", a === b)); painelCompleto(); }; });
+    painelCompleto();
+
+    // ----- suprimentos -----
+    const S = D.sup; if (!S) return mostrar("p");
+    $("#supPrazos").innerHTML = S.kpis.map(([v, l]) => card(v, l)).join("");
+    draw("cSupFunil", hbar(S.funil.map(f => f[0]), S.funil.map(f => f[1]), S.funil.map(f => f[2])));
+    $("#supAtencao").innerHTML = S.att.length ? table(["Código", "Descrição", "Motivo"], S.att) : "<p>Nenhum item em atenção.</p>";
+    $("#attN").textContent = S.att.length;
+    if (S.fin) {
+      $("#supFin").hidden = false; $("#finKpis").innerHTML = S.fin.kp.map(([v, l]) => card(v, l)).join("");
+      if (S.fin.parts.length) draw("cParts", { type: "doughnut", data: { labels: S.fin.parts.map(p => p[0]), datasets: [{ data: S.fin.parts.map(p => p[1]), backgroundColor: S.fin.parts.map(p => p[2]) }] },
+        options: base({ plugins: { legend: { position: "bottom" }, tooltip: { callbacks: { label: t => ` ${t.label}: ${brl(t.parsed)}` } } } }) });
+      if (S.fin.ser) draw("cGastos", { type: "line", data: { labels: S.fin.ser.labels, datasets: [
+        { label: "Utilizado (comprometido)", data: S.fin.ser.s0, borderColor: "#3b82c4", backgroundColor: "#3b82c433", fill: true, tension: .25 },
+        { label: "Realizado (recebido + outros gastos)", data: S.fin.ser.s1, borderColor: "#2e9e5b", backgroundColor: "#2e9e5b", tension: .25 },
+        ...(S.fin.orc != null ? [{ label: "Orçamento disponível", data: S.fin.ser.labels.map(() => S.fin.orc), borderColor: "#d64545", borderDash: [10, 6], pointRadius: 0 }] : [])] },
+        options: base({ scales: { y: { beginAtZero: true, ticks: { callback: v => brl(v) } } }, plugins: { legend: { position: "bottom" }, tooltip: { callbacks: { label: t => ` ${t.dataset.label}: ${brl(t.parsed.y)}` } } } }) });
+    }
+    if (S.analise.length) {
+      fill($("#anSel"), S.analise.map((a, i) => [i, a[0]]), 0);
+      const analise = () => { const l = S.analise[$("#anSel").value][1].slice(0, 12), total = S.analise[$("#anSel").value][1].reduce((t, x) => t + x[1], 0);
+        $("#anTotal").textContent = `Total analisado: ${brl(total)} · exibindo ${l.length} de ${S.analise[$("#anSel").value][1].length}`;
+        draw("cAn", hbar(l.map(x => x[0]), l.map(x => x[1]), l.map(() => "#2456b8"), brl)); };
+      $("#anSel").onchange = analise; analise();
+    } else $("#supAnalise").hidden = true;
+    const itens = () => { const q = $("#itQ").value.toLowerCase(), l = S.itens.filter(r => r.join(" ").toLowerCase().includes(q));
+      $("#itN").textContent = `${l.length} de ${S.itens.length} itens` + (l.length > 300 ? " (exibindo 300)" : "");
+      $("#itT").innerHTML = table(["Código", "Descrição", "Qtd.", "Fornecedor", "Situação", "Prazo"], l.slice(0, 300)); };
+    $("#itQ").oninput = itens; itens();
+    mostrar("p");
+  }
+
+  // ---- Estrutura e estilo da página exportada ----
+  const SITE_CSS = `
+:root{--navy:#14284b;--amber:#ffc21a;--bg:#f4f5f8;--line:#e2e6ee;--txt:#1a2433;--mut:#66738a}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--txt);background:var(--bg)}
+header{background:var(--navy);color:#fff;padding:18px 22px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-end}
+header h1{margin:0;font-size:20px}header small{color:#9db0d3}
+nav{display:flex;gap:6px;padding:10px 22px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+nav button{border:0;background:transparent;padding:8px 16px;border-radius:10px;font:inherit;font-weight:700;color:var(--mut);cursor:pointer}
+nav button.on{background:var(--navy);color:#fff}
+main{max-width:1300px;margin:0 auto;padding:18px 22px 40px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
+.card>h2{margin:0 0 10px;font-size:15px}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+select,input{font:inherit;padding:8px 12px;border:1px solid #cdd4e1;border-radius:10px;background:#fff;color:var(--txt)}
+.seg{display:inline-flex;background:#eef1f7;border-radius:10px;padding:3px}
+.seg button{border:0;background:transparent;padding:6px 14px;border-radius:8px;font:inherit;font-weight:600;color:var(--mut);cursor:pointer}
+.seg button.on{background:var(--navy);color:#fff}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:14px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.kpi::before{content:"";display:block;width:20px;height:4px;border-radius:2px;background:var(--amber);margin-bottom:10px}
+.kpi b{display:block;font-size:24px;line-height:1.15;color:var(--navy)}.kpi span{font-size:12px;color:var(--mut);font-weight:600}
+.kpi small{display:block;margin-top:6px;font-size:11.5px;color:var(--mut)}
+.pb{height:5px;border-radius:3px;background:#e9edf4;margin-top:8px;overflow:hidden}.pb u{display:block;height:100%;background:#2e9e5b}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr));gap:14px}
+.ch{position:relative;height:300px}.ch.tall{height:380px}
+.wide{grid-column:1/-1}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:560px}
+th{background:#f7f8fb;color:var(--mut);font-size:12px;text-align:left}th,td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+details>summary{cursor:pointer;font-weight:700;color:var(--navy)}details[open]>summary{margin-bottom:10px}
+.cnt{background:var(--navy);color:#fff;border-radius:20px;padding:1px 10px;font-size:12px;margin-left:8px}
+footer{text-align:center;color:var(--mut);font-size:12px;padding:20px}
+@media print{nav,.bar select,.seg{display:none}.card,.kpi{break-inside:avoid}}`;
+
+  const SITE_BODY = `
+<header><div><h1 id="titulo"></h1><small id="sub"></small></div><small id="gerado"></small></header>
+<nav><button data-t="p" class="on">Painel</button><button data-t="s">Suprimentos</button></nav>
+<main>
+ <section id="painel">
+  <div class="bar"><select id="fArea" aria-label="Área"></select>
+   <div class="seg" id="unidade"><button data-u="l" class="on">Linhas</button><button data-u="p">Pontos</button></div></div>
+  <div class="kpis" id="kpis"></div>
+  <div class="grid">
+   <div class="card"><h2>Por área e status</h2><div class="ch"><canvas id="cArea"></canvas></div></div>
+   <div class="card"><h2>Funil do projeto</h2><div class="ch"><canvas id="cFunil"></canvas></div></div>
+   <div class="card wide"><h2>Por tipo de projeto e status</h2><div class="ch tall"><canvas id="cTipo"></canvas></div></div>
+  </div>
+  <div class="card"><h2>Evolução e andamento</h2>
+   <p id="evVazio" hidden>Nenhuma etapa cadastrada neste projeto.</p>
+   <div id="evBox"><div class="bar"><select id="evEtapa" aria-label="Etapa"></select><select id="evModo" aria-label="Período"></select></div>
+    <div class="kpis" id="evKpis"></div><div class="ch"><canvas id="cEvo"></canvas></div></div></div>
+  <div class="card"><details><summary>Pendências<span class="cnt" id="pendN">0</span></summary><div class="tw" id="pendT"></div></details></div>
+ </section>
+ <section id="suprimentos" hidden>
+  <div id="supFin" hidden><div class="kpis" id="finKpis"></div>
+   <div class="grid"><div class="card"><h2>Composição do orçamento</h2><div class="ch"><canvas id="cParts"></canvas></div></div>
+    <div class="card"><h2>Evolução dos gastos (acumulado por mês)</h2><div class="ch"><canvas id="cGastos"></canvas></div></div></div></div>
+  <div class="kpis" id="supPrazos"></div>
+  <div class="grid"><div class="card"><h2>Funil RC → Pedido → Entrega</h2><div class="ch"><canvas id="cSupFunil"></canvas></div></div>
+   <div class="card"><details open><summary>Itens em atenção<span class="cnt" id="attN">0</span></summary><div class="tw" id="supAtencao"></div></details></div></div>
+  <div class="card" id="supAnalise"><h2>Análise de custos</h2><div class="bar"><select id="anSel" aria-label="Análise"></select><small id="anTotal"></small></div><div class="ch tall"><canvas id="cAn"></canvas></div></div>
+  <div class="card"><h2>Itens de suprimentos</h2><div class="bar"><input id="itQ" type="search" placeholder="Buscar código, descrição, fornecedor…"><small id="itN"></small></div><div class="tw" id="itT"></div></div>
+ </section>
+</main>
+<footer>Relatório gerado pelo aplicativo Grua Segura · retrato do momento da exportação</footer>`;
+
+  // ---- Exportação ----
+  async function exportar() {
+    if (!proj) return;
+    const btn = $("#rh"), txt = btn.textContent; btn.disabled = true; btn.textContent = "Gerando…";
+    try {
+      logP("Gerou relatório interativo (HTML)", proj.nome);
+      let lib = ""; try { lib = await (await fetch(CHART_URL)).text(); } catch (e) { /* sem rede: o arquivo carrega o gráfico pela internet */ }
+      const chartTag = lib.length > 10000 ? `<script>${lib.replace(/<\/script/gi, "<\\/script")}<\/script>` : `<script src="${CHART_URL}"><\/script>`;
+      const dados = JSON.stringify(siteData()).replace(/</g, "\\u003c");
+      const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(proj.nome)} · Relatório</title><style>${SITE_CSS}</style></head><body>${SITE_BODY}${chartTag}<script>(${sitePage})(${dados});<\/script></body></html>`;
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+      a.download = `relatorio_interativo_${slug()}_${stamp()}.html`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    } catch (e) { alert("Não foi possível gerar o relatório: " + e.message); }
+    btn.disabled = false; btn.textContent = txt;
+  }
+  $("#rh").onclick = exportar;
 })();
 </script>
 </body>
