@@ -666,6 +666,7 @@ function stack(id, field, d, horiz) {
     options: { indexAxis: horiz ? "y" : "x", responsive: true, maintainAspectRatio: false,
       scales: { x: { stacked: true, beginAtZero: true, ticks: horiz ? {} : tk }, y: { stacked: true, beginAtZero: true, ticks: horiz ? tk : {} } }, plugins: { legend: { position: "bottom" } } } });
 }
+const cfgK = () => window.etapasCfg ? window.etapasCfg() : ["lev", "des", "sph", "sap"]; // etapas cadastradas em Parâmetros (vazio = nenhuma)
 let unit = "l"; // "l" = linhas de projeto | "p" = pontos de adequação (soma das quantidades)
 const wt = r => unit === "p" ? (Number(r.qtd) > 0 ? Number(r.qtd) : 1) : 1;
 const wsum = a => a.reduce((t, r) => t + wt(r), 0);
@@ -675,30 +676,33 @@ function dash() {
   const tot = wsum(d), n = tot || 1, u = unit === "p" ? "pontos" : "linhas";
   const lev = wsum(d.filter(r => r.status_levantamento === "Levantado"));
   const c = k => wsum(d.filter(r => si(r) >= k));
-  const card = ([l, x]) => `<div class="card kpi" style="margin:0"><b>${pct(x, n)}</b><span>${l}</span><small><em>${fmt(x)} ${u} realizados</em><br><i>${fmt(tot - x)} faltam</i> · de ${fmt(tot)}</small><div class="pb"><u style="width:${Math.round(100 * x / n)}%"></u></div></div>`;
+  const ks = cfgK(), on = k => ks.includes(k);
+  const card = ([l, x], off) => `<div class="card kpi${off ? " hide" : ""}" style="margin:0"><b>${pct(x, n)}</b><span>${l}</span><small><em>${fmt(x)} ${u} realizados</em><br><i>${fmt(tot - x)} faltam</i> · de ${fmt(tot)}</small><div class="pb"><u style="width:${Math.round(100 * x / n)}%"></u></div></div>`;
   const first = `<div class="card kpi" style="margin:0"><b>${fmt(tot)}</b><span>${unit === "p" ? "Pontos de adequação" : "Linhas de projeto"}</span><div class="seg"><button data-u="l" class="${unit === "l" ? "on" : ""}">Linhas</button><button data-u="p" class="${unit === "p" ? "on" : ""}">Pontos</button></div></div>`;
-  const tp = Math.round(100 * (lev + c(2) + c(3) + c(4)) / (4 * n));
-  const andam = `<div class="card kpi" style="margin:0"><b>${tp}%</b><span>Andamento total</span><small><em>média das etapas ativas do projeto</em><br><i>faltam ${100 - tp}%</i></small><div class="pb"><u style="width:${tp}%"></u></div></div>`;
+  const stv = { lev, proj: c(1), des: c(2), sph: c(3), sap: c(4) }, tp = ks.length ? Math.round(100 * ks.reduce((t, k) => t + stv[k], 0) / (ks.length * n)) : null;
+  const andam = tp === null ? `<div class="card kpi" style="margin:0"><b>—</b><span>Andamento total</span><small><em>nenhuma etapa cadastrada</em><br>Cadastre em Parâmetros › Etapas do fluxo</small><div class="pb"><u style="width:0%"></u></div></div>`
+    : `<div class="card kpi" style="margin:0"><b>${tp}%</b><span>Andamento total</span><small><em>média das etapas ativas do projeto</em><br><i>faltam ${100 - tp}%</i></small><div class="pb"><u style="width:${tp}%"></u></div></div>`;
   // Equipamentos (pontes etc.): levantado = todas as linhas do equipamento levantadas
   const eqm = {}; d.forEach(r => { const k = `${r.area}|${String(r.equipamento || "").trim().toLowerCase()}`; (eqm[k] = eqm[k] || []).push(r); });
   const eqs = Object.values(eqm), eqT = eqs.length, isLev = r => r.status_levantamento === "Levantado";
   const eqOk = eqs.filter(g => g.every(isLev)).length, eqPar = eqs.filter(g => !g.every(isLev) && g.some(isLev)).length, eqP = eqT ? Math.round(100 * eqOk / eqT) : 0;
-  const equip = `<div class="card kpi" style="margin:0"><b>${eqP}%</b><span>Equipamentos com levantamento</span><small><em>${eqOk} de ${eqT} equipamentos</em><br><i>${eqT - eqOk} faltam</i>${eqPar ? ` · ${eqPar} parciais` : ""}</small><div class="pb"><u style="width:${eqP}%"></u></div></div>`;
+  const equip = `<div class="card kpi${on("lev") ? "" : " hide"}" style="margin:0"><b>${eqP}%</b><span>Equipamentos com levantamento</span><small><em>${eqOk} de ${eqT} equipamentos</em><br><i>${eqT - eqOk} faltam</i>${eqPar ? ` · ${eqPar} parciais` : ""}</small><div class="pb"><u style="width:${eqP}%"></u></div></div>`;
   // Desenhos: conta quem tem file_name preenchido (sem nome não conta); SAP = caixa \"Desenho no SAP\" marcada
   const dw = d.filter(r => String(r.file_name || "").trim()), dwS = dw.filter(r => r.desenho_sap), dwN = dw.filter(r => !r.desenho_sap);
   const fol = a => a.reduce((t, r) => t + Math.max(1, parseInt(r.folhas) || 1), 0), dT = dw.length, dS = dwS.length, dN = dwN.length, dd = dT || 1;
   const dCards = `<div class="card kpi" style="margin:0"><b>${dT}</b><span>Desenhos cadastrados (com nome)</span><small><em>${fol(dw)} folhas no total</em><br>${d.length - dT} linhas ainda sem desenho</small></div>`
     + `<div class="card kpi" style="margin:0"><b>${dS}</b><span>Desenhos cadastrados no SAP</span><small><em>${fol(dwS)} folhas · ${dT ? Math.round(100 * dS / dd) : 0}% dos ${dT} desenhos</em><br><i>${dN} faltam</i></small><div class="pb"><u style="width:${dT ? Math.round(100 * dS / dd) : 0}%"></u></div></div>`
     + `<div class="card kpi" style="margin:0"><b>${dN}</b><span>Desenhos não cadastrados no SAP</span><small><em>${fol(dwN)} folhas</em><br>${dT ? Math.round(100 * dN / dd) : 0}% dos desenhos</small><div class="pb"><u style="width:${dT ? Math.round(100 * dN / dd) : 0}%;background:#d9822b"></u></div></div>`;
-  $("#kpis").innerHTML = first + andam + card(["Levantamento", lev]) + equip + [["Com desenho", c(2)], ["Cadastrados no Sphera", c(3)], ["Cadastrados no SAP", c(4)]].map(card).join("") + dCards;
+  $("#kpis").innerHTML = first + andam + card(["Levantamento", lev], !on("lev")) + equip + [["Com desenho", c(2), "des"], ["Cadastrados no Sphera", c(3), "sph"], ["Cadastrados no SAP", c(4), "sap"], ["Em projeto", c(1), "proj"]].map(([l, x, k]) => card([l, x], !on(k))).join("") + dCards;
   const dTab = (t, l, c) => l.length ? `<p style="margin:12px 0 4px"><span class="tag" style="--c:${c}">${t}</span> <small>${l.length} ${l.length > 1 ? "desenhos" : "desenho"} · ${fol(l)} folhas</small></p><div class="tw"><table class="st" style="min-width:560px"><thead><tr><th>Desenho (file_name)</th><th>Folhas</th><th>Área</th><th>Equipamento</th><th>Tipo</th></tr></thead><tbody>${l.map(r => `<tr><td class="h"><b>${esc(r.file_name)}</b></td><td data-l="Folhas"><div class="v">${Math.max(1, parseInt(r.folhas) || 1)}</div></td><td data-l="Área"><div class="v">${esc(r.area)}</div></td><td data-l="Equipamento"><div class="v">${esc(r.equipamento)}</div></td><td data-l="Tipo"><div class="v">${esc(r.tipo_projeto)}</div></td></tr>`).join("")}</tbody></table></div>` : `<p style="margin:12px 0 4px"><span class="tag" style="--c:${c}">${t}</span> <small>nenhum desenho</small></p>`;
   $("#dsapCnt").textContent = dT; $("#dsapN").textContent = `${dS} no SAP · ${dN} fora do SAP · clique para ver a lista`;
   $("#dsapL").innerHTML = dTab("Cadastrados no SAP", dwS, "#2e9e5b") + dTab("Não cadastrados no SAP", dwN, "#d9822b");
   document.querySelectorAll("#kpis .seg button").forEach(b => b.onclick = () => { unit = b.dataset.u; dash(); });
   stack("c1", "area", d); stack("c3", "tipo_projeto", d, true); evoDash(d);
   charts.c2?.destroy();
-  charts.c2 = new Chart($("#c2"), { type: "bar", data: { labels: ["Total", "Levantamento", "Desenho concluído+", "No Sphera+", "No SAP+"],
-    datasets: [{ data: [tot, lev, c(2), c(3), c(4)], backgroundColor: ["#b0b7c3", "#f2a93b", "#3b82c4", "#7a5cc7", "#0e9aa7"] }] },
+  const FN = [["Levantamento", lev, "#f2a93b", "lev"], ["Em projeto", c(1), "#d9822b", "proj"], ["Desenho concluído+", c(2), "#3b82c4", "des"], ["No Sphera+", c(3), "#7a5cc7", "sph"], ["No SAP+", c(4), "#0e9aa7", "sap"]].filter(x => on(x[3]));
+  charts.c2 = new Chart($("#c2"), { type: "bar", data: { labels: ["Total", ...FN.map(x => x[0])],
+    datasets: [{ data: [tot, ...FN.map(x => x[1])], backgroundColor: ["#b0b7c3", ...FN.map(x => x[2])] }] },
     options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
   const p1 = d.filter(r => r.status_levantamento === "Levantado" && si(r) < 2).map(r => [r, "Levantamento feito, sem desenho"]);
   const p2 = d.filter(r => si(r) === 2).map(r => [r, "Desenho pronto, falta Sphera"]);
@@ -734,14 +738,14 @@ function evo(d, mode) {
     }
   }
   const rowsOut = ends.map(T => {
-    const t = T.getTime(); let lev = 0, des = 0, sph = 0, sap = 0, comp = 0;
+    const t = T.getTime(); let lev = 0, proj = 0, des = 0, sph = 0, sap = 0, comp = 0;
     for (const id of set) {
       let l = "Pendente", st = 0;
       for (const e of (by[id] || [])) { if (e.t <= t) { l = e.l; st = Math.max(0, e.s); } else break; }
-      if (l === "Levantado") lev++; if (st >= 2) des++; if (st >= 3) sph++; if (st >= 4) sap++; if (st >= 5) comp++;
+      if (l === "Levantado") lev++; if (st >= 1) proj++; if (st >= 2) des++; if (st >= 3) sph++; if (st >= 4) sap++; if (st >= 5) comp++;
     }
     const prev = mode === "w" ? new Date(T.getFullYear(), T.getMonth(), T.getDate() - 7, 23, 59, 59, 999) : new Date(T.getFullYear(), T.getMonth(), 0, 23, 59, 59, 999);
-    return { lev, des, sph, sap, comp, mov: ts.filter(x => x > prev.getTime() && x <= t).length };
+    return { lev, proj, des, sph, sap, comp, mov: ts.filter(x => x > prev.getTime() && x <= t).length };
   });
   return { labels, rows: rowsOut, mode };
 }
@@ -768,12 +772,12 @@ const evIsProj = v => v === "all" || /^fy:/.test(v);
 function curWin() { const v = $("#evP") ? $("#evP").value : ""; if (v === "all") return winAll(); if (/^fy:/.test(v)) return fyWin(+v.slice(3));
   return fyWin(Math.min(fyAno(PROJ.fim, PROJ.fyM), Math.max(fyAno(PROJ.ini, PROJ.fyM), fyAno(new Date(), PROJ.fyM)))); } // relatórios: ano fiscal atual
 const fyLabel = win => (win || curWin()).label;
-const STG = [["Andamento total", "tot", "#14284b"], ["Levantamento", "lev", "#f2a93b"], ["Com desenho", "des", "#3b82c4"], ["No Sphera", "sph", "#7a5cc7"], ["No SAP", "sap", "#0e9aa7"]];
+const STG = [["Andamento total", "tot", "#14284b"], ["Levantamento", "lev", "#f2a93b"], ["Em projeto", "proj", "#d9822b"], ["Com desenho", "des", "#3b82c4"], ["No Sphera", "sph", "#7a5cc7"], ["No SAP", "sap", "#0e9aa7"]];
 const MES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 function evoProj(d, key, pts, win, rng) {
   win = win || curWin(); rng = rng || {};
   const wf = r => pts ? (Number(r.qtd) > 0 ? Number(r.qtd) : 1) : 1, now = new Date(), tn = now.getTime(), DAY = 864e5, T0 = rng.ini != null ? rng.ini : PROJ.ini.getTime(), T1 = rng.fim != null ? rng.fim : PROJ.fim.getTime(), WA = win.a.getTime(), WB = win.b.getTime(), r1 = x => Math.round(x * 10) / 10;
-  const keys = key === "tot" ? (window.etapasAtivas ? window.etapasAtivas() : ["lev", "des", "sph", "sap"]) : [key], LV = { proj: 1, des: 2, sph: 3, sap: 4, comp: 5 };
+  const keys = key === "tot" ? cfgK() : [key], LV = { proj: 1, des: 2, sph: 3, sap: 4, comp: 5 };
   const okk = (k, l, st) => k === "lev" ? l === "Levantado" : st >= LV[k]; // andamento total = média das etapas ativas do projeto
   const ids = new Map(d.map(r => [r.id, r])), by = {};
   hist.forEach(h => { if (ids.has(h.ponto_id)) (by[h.ponto_id] = by[h.ponto_id] || []).push({ t: new Date(h.created_at).getTime(), l: h.status_levantamento, s: ST.indexOf(h.status_projeto) }); });
@@ -861,7 +865,17 @@ function evoDashProj(d) {
   const multi = fyAno(PROJ.fim, PROJ.fyM) > fyAno(PROJ.ini, PROJ.fyM);
   $("#evn").textContent = `${win.label} (${dtBR(win.a)} a ${dtBR(win.b)}) · ano fiscal de ${fyRange(PROJ.fyM)}. ${nm[0]}: início ${dtBR(new Date(pr.T0))} · fim ${dtBR(new Date(pr.T1))}${rg.custom ? " (datas ajustadas)" : ""}. Projeto: ${dtBR(PROJ.ini)} a ${dtBR(PROJ.fim)}.${multi ? " O projeto atravessa mais de um ano fiscal: use o seletor para ver cada ano ou a duração total." : ""} Andamento total = média das etapas ativas do projeto. Projeção: ritmo médio desde a data de início mantido até a data fim (limitado ao total). Meta linear: avanço constante da data de início à data fim. O realizado dos meses anteriores depende do histórico registrado no app.`;
 }
+function evSync() { // o seletor só lista "Andamento total" e as etapas cadastradas em Parâmetros
+  const ks = cfgK(), el = $("#evS"), want = ks.length ? STG.filter(x => x[1] === "tot" || ks.includes(x[1])) : [], sig = want.map(x => x[1]).join(",");
+  if (el.dataset.sig === sig) return; el.dataset.sig = sig; const v = el.value;
+  el.innerHTML = want.map(x => `<option value="${x[1]}">${x[0]}</option>`).join(""); el.value = want.some(x => x[1] === v) ? v : (want[0] ? want[0][1] : "");
+}
 function evoDash(d) {
+  evSync();
+  if (!cfgK().length) { // nenhuma etapa cadastrada: gráfico e quadros vazios
+    charts.c4?.destroy(); $("#evk").innerHTML = ""; $("#evt").innerHTML = ""; $("#evs").textContent = "Ver tabela";
+    $("#evS").classList.add("hide"); $("#evD").classList.add("hide");
+    $("#evn").textContent = "Nenhuma etapa cadastrada. Adicione em Parâmetros › Etapas do fluxo para acompanhar a evolução e o andamento."; return; }
   const m0 = $("#evP").value; $("#evS").classList.toggle("hide", !evIsProj(m0)); $("#evD").classList.toggle("hide", !evIsProj(m0));
   if (evIsProj(m0)) return evoDashProj(d);
   evoDashHist(d);
@@ -869,16 +883,17 @@ function evoDash(d) {
   $("#evn").textContent = "O histórico é registrado a partir da instalação desta função; datas anteriores aparecem sem movimento.";
 }
 function evoDashHist(d) {
-  const mode = $("#evP").value, e = evo(d, mode), R = e.rows, last = R[R.length - 1], prev = R[R.length - 2] || { lev: 0, des: 0, sph: 0, sap: 0, comp: 0 };
+  const mode = $("#evP").value, e = evo(d, mode), R = e.rows, last = R[R.length - 1], prev = R[R.length - 2] || { lev: 0, proj: 0, des: 0, sph: 0, sap: 0, comp: 0 };
+  const ks = cfgK(), SER = [["Levantamento", "lev", "#f2a93b"], ["Em projeto", "proj", "#d9822b"], ["Com desenho", "des", "#3b82c4"], ["No Sphera", "sph", "#7a5cc7"], ["No SAP", "sap", "#0e9aa7"]].filter(x => ks.includes(x[1]));
   const dl = (a, b) => (a >= b ? "+" : "") + (a - b), per = mode === "w" ? "Nesta semana" : "Neste mês";
-  $("#evk").innerHTML = [["Levantamento", dl(last.lev, prev.lev)], ["Com desenho", dl(last.des, prev.des)], ["No Sphera", dl(last.sph, prev.sph)], ["No SAP", dl(last.sap, prev.sap)], ["Movimentações", String(last.mov)]]
+  $("#evk").innerHTML = [...SER.map(([n, k]) => [n, dl(last[k], prev[k])]), ["Movimentações", String(last.mov)]]
     .map(([l, v]) => `<div class="card kpi" style="margin:0"><b>${v}</b><span>${per}: ${l}</span></div>`).join("");
   charts.c4?.destroy();
-  charts.c4 = new Chart($("#c4"), { type: "line", data: { labels: e.labels, datasets: [["Levantamento", "lev", "#f2a93b"], ["Com desenho", "des", "#3b82c4"], ["No Sphera", "sph", "#7a5cc7"], ["No SAP", "sap", "#0e9aa7"]]
-    .map(([n, k, c]) => ({ label: n, data: R.map(x => x[k]), borderColor: c, backgroundColor: c, tension: .25 })) },
+  charts.c4 = new Chart($("#c4"), { type: "line", data: { labels: e.labels, datasets: SER.map(([n, k, c]) => ({ label: n, data: R.map(x => x[k]), borderColor: c, backgroundColor: c, tension: .25 })) },
     options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } }, plugins: { legend: { position: "bottom" } } } });
-  $("#evt").innerHTML = `<table class="st" style="min-width:560px"><thead><tr>${EHD.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${evoLines(e).map(l =>
-    `<tr><td class="h"><b>${l[0]}</b></td>${l.slice(1).map((v, i) => `<td data-l="${EHD[i + 1]}"><div class="v">${v}</div></td>`).join("")}</tr>`).join("")}</tbody></table>`;
+  const H = ["Período", ...SER.map(x => x[0]), "Movimentações"], LN = R.map((x, i) => [(mode === "w" ? "Semana de " : "") + e.labels[i], ...SER.map(z => x[z[1]]), x.mov]).reverse();
+  $("#evt").innerHTML = `<table class="st" style="min-width:560px"><thead><tr>${H.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${LN.map(l =>
+    `<tr><td class="h"><b>${l[0]}</b></td>${l.slice(1).map((v, i) => `<td data-l="${H[i + 1]}"><div class="v">${v}</div></td>`).join("")}</tr>`).join("")}</tbody></table>`;
 }
 $("#evP").onchange = dash; $("#evS").onchange = dash;
 $("#dA").onchange = dash;
@@ -979,44 +994,53 @@ const pw = r => Number(r.qtd) > 0 ? Number(r.qtd) : 1; // pontos de adequação 
 const psum = a => a.reduce((t, r) => t + pw(r), 0);
 function stats0(d) {
   const c = k => d.filter(r => si(r) >= k);
-  return { n: d.length, lev: d.filter(lv).length, des: c(2).length, sph: c(3).length, sap: c(4).length, comp: c(5).length,
-    p: { n: psum(d), lev: psum(d.filter(lv)), des: psum(c(2)), sph: psum(c(3)), sap: psum(c(4)), comp: psum(c(5)) } };
+  return { n: d.length, lev: d.filter(lv).length, proj: c(1).length, des: c(2).length, sph: c(3).length, sap: c(4).length, comp: c(5).length,
+    p: { n: psum(d), lev: psum(d.filter(lv)), proj: psum(c(1)), des: psum(c(2)), sph: psum(c(3)), sap: psum(c(4)), comp: psum(c(5)) } };
 }
-function stats(d) { const s = stats0(d), K = window.etapasAtivas ? window.etapasAtivas() : ["lev", "des", "sph", "sap"], pj = d.filter(r => si(r) >= 1), cn = { ...s, proj: pj.length }, cp = { ...s.p, proj: psum(pj) };
-  s.K = K; s.a1 = K.reduce((t, k) => t + cn[k], 0); s.a2 = K.reduce((t, k) => t + cp[k], 0); return s; }
-const ETP = [["Levantamento", "lev"], ["Com desenho", "des"], ["No Sphera", "sph"], ["No SAP", "sap"], ["Comprados", "comp"]];
+function stats(d) { const s = stats0(d), K = cfgK(); // K = etapas cadastradas e ativas em Parâmetros
+  s.K = K; s.a1 = K.reduce((t, k) => t + s[k], 0); s.a2 = K.reduce((t, k) => t + s.p[k], 0); return s; }
+const ETP = [["Levantamento", "lev"], ["Em projeto", "proj"], ["Com desenho", "des"], ["No Sphera", "sph"], ["No SAP", "sap"], ["Comprados", "comp"]];
+const RS = k => k === "comp" || cfgK().includes(k); // a etapa aparece no relatório? (Comprados é sempre exibido; as demais só se cadastradas e ativas)
+const kNames = () => ETP.filter(x => cfgK().includes(x[1])).map(x => x[0].toLowerCase()).join(", ");
 const EFH = ["Etapa", "Linhas realizadas", "Linhas faltam", "% linhas", "Pontos realizados", "Pontos faltam", "% pontos"];
-const etapaRows = s => { const m = a => Math.round(a * 10) / 10, sl = s.a1 / s.K.length, sp = s.a2 / s.K.length;
-  return [["Total no escopo", s.n, "", "", s.p.n, "", ""], ...ETP.map(([l, k]) => [l, s[k], s.n - s[k], pc(s[k], s.n), s.p[k], s.p.n - s.p[k], pc(s.p[k], s.p.n)]),
-    ["Andamento total", m(sl), m(s.n - sl), pc(sl, s.n), m(sp), m(s.p.n - sp), pc(sp, s.p.n)]]; };
+const etapaRows = s => { const m = a => Math.round(a * 10) / 10, out = [["Total no escopo", s.n, "", "", s.p.n, "", ""]];
+  ETP.filter(x => RS(x[1])).forEach(([l, k]) => out.push([l, s[k], s.n - s[k], pc(s[k], s.n), s.p[k], s.p.n - s.p[k], pc(s.p[k], s.p.n)]));
+  if (s.K.length) { const sl = s.a1 / s.K.length, sp = s.a2 / s.K.length; out.push(["Andamento total", m(sl), m(s.n - sl), pc(sl, s.n), m(sp), m(s.p.n - sp), pc(sp, s.p.n)]); }
+  return out; };
 const pc = (x, n) => n ? Math.round(100 * x / n) + "%" : "0%";
-function repData() { const a = $("#rA").value; return { a, d: a ? rows.filter(r => r.area === a) : rows }; }
-function pendList(d) { return [...d.filter(r => lv(r) && si(r) < 2).map(r => [r, "Levantamento feito, sem desenho"]), ...d.filter(r => si(r) === 2).map(r => [r, "Desenho pronto, falta Sphera"]), ...d.filter(r => si(r) === 3).map(r => [r, "No Sphera, falta SAP"])]; }
+function repData() { const a = $("#rA").value, ina = window.inativo || (() => false); // itens inativos em Parâmetros (área / tipo) não entram nos relatórios
+  const d = rows.filter(r => !ina("area", r.area) && !ina("tipo", r.tipo_projeto)); return { a, d: a ? d.filter(r => r.area === a) : d }; }function pendList(d) { const K = cfgK(), has = (...k) => k.every(x => K.includes(x)); // cada pendência só existe se as etapas envolvidas estiverem ativas
+  return [...(has("lev", "des") ? d.filter(r => lv(r) && si(r) < 2).map(r => [r, "Levantamento feito, sem desenho"]) : []), ...(has("des", "sph") ? d.filter(r => si(r) === 2).map(r => [r, "Desenho pronto, falta Sphera"]) : []), ...(has("sph", "sap") ? d.filter(r => si(r) === 3).map(r => [r, "No Sphera, falta SAP"]) : [])]; }const STI = () => ST.map((x, i) => i).filter(i => i === 0 || i === 5 || cfgK().includes(["", "proj", "des", "sph", "sap"][i])); // colunas de status: só as etapas ativas
 function matrix(d, field, pts) {
   const keys = [...new Set(d.map(r => r[field] || "—"))].sort();
   const cnt = a => pts ? psum(a) : a.length;
-  return { keys, m: keys.map(k => ST.map((s, i) => cnt(d.filter(r => (r[field] || "—") === k && si(r) === i)))) };
+  return { keys, m: keys.map(k => STI().map(i => cnt(d.filter(r => (r[field] || "—") === k && si(r) === i)))) };
 }
+const rhCols = () => ETP.filter(x => RS(x[1]));
 function resumoRows(a, d) {
   const rs = AREAS.filter(x => !a || x === a).map(ar => [ar, stats(d.filter(r => r.area === ar))]);
   rs.push(["Total", stats(d)]);
-  return rs.map(([n, s]) => [n, s.n, s.p.n, s.lev, s.p.lev, s.des, s.p.des, s.sph, s.p.sph, s.sap, s.p.sap, s.comp, s.p.comp, pc(s.des, s.n), pc(s.p.des, s.p.n)]);
+  return rs.map(([n, s]) => [n, s.n, s.p.n, ...rhCols().flatMap(([, k]) => [s[k], s.p[k]]), ...(cfgK().includes("des") ? [pc(s.des, s.n), pc(s.p.des, s.p.n)] : [])]);
 }
-const RH = ["Área", "Linhas de projeto", "Pontos de adequação", "Levantamento (linhas)", "Levantamento (pontos)", "Com desenho (linhas)", "Com desenho (pontos)", "No Sphera (linhas)", "No Sphera (pontos)", "No SAP (linhas)", "No SAP (pontos)", "Comprados (linhas)", "Comprados (pontos)", "% com desenho (linhas)", "% com desenho (pontos)"];
+const RH = () => ["Área", "Linhas de projeto", "Pontos de adequação", ...rhCols().flatMap(([n]) => [`${n} (linhas)`, `${n} (pontos)`]), ...(cfgK().includes("des") ? ["% com desenho (linhas)", "% com desenho (pontos)"] : [])];
+const EHr = () => ["Período", ...TKEYS.filter(k => RS(k[1])).map(k => k[0]), "Movimentações"];
+const evoLinesR = e => e.rows.map((x, i) => [(e.mode === "w" ? "Semana de " : "") + e.labels[i], ...TKEYS.filter(k => RS(k[1])).map(k => x[k[1]]), x.mov]).reverse();
+const DROPC = { lev: ["Status do levantamento"], des: ["file_name (desenho)", "Qtd. de folhas", "Nomes das folhas"], sph: ["Nº requisição Sphera"], sap: ["Código SAP", "Desenho no SAP"] };
+const expRowRep = r => { const o = expRow(r); Object.keys(DROPC).forEach(k => { if (!cfgK().includes(k)) DROPC[k].forEach(c => delete o[c]); }); return o; };
 
 $("#rx").onclick = () => {
   logP("Gerou relatório Excel", $("#rA").value || "Todas as áreas");
   const { a, d } = repData(), wb = XLSX.utils.book_new();
   const add = (nome, head, linhas) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([head, ...linhas]), nome);
-  add("Resumo", RH, resumoRows(a, d));
+  add("Resumo", RH(), resumoRows(a, d));
   add("Realizado x Faltam", EFH, etapaRows(stats(d)));
   const mt = matrix(d, "tipo_projeto"), mp = matrix(d, "tipo_projeto", true);
-  add("Por tipo (linhas)", ["Tipo de projeto", ...ST], mt.keys.map((k, i) => [k, ...mt.m[i]]));
-  add("Por tipo (pontos)", ["Tipo de projeto", ...ST], mp.keys.map((k, i) => [k, ...mp.m[i]]));
+  add("Por tipo (linhas)", ["Tipo de projeto", ...STI().map(i => ST[i])], mt.keys.map((k, i) => [k, ...mt.m[i]]));
+  add("Por tipo (pontos)", ["Tipo de projeto", ...STI().map(i => ST[i])], mp.keys.map((k, i) => [k, ...mp.m[i]]));
   add("Pendências", ["Área", "Equipamento", "Tipo de projeto", "Pontos (qtd.)", "Pendência"], pendList(d).map(([r, t]) => [r.area, r.equipamento, r.tipo_projeto, pw(r), t]));
-  add("Evolução semanal", EH, evoLines(evo(d, "w")));
-  add("Evolução mensal", EH, evoLines(evo(d, "m")));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(d.map(expRow)), "Dados");
+  add("Evolução semanal", EHr(), evoLinesR(evo(d, "w")));
+  add("Evolução mensal", EHr(), evoLinesR(evo(d, "m")));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(d.map(expRowRep)), "Dados");
   const sr = window.supRel ? window.supRel() : null; if (sr && sr.t) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sr.rows), "Suprimentos"); if (sr && sr.fin && sr.fin.hrows.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sr.fin.hrows), "Gastos");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Projeto", proj.nome], ["Cliente", proj.cliente || ""], ["Local", proj.localidade || ""], ["Período", perLabel()], ["Gerado em", today()]]), "Projeto");
   wb.SheetNames.unshift(wb.SheetNames.pop());
@@ -1026,14 +1050,14 @@ $("#rx").onclick = () => {
 // ---------- Identidade visual Ternium (relatórios em PDF e PowerPoint) ----------
 const TC = { orange: "FF9900", gray: "666666", mid: "7F7F7F", light: "D3D3D3", foot: "999999", soft: "F4F4F4", blue: "01688A", navy: "003366", green: "00B351" };
 const TSTAGE = ["BFBFBF", "FF9900", "01688A", "003366", "666666", "00B351"]; // A projetar → Comprado
-const TCH = () => TKEYS.slice(0, 4); // séries dos gráficos (sem Comprados)
-const TKEYS = [["Levantamento", "lev", "FF9900"], ["Com desenho", "des", "01688A"], ["No Sphera", "sph", "003366"], ["No SAP", "sap", "666666"], ["Comprados", "comp", "00B351"]];
+const TCH = () => TKEYS.filter(k => k[1] !== "comp" && RS(k[1])); // séries dos gráficos (sem Comprados)
+const TKEYS = [["Levantamento", "lev", "FF9900"], ["Em projeto", "proj", "D9822B"], ["Com desenho", "des", "01688A"], ["No Sphera", "sph", "003366"], ["No SAP", "sap", "666666"], ["Comprados", "comp", "00B351"]];
 const TFOOT = "Ternium  |  Manutenção Central";
 const tdash = x => (x === "" || x === null || x === undefined) ? "—" : String(x);
 const areaRows = (d, ar, pts) => ar.map(name => { const z = stats(d.filter(r => r.area === name)), q = pts ? z.p : z; return [name, q.n, q.comp, q.n - q.comp]; });
 const areaHead = pts => ["Área", pts ? "Pontos" : "Linhas", "Comprados", "Faltam comprar"];
-const kpiList = s => [["Andamento total", pc(s.a1, s.K.length * s.n), `Linhas: ${pc(s.a1, s.K.length * s.n)} · Pontos: ${pc(s.a2, s.K.length * s.p.n)}\nmédia das etapas ativas do projeto`, "003366"], ["Linhas / Pontos", `${s.n} / ${s.p.n}`, "linhas de projeto / pontos de adequação", "FF9900"],
-  ...TKEYS.map(([l, k, col]) => [l, pc(s[k], s.n), `Linhas: ${s[k]} de ${s.n} · faltam ${s.n - s[k]}\nPontos: ${s.p[k]} de ${s.p.n} · faltam ${s.p.n - s.p[k]}`, col])];
+const kpiList = s => [...(s.K.length ? [["Andamento total", pc(s.a1, s.K.length * s.n), `Linhas: ${pc(s.a1, s.K.length * s.n)} · Pontos: ${pc(s.a2, s.K.length * s.p.n)}\nmédia das etapas ativas do projeto`, "003366"]] : []), ["Linhas / Pontos", `${s.n} / ${s.p.n}`, "linhas de projeto / pontos de adequação", "FF9900"],
+  ...TKEYS.filter(k => RS(k[1])).map(([l, k, col]) => [l, pc(s[k], s.n), `Linhas: ${s[k]} de ${s.n} · faltam ${s.n - s[k]}\nPontos: ${s.p[k]} de ${s.p.n} · faltam ${s.p.n - s.p[k]}`, col])];
 
 $("#rp").onclick = () => {
   logP("Gerou relatório PDF", $("#rA").value || "Todas as áreas");
@@ -1058,7 +1082,7 @@ $("#rp").onclick = () => {
     let lx = L; TCH().forEach(([name, key, color]) => { g += `<line x1="${lx}" y1="${H - 9}" x2="${lx + 14}" y2="${H - 9}" stroke="#${color}" stroke-width="3.5"/><text x="${lx + 19}" y="${H - 5.5}" font-size="10" fill="#666666">${name}</text>`; lx += name.length * 5.6 + 40; });
     return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc2(title)}" xmlns="http://www.w3.org/2000/svg">${g}</svg>`;
   };
-  const pj = evoProj(d, "tot", true, undefined, evrRange("tot", curWin()));
+  const hasK = cfgK().length, pj = hasK ? evoProj(d, "tot", true, undefined, evrRange("tot", curWin())) : null;
   const projSvg = () => {
     const W = 1000, H = 300, L = 44, R = 14, T = 16, B = 56, pw2 = W - L - R, ph = H - T - B, n = pj.labels.length;
     const max = Math.max(1, pj.tot, ...pj.real.filter(v => v != null), ...pj.proj.filter(v => v != null));
@@ -1078,24 +1102,30 @@ $("#rp").onclick = () => {
   };
   const tbl = (head, body, boldFirst) => `<table><thead><tr>${head.map(h => `<th>${esc2(h)}</th>`).join("")}</tr></thead><tbody>${body.map((r, ri) => `<tr${boldFirst && ri === 0 ? ' class="tot"' : ""}>${r.map(c => `<td>${esc2(tdash(c))}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
   const hd = (t, sub) => `<header class="hd"><div class="bar"></div><div><h1>${esc2(t)}</h1><p>${esc2(sub)}</p></div><img class="ic" src="${TERN.icon}" alt=""></header>`;
-  const ft = n => `<footer class="ft"><span>${TFOOT.replace(/ /g, "&nbsp;")}</span><span>${n}</span></footer>`;
-  const kp = kpiList(s).map(([l, v, sub, col]) => `<div class="kpi" style="border-top-color:#${col}"><strong>${esc2(v)}</strong><b>${esc2(l)}</b><em>${esc2(sub).replace(/\n/g, "<br>")}</em></div>`).join("");
+  const ft = () => `<footer class="ft"><span>${TFOOT.replace(/ /g, "&nbsp;")}</span><span>@@N@@</span></footer>`; // @@N@@ = nº da página, preenchido ao final
+  const kl = kpiList(s), kp = kl.map(([l, v, sub, col]) => `<div class="kpi" style="border-top-color:#${col}"><strong>${esc2(v)}</strong><b>${esc2(l)}</b><em>${esc2(sub).replace(/\n/g, "<br>")}</em></div>`).join("");
   const sr = window.supRel ? window.supRel(true) : { t: 0, kp: [], att: [] };
+  const lstPages = (title, rows, head, cw, sub, empty, per = 15) => { // lista completa, dividida em quantas páginas forem precisas
+    if (!rows.length) return [`<section class="page">${hd(title + " · 0", sub)}<p class="ok">${empty}</p>${ft()}</section>`];
+    const n = Math.ceil(rows.length / per);
+    return Array.from({ length: n }, (_, k) => `<section class="page">${hd(`${title} · ${rows.length}`, sub + (n > 1 ? ` · parte ${k + 1} de ${n}` : ""))}<table class="lst"><colgroup>${cw.map(x => `<col style="width:${x}%">`).join("")}</colgroup><thead><tr>${head.map(h => `<th>${esc2(h)}</th>`).join("")}</tr></thead><tbody>${rows.slice(k * per, (k + 1) * per).map(r => `<tr>${r.map(c => `<td>${esc2(tdash(c))}</td>`).join("")}</tr>`).join("")}</tbody></table>${ft()}</section>`);
+  };
   const pages = [
     `<section class="page cover" style="background-image:url(${TERN.bg})"><div class="cdate">${esc2(today())}</div><img class="clogo" src="${TERN.logo}" alt="Ternium"><div class="ctitle"><h1>${esc2(proj.nome)}</h1><p>${esc2([proj.cliente, proj.localidade].filter(Boolean).join(" · ") || "Acompanhamento do avanço do projeto")} · ${esc2(perLabel())}${a ? " · " + esc2(a) : ""}</p></div></section>`,
-    `<section class="page">${hd("Visão geral do projeto", `Indicadores consolidados · ${scope}`)}<div class="kpis">${kp}</div>
+    `<section class="page">${hd("Visão geral do projeto", `Indicadores consolidados · ${scope}`)}<div class="kpis" style="grid-template-columns:repeat(${kl.length},1fr)">${kp}</div>
 <div class="cols"><div><h2>Realizado x faltam por etapa</h2>${tbl(EFH, etapaRows(s), true)}</div><div><h2>Resumo por área</h2>${tbl(areaHead(false), areaRows(d, ar, false))}<div class="gap"></div>${tbl(areaHead(true), areaRows(d, ar, true))}</div></div>
 <p class="note">Linha = ponto com levantamento feito e projeto próprio. Ponto de adequação = soma das quantidades de cada linha. Pendências identificadas: ${pd.length}.</p>${ft(2)}</section>`,
     `<section class="page">${hd("Evolução do projeto", "Marcos acumulados registrados no histórico do aplicativo")}<div class="charts"><div>${chartSvg(ew, "Semanal · últimas 12 semanas")}</div><div>${chartSvg(em, "Mensal · últimos 6 meses")}</div></div>
 <p class="note">As linhas mostram a quantidade acumulada de itens em cada etapa. O histórico é registrado a partir da ativação desta função; períodos anteriores podem aparecer sem movimento, o que não significa ausência de atividade.</p>${ft(3)}</section>`,
-    `<section class="page">${hd(fyLabel(), `${dtBR(new Date(pj.T0))} a ${dtBR(new Date(pj.T1))}` + " · andamento total em pontos de adequação (média das 4 etapas: levantamento, desenho, Sphera e SAP)")}<div class="kpis k5">${projKpis(pj, "pontos", "Andamento total").map(([v, l]) => `<div class="kpi"><strong>${esc2(v)}</strong><em>${esc2(l)}</em></div>`).join("")}</div>
+    !hasK ? null : `<section class="page">${hd(fyLabel(), `${dtBR(new Date(pj.T0))} a ${dtBR(new Date(pj.T1))}` + ` · andamento total em pontos de adequação (média: ${kNames()})`)}<div class="kpis k5">${projKpis(pj, "pontos", "Andamento total").map(([v, l]) => `<div class="kpi"><strong>${esc2(v)}</strong><em>${esc2(l)}</em></div>`).join("")}</div>
 <div class="proj">${projSvg()}</div>
 <p class="note">Projeção: ritmo médio desde ${dtBR(new Date(pj.T0))} mantido até ${dtBR(new Date(pj.T1))} (limitada ao total de pontos). Meta linear: avanço constante da data de início à data fim. O realizado dos meses anteriores depende do histórico registrado no aplicativo.</p>${ft(4)}</section>`,
     `<section class="page">${hd("Suprimentos · Orçamento e gastos", `${proj.nome} · valores em R$`)}${sr.fin ? `<div class="kpis k5">${sr.fin.kp.map(([v, l]) => `<div class="kpi"><strong>${esc2(v)}</strong><em>${esc2(l)}</em></div>`).join("")}</div>
 <div class="cols"><div><h2>Evolução dos gastos (acumulado por mês)</h2>${sr.fin.img1 ? `<img class="gimg" src="${sr.fin.img1}" alt="Evolução dos gastos do orçamento">` : `<p class="note">Sem gastos com data para montar a evolução.</p>`}</div><div><h2>Composição do orçamento</h2>${sr.fin.img2 ? `<img class="gimg" src="${sr.fin.img2}" alt="Composição do orçamento">` : `<p class="note">Sem valores para exibir.</p>`}</div></div>
 <h2 style="margin-top:4mm">Histórico de gastos</h2>${sr.fin.hist.length ? tbl(["Data", "Descrição", "Origem", "Valor"], sr.fin.hist.slice(0, 8)) + (sr.fin.hist.length > 8 ? `<p class="note">Exibindo 8 de ${sr.fin.hist.length} lançamentos, do mais recente ao mais antigo. Consulte o aplicativo ou o Excel para a lista completa.</p>` : "") : `<p class="note">Nenhum gasto lançado.</p>`}` : `<p class="note">Nenhum orçamento ou gasto cadastrado neste projeto.</p>`}${ft(5)}</section>`,
     `<section class="page">${hd("Suprimentos · Prazos", `${proj.nome} · situação dos itens`)}${sr.t ? `<div class="kpis k5">${sr.kp.map(([v, l]) => `<div class="kpi"><strong>${esc2(v)}</strong><em>${esc2(l)}</em></div>`).join("")}</div><h2 style="margin-top:7mm">Itens em atenção (atrasados ou sem prazo)</h2>${sr.att.length ? tbl(["Código", "Descrição", "Situação", "Prazo"], sr.att.slice(0, 10)) + (sr.att.length > 10 ? `<p class="note">Exibindo 10 de ${sr.att.length}. Consulte o aplicativo para a lista completa.</p>` : "") : `<p class="ok" style="margin-top:12mm">Nenhum item atrasado ou sem prazo.</p>`}` : `<p class="note">Nenhum item de suprimentos cadastrado neste projeto.</p>`}${ft(6)}</section>`,
-    `<section class="page">${hd(`Próximas ações · ${pd.length} pendência(s)`, "Lista resumida para orientar o acompanhamento")}${pd.length ? tbl(["Área", "Equipamento", "Tipo de projeto", "Situação"], pd.slice(0, 12).map(([r, t]) => [r.area, r.equipamento, r.tipo_projeto || "—", t])) + (pd.length > 12 ? `<p class="note">Exibindo 12 de ${pd.length} pendências. Consulte o aplicativo para a lista completa.</p>` : "") : `<p class="ok">Nenhuma pendência identificada com os critérios atuais.</p>`}${ft(7)}</section>`
+    ...lstPages("Pendências de ação", pd.map(([r, t]) => [r.area, r.equipamento, r.tipo_projeto || "—", pw(r), t]), ["Área", "Equipamento", "Tipo de projeto", "Pontos", "Situação"], [14, 24, 30, 8, 24], `${scope} · todas as pendências`, "Nenhuma pendência identificada com os critérios atuais."),
+    ...lstPages("Itens de suprimentos", sr.all || [], ["Código", "Descrição", "Qtd.", "Fornecedor", "Situação", "Prazo"], [12, 36, 10, 16, 14, 12], `${proj.nome} · todos os itens`, "Nenhum item de suprimentos cadastrado neste projeto.")
   ];
   w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Relatório – ${esc2(proj.nome)}</title>
 <style>
@@ -1116,11 +1146,12 @@ table{width:100%;border-collapse:collapse;font-size:8.5pt}th{background:#666;col
 th:first-child,td:first-child{text-align:left}tr.tot td{font-weight:700;background:#f4f4f4}
 .note{margin:6mm 0 0;padding:1mm 0 1mm 3mm;border-left:1.2mm solid #ff9900;font-size:8.5pt;line-height:1.45;color:#666}.ok{font-size:16pt;font-weight:700;color:#00b351;text-align:center;margin-top:30mm}
 .kpis.k5{grid-template-columns:repeat(5,1fr)}.kpis.k5 .kpi strong{font-size:20pt}.kpis.k5 .kpi em{font-size:8pt;margin-top:1mm}.proj{margin-top:7mm}.gimg{width:100%;height:auto;display:block}.proj svg{width:100%;height:auto;display:block}
+table.lst{table-layout:fixed;font-size:8.5pt}table.lst th,table.lst td{text-align:left;line-height:1.25;word-break:break-word;padding:1.6mm 2.2mm;vertical-align:top}
 .charts{display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin-top:2mm}.charts svg{width:100%;height:auto;display:block}
 @media screen{body{background:#e6e6e6;padding:12px}.page{margin:0 auto 14px;box-shadow:0 2px 12px #0003}.printbtn{display:block;margin:0 auto 12px;padding:9px 16px;background:#ff9900;color:#fff;border:0;border-radius:5px;font-size:14px;font-weight:700}}
 @media print{.printbtn{display:none}body{padding:0}}
 </style></head><body><button class="printbtn" onclick="window.print()">Imprimir / Salvar como PDF</button>
-${pages.join("\n")}
+${pages.filter(Boolean).map((pg, k) => pg.split("@@N@@").join(k + 1)).join("\n")}
 </body></html>`);
   w.document.close();
 };
@@ -1174,10 +1205,10 @@ $("#rpp").onclick = async () => {
 
   // 2 — Visão geral
   sl = content("Visão geral do projeto", `Indicadores consolidados · ${scope}`);
-  kpiList(s).forEach((k, i) => kpi(sl, 0.527 + i * 1.77, 1.4, 1.67, k));
+  { const kl = kpiList(s), g = 0.1, w = (12.25 - g * (kl.length - 1)) / kl.length; kl.forEach((k, i) => kpi(sl, 0.527 + i * (w + g), 1.4, w, k)); }
   h2(sl, "Avanço por etapa", 0.527, 3.35, 6);
-  const labs = ["Total no escopo", "Levantamento", "Desenho concluído ou além", "Sphera ou além", "SAP ou além"];
-  sl.addChart(P.ChartType.bar, [{ name: "Linhas", labels: labs, values: [s.n, s.lev, s.des, s.sph, s.sap] }, { name: "Pontos de adequação", labels: labs, values: [s.p.n, s.p.lev, s.p.des, s.p.sph, s.p.sap] }], {
+  const SKs = [["Levantamento", "lev"], ["Em projeto", "proj"], ["Desenho concluído ou além", "des"], ["Sphera ou além", "sph"], ["SAP ou além", "sap"]].filter(x => cfgK().includes(x[1])), labs = ["Total no escopo", ...SKs.map(x => x[0])];
+  sl.addChart(P.ChartType.bar, [{ name: "Linhas", labels: labs, values: [s.n, ...SKs.map(x => s[x[1]])] }, { name: "Pontos de adequação", labels: labs, values: [s.p.n, ...SKs.map(x => s.p[x[1]])] }], {
     x: 0.527, y: 3.7, w: 6.4, h: 3.4, barDir: "bar", barGrouping: "clustered", chartColors: [TC.gray, TC.orange], catAxisOrientation: "maxMin",
     catAxisLabelFontFace: FT, catAxisLabelFontSize: 10, catAxisLabelColor: TC.gray, valAxisLabelFontFace: FT, valAxisLabelFontSize: 9, valAxisLabelColor: TC.mid, valAxisMinVal: 0,
     valGridLine: { color: TC.light, size: 0.75 }, catGridLine: { style: "none" }, showValue: true, dataLabelPosition: "outEnd", dataLabelFontFace: FT, dataLabelFontSize: 9, dataLabelColor: TC.gray, dataLabelFormatCode: "0",
@@ -1190,8 +1221,8 @@ $("#rpp").onclick = async () => {
   // 3 e 4 — Avanço por área (linhas e pontos)
   [[false, "Avanço por área · linhas de projeto", "Distribuição das linhas por etapa"], [true, "Avanço por área · pontos de adequação", "Distribuição dos pontos (soma das quantidades) por etapa"]].forEach(([pts, t, sub]) => {
     sl = content(t, sub);
-    sl.addChart(P.ChartType.bar, ST.slice(0, 5).map((st, i) => ({ name: st, labels: ar, values: ar.map(x => { const z = d.filter(r => r.area === x && (i === 4 ? si(r) >= 4 : si(r) === i)); return pts ? psum(z) : z.length; }) })), {
-      x: 0.527, y: 1.4, w: 7.6, h: 5.6, barDir: "col", barGrouping: "stacked", chartColors: TSTAGE.slice(0, 5),
+    sl.addChart(P.ChartType.bar, STI().filter(i => i < 5).map(i => ({ name: ST[i], labels: ar, values: ar.map(x => { const z = d.filter(r => r.area === x && (i === 4 ? si(r) >= 4 : si(r) === i)); return pts ? psum(z) : z.length; }) })), {
+      x: 0.527, y: 1.4, w: 7.6, h: 5.6, barDir: "col", barGrouping: "stacked", chartColors: STI().filter(i => i < 5).map(i => TSTAGE[i]),
       catAxisLabelFontFace: FT, catAxisLabelFontSize: 12, catAxisLabelColor: TC.gray, valAxisLabelFontFace: FT, valAxisLabelFontSize: 10, valAxisLabelColor: TC.mid, valAxisMinVal: 0,
       valGridLine: { color: TC.light, size: 0.75 }, catGridLine: { style: "none" }, showValue: false, showLegend: true, legendPos: "b", legendFontFace: FT, legendFontSize: 10, legendColor: TC.gray, showTitle: false, showBorder: false });
     h2(sl, "Resumo por área", 8.5, 1.5, 4.3);
@@ -1203,6 +1234,7 @@ $("#rpp").onclick = async () => {
   sl = content("Evolução do projeto", "Marcos acumulados registrados no histórico do aplicativo");
   [["w", "Semanal · últimas 12 semanas", 0.527], ["m", "Mensal · últimos 6 meses", 6.9]].forEach(([mode, t, x]) => {
     const e = evo(d, mode); h2(sl, t, x, 1.4, 5.9);
+    if (!TCH().length) return sl.addText("Nenhuma etapa cadastrada.", { x, y: 2.4, w: 5.9, h: 0.5, fontFace: FT, fontSize: 14, color: TC.mid, margin: 0, isTextBox: true });
     sl.addChart(P.ChartType.line, TCH().map(([name, key]) => ({ name, labels: e.labels, values: e.rows.map(r => r[key]) })), {
       x, y: 1.8, w: 5.9, h: 4.5, chartColors: TCH().map(k => k[2]), lineSize: 2.25, lineDataSymbolSize: 6,
       catAxisLabelFontFace: FT, catAxisLabelFontSize: 9, catAxisLabelColor: TC.mid, valAxisLabelFontFace: FT, valAxisLabelFontSize: 9, valAxisLabelColor: TC.mid, valAxisMinVal: 0,
@@ -1211,8 +1243,9 @@ $("#rpp").onclick = async () => {
   note(sl, "O histórico é contabilizado a partir da ativação da função. Períodos anteriores sem movimento não significam, necessariamente, ausência de atividade.", 0.527, 6.5, 12.2, 0.5);
 
   // 5b — Cronograma do projeto (período do projeto aberto)
+  if (cfgK().length) {
   const pj = evoProj(d, "tot", true, undefined, evrRange("tot", curWin()));
-  sl = content(fyLabel(), `${dtBR(new Date(pj.T0))} a ${dtBR(new Date(pj.T1))}` + " · andamento total em pontos de adequação (média das 4 etapas: levantamento, desenho, Sphera e SAP)");
+  sl = content(fyLabel(), `${dtBR(new Date(pj.T0))} a ${dtBR(new Date(pj.T1))}` + ` · andamento total em pontos de adequação (média: ${kNames()})`);
   projKpis(pj, "pontos", "Andamento total").forEach(([v, l], i) => {
     const x = 0.527 + i * 2.47;
     sl.addShape(P.ShapeType.rect, { x, y: 1.35, w: 2.3, h: 1.15, fill: { color: "FFFFFF" }, line: { color: TC.light, width: 0.75 } });
@@ -1233,6 +1266,7 @@ $("#rpp").onclick = async () => {
   };
   sl.addImage({ data: U(projImg()), x: 0.527, y: 2.65, w: 12.2, h: 3.95, altText: `Gráfico do ${fyLabel().toLowerCase()} com andamento total realizado, projeção e meta linear` });
   note(sl, `Projeção: ritmo médio desde ${dtBR(new Date(pj.T0))} mantido até ${dtBR(new Date(pj.T1))}. Meta linear: avanço constante da data de início à data fim.`, 0.527, 6.68, 12.2, 0.4);
+  }
 
   // 5c — Suprimentos: orçamento e gastos
   sl = content("Suprimentos · Orçamento e gastos", `${proj.nome} · valores em R$`);
@@ -1595,11 +1629,13 @@ const _load = load; load = async function () { await loadCfg(); await _load(); }
 const _ah = abrirHome; abrirHome = async function (seq) { await loadAll(); return _ah(seq); };
 
 // ---- Andamento total = média das etapas ATIVAS ----
-andamento = function (list) { const pid = list.length ? list[0].projeto_id : (proj && proj.id), ks = keysFor(pid), n = list.length || 1;
+const cfgFor = pid => ETP2.map(e => e[0]).filter(k => par("etapa", pid).some(p => p.ativo && p.config && p.config.chave === k)); // só as etapas cadastradas (sem padrão)
+andamento = function (list) { const pid = list.length ? list[0].projeto_id : (proj && proj.id), ks = cfgFor(pid), n = list.length || 1;
+  if (!ks.length) return 0;
   return Math.round(100 * ks.reduce((t, k) => t + list.filter(ETM[k]).length, 0) / (ks.length * n)); };
 const _dash = dash;
 dash = function () { _dash();
-  try { const a = $("#dA").value, d = a ? rows.filter(r => r.area === a) : rows, ks = keysFor(proj.id), n = wsum(d) || 1;
+  try { const a = $("#dA").value, d = a ? rows.filter(r => r.area === a) : rows, ks = cfgFor(proj.id), n = wsum(d) || 1; if (!ks.length) return;
     const tp = Math.round(100 * ks.reduce((t, k) => t + wsum(d.filter(ETM[k])), 0) / (ks.length * n)), c = $("#kpis").children[1], nm = ks.map(k => ETP2.find(e => e[0] === k)[1].toLowerCase()).join(", ");
     c.querySelector("b").textContent = tp + "%"; c.querySelector("u").style.width = tp + "%"; c.querySelector("small").innerHTML = `<em>média das ${ks.length} etapas ativas (${esc(nm)})</em><br><i>faltam ${100 - tp}%</i>`; } catch (e) {}
 };
@@ -1727,7 +1763,7 @@ async function wzSave() {
   for (let i = 0; i < pts.length; i += 200) { r = await sb.from("pontos").insert(pts.slice(i, i + 200)); if (r.error) return `Projeto criado, mas a importação parou na linha ${i}: ${r.error.message}`; }
   logAcao("Criou projeto (assistente)", `${b.nome} · ${pts.length} pontos · ${ps.length} parâmetros`); wz.close(); abrirHome(++navSeq); return null;
 }
-window.lerArq = lerArq; window.etapasAtivas = () => keysFor(proj.id); $("#pNovo").onclick = wzOpen;
+window.lerArq = lerArq; window.etapasAtivas = () => keysFor(proj.id); window.etapasCfg = () => proj ? cfgFor(proj.id) : []; window.inativo = (cat, nome) => !!proj && !!nome && par(cat).some(p => !p.ativo && p.nome === nome); $("#pNovo").onclick = wzOpen;
 })();
 
 </script>
@@ -2211,10 +2247,11 @@ function gastoFin(img) {
   }
   return out;
 }
-window.supRel = (img) => { const s = supStats(SUP), d = x => x ? dtBR(parseD(x)) : "—"; // dados de suprimentos para os relatórios
+window.supRel = (img) => { const s = supStats(SUP), d = x => x ? dtBR(parseD(x)) : "—", okv = (cat, v) => !(window.inativo && v && window.inativo(cat, String(v))); // parâmetros inativos não aparecem nos relatórios; // dados de suprimentos para os relatórios
   return { t: s.t, fin: gastoFin(img), kp: [[s.t, "itens"], [pc3(s.rc, s.t), "com RC"], [pc3(s.pd, s.t), "com pedido"], [pc3(s.en, s.t), "entregues"], [`${s.at} (${pc3(s.at, s.t)})`, "atrasados"]],
     att: SUP.filter(i => atras(i) || semPrazo(i)).map(i => [i.codigo_sap || i.codigo_sphera || "—", i.descricao || "—", sitTxt(i), d(i.prazo_entrega)]),
-    rows: SUP.map(i => ({ ...Object.fromEntries(ORD.map(k => [ff(k)[1], i[k] ?? ""])), ...Object.fromEntries(xCampos().map(p => [xCol(p), xVal(i, p)])), "Situação": sitTxt(i) })) }; };
+    all: SUP.map(i => [i.codigo_sap || i.codigo_sphera || "—", String(i.descricao || "—").slice(0, 110), [i.quantidade ?? "", okv("sup_unidade", i.unidade) ? i.unidade || "" : ""].join(" ").trim() || "—", okv("sup_fornecedor", i.fornecedor) && i.fornecedor ? i.fornecedor : "—", sitTxt(i), d(i.prazo_entrega)]),
+    rows: SUP.map(i => ({ ...Object.fromEntries(ORD.map(k => [ff(k)[1], (k === "fornecedor" && !okv("sup_fornecedor", i[k])) || (k === "unidade" && !okv("sup_unidade", i[k])) ? "" : i[k] ?? ""])), ...Object.fromEntries(xCampos().map(p => [xCol(p), xVal(i, p)])), "Situação": sitTxt(i) })) }; };
 })();
 
 </script>
@@ -2330,14 +2367,15 @@ let tm=0;function sch(){cancelAnimationFrame(tm);tm=requestAnimationFrame(build)
 function build(){const k=$("#kpis"),top=$("#gxTop");if(!k||!top||k.children.length<7)return;
  const C=[...k.children],ev=$("#evk")?[...$("#evk").children]:[],val=c=>c?((c.querySelector("b")||{}).textContent||"").trim():"",lab=c=>c?((c.querySelector("span")||{}).textContent||"").trim():"";
  const fd=re=>ev.find(c=>re.test(c.textContent.toLowerCase())),at=fd(/atrás|atras/),me=fd(/meta linear/),te=fd(/término|termino/),late=at&&num(val(at))<0;
- const pc=C.map(val),E=[["Levantamento",2],["Desenho",4],["Sphera",5],["SAP",6]].map(([n,i])=>[n,Math.round(parseFloat(pc[i]))||0]);
- let gi=-1,gd=9;for(let i=1;i<4;i++){const d=E[i-1][1]-E[i][1];if(d>gd){gd=d;gi=i}}
+ const ks=window.etapasCfg?window.etapasCfg():["lev","des","sph","sap"],pc=C.map(val),d0=$("#dA").value?rows.filter(r=>r.area===$("#dA").value):rows,n0=wsum(d0)||1,
+ E=[["Levantamento",2,"lev"],["Em projeto",-1,"proj"],["Desenho",4,"des"],["Sphera",5,"sph"],["SAP",6,"sap"]].filter(x=>ks.includes(x[2])).map(([n,i])=>[n,i<0?Math.round(100*wsum(d0.filter(r=>si(r)>=1))/n0):(Math.round(parseFloat(pc[i]))||0)]);
+ let gi=-1,gd=9;for(let i=1;i<E.length;i++){const d=E[i-1][1]-E[i][1];if(d>gd){gd=d;gi=i}}
  const col=p=>p>=70?"#2e9e5b":p>=30?"#d9822b":"#d64545",bar=(n,p)=>`<div class="gx-b"><span>${esc(n)}</span><span class="gx-t"><i style="width:${Math.max(p,p>0?2:0)}%;background:${col(p)}"></i></span><span>${p}%</span></div>`;
- const ars=[...new Set(rows.map(r=>r.area).filter(Boolean))],pa=ars.map(a=>{let p=0;try{p=Number(andamento(rows.filter(r=>r.area===a)))||0}catch(e){}return bar(a,p)}).join("");
+ const ars=[...new Set(rows.map(r=>r.area).filter(Boolean))],pa=!ks.length?"":ars.map(a=>{let p=0;try{p=Number(andamento(rows.filter(r=>r.area===a)))||0}catch(e){}return bar(a,p)}).join("");
  const cards=[C[1],C[2],C[3],te].filter(Boolean).map(c=>c.outerHTML).join("");
  top.innerHTML=`<div class="gx-h"><span class="seg"><button data-gu="l" class="${unit==="l"?"on":""}">Linhas</button><button data-gu="p" class="${unit==="p"?"on":""}">Pontos</button></span><button id="gxPers" type="button">Personalizar painel</button></div>`
  +(late?`<div class="gx-al"><b>Projeto atrás da meta</b> · ${esc(val(at))} em relação à meta linear${te?` · término previsto ${esc(val(te))}${/após/.test(te.textContent.toLowerCase())?" (depois do prazo)":""}`:""}</div>`:"")
- +`<div class="cards gx-k">${cards}</div><div class="gx-et"><div class="card"><b>Etapas</b>${E.map(([n,p])=>bar(n,p)).join("")}${gi>0?`<span class="gx-g">Gargalo: ${esc(E[gi][0])} · ${E[gi-1][1]}% ${esc(E[gi-1][0].toLowerCase())} contra ${E[gi][1]}%</span>`:""}</div><div class="card"><b>Andamento por área</b>${pa||"—"}</div></div>`;
+ +`<div class="cards gx-k">${cards}</div><div class="gx-et"><div class="card"><b>Etapas</b>${E.length?E.map(([n,p])=>bar(n,p)).join(""):"<small>Nenhuma etapa cadastrada. Adicione em Parâmetros › Etapas do fluxo.</small>"}${gi>0?`<span class="gx-g">Gargalo: ${esc(E[gi][0])} · ${E[gi-1][1]}% ${esc(E[gi-1][0].toLowerCase())} contra ${E[gi][1]}%</span>`:""}</div><div class="card"><b>Andamento por área</b>${pa||"—"}</div></div>`;
  top.querySelectorAll(".gx-al").forEach(e=>e.classList.add("gx-al"));top.querySelector(".gx-k")&&0;
  const kk=top.querySelector(".gx-k");if(kk)kk.classList.add("gx-k");const et=top.querySelector(".gx-et");et&&et.classList.add("gx-et")}
 function pers(){let d=$("#gxDlg");if(!d){d=document.createElement("dialog");d.id="gxDlg";document.body.appendChild(d)}const o=pref();
