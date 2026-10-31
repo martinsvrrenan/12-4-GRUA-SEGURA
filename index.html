@@ -1615,7 +1615,7 @@ abrirProjeto = async function (id, tab, seq) { nb.classList.toggle("hide", !canP
 const det = p => p.categoria === "tipo" ? "unidade: " + ((p.config || {}).unidade || "—") : p.categoria === "etapa" ? "chave: " + ((p.config || {}).chave || "personalizada") : (p.categoria === "campo" || p.categoria === "sup_campo") ? ((p.config || {}).tipo || "texto") + ((p.config || {}).opcoes ? " (" + p.config.opcoes.join(", ") + ")" : "") : "";
 function renderPar() {
   if (!canProj) { sec.innerHTML = ""; return; }
-  sec.innerHTML = CAT.map(([c, t]) => `<div class="card"><div class="evh"><b>${t}</b>${c === "etapa" ? "" : `<button class="p" data-add="${c}">+ Adicionar</button>`}</div>` +
+  sec.innerHTML = CAT.map(([c, t]) => `<div class="card"><div class="evh"><b>${t}</b><button class="p" data-add="${c}">+ Adicionar</button></div>` +
     (par(c).map(p => `<div class="sl"><div><b>${esc(p.nome)}</b> <small>${esc(det(p))}${p.ativo ? "" : " · inativo"}</small></div><div class="ac"><button data-pe="${p.id}">Editar</button><button data-pt="${p.id}">${p.ativo ? "Desativar" : "Ativar"}</button></div></div>`).join("") || "<small>Nenhum parâmetro cadastrado.</small>") + "</div>").join("") +
     "<small>Etapas: o andamento total é a média das etapas ativas. Desativar não apaga dados. Os parâmetros de Suprimentos aparecem no cadastro, na tabela e na exportação dos itens deste projeto.</small>";
   sec.querySelectorAll("[data-add]").forEach(b => b.onclick = () => editPar(null, b.dataset.add));
@@ -1627,7 +1627,13 @@ function renderPar() {
 async function recarrega() { await loadCfg(); renderPar(); dash(); }
 async function editPar(p, cat) {
   if (!canProj) return; const c = p ? p.categoria : cat, cf = Object.assign({}, p && p.config);
-  const nome = (prompt("Nome:", p ? p.nome : "") || "").trim(); if (!nome) return;
+  if (c === "etapa" && !p) { // etapas disponíveis = as do fluxo que ainda não foram cadastradas neste projeto
+    const usadas = par("etapa").map(x => x.config && x.config.chave), livres = ETP2.filter(e => !usadas.includes(e[0]));
+    if (!livres.length) return alert("Todas as etapas do fluxo já estão cadastradas neste projeto.");
+    const r = parseInt(prompt("Qual etapa deseja adicionar? Digite o número:\n" + livres.map((e, i) => `${i + 1} - ${e[1]}`).join("\n"), "1"), 10), e = livres[r - 1];
+    if (!e) return; cf.chave = e[0]; var nome = e[1];
+  } else var nome = (prompt("Nome:", p ? p.nome : "") || "").trim();
+  if (!nome) return;
   if (c === "tipo") cf.unidade = (prompt("Unidade (ex.: un, m, m²):", cf.unidade || "un") || "un").trim();
   if (c === "campo" || c === "sup_campo") { const t = (prompt("Tipo do campo: texto, número, data ou lista", cf.tipo || "texto") || "texto").trim().toLowerCase(); cf.tipo = ["texto", "número", "numero", "data", "lista"].includes(t) ? t : "texto";
     if (cf.tipo === "lista") cf.opcoes = (prompt("Opções separadas por ;", (cf.opcoes || []).join(";")) || "").split(";").map(s => s.trim()).filter(Boolean); }
