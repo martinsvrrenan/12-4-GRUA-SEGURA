@@ -653,7 +653,7 @@ async function load() {
 }
 
 // ---------- Abas ----------
-document.querySelectorAll("nav button").forEach(b => b.onclick = () => { if (proj) location.hash = `#/projeto/${proj.id}/${b.dataset.r}`; });
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => { const id = proj ? proj.id : lastProjId; if (id) location.hash = `#/projeto/${id}/${b.dataset.r}`; });
 
 // ---------- Dashboard ----------
 const pct = (x, n) => `${Math.round(100 * x / n)}%`;
@@ -1372,11 +1372,42 @@ async function abrirHome(seq) {
   sols = so.error ? [] : so.data; // sem a tabela (SQL 07/08 não rodado) o app segue funcionando
   listaProjetos(); painelSolic();
 }
+// ---------- Logo automático da empresa (campo Cliente) ----------
+const LOGO_FIXOS = [[/ternium/i, () => TERN.logo]]; // marcas com logo próprio já embutido no app
+function logoCands(nome) {
+  nome = String(nome || "").trim(); if (!nome) return [];
+  for (const [re, f] of LOGO_FIXOS) if (re.test(nome)) return [f()];
+  const doms = [], dm = nome.match(/(?:https?:\/\/)?(?:www\.)?([a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,})/i); if (dm) doms.push(dm[1].toLowerCase());
+  const w = nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/&/g, " ").replace(/\bs\s*\.?\s*a\b\.?/g, " ")
+    .replace(/\b(ltda|ltd|inc|corp|corporation|company|cia|sa|me|epp|eireli|group|grupo|holding|brasil|brazil|do|da|de)\b/g, " ").replace(/[^a-z0-9 ]/g, " ").trim().split(/\s+/).filter(Boolean);
+  if (w.length) (w.length >= 3 ? [w[0], w.join("")] : [w.join(""), w[0]]).forEach(x => { if (x.length >= 3) [".com", ".com.br"].forEach(t => doms.push(x + t)); });
+  const out = []; [...new Set(doms)].forEach(d => { out.push(`https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&url=http://${d}&size=128`); out.push(`https://icons.duckduckgo.com/ip3/${d}.ico`); });
+  let ch = null; try { ch = localStorage.getItem("gs-logo:" + nome.toLowerCase()); } catch (e) {}
+  if (ch && ch.startsWith("http")) out.unshift(ch);
+  return [...new Set(out)].slice(0, 9);
+}
+function logoHtml(p) {
+  const n = String(p.cliente || "").trim(); if (!n) return "";
+  const ini = `<span class="plg" aria-hidden="true">${esc(n.charAt(0).toUpperCase())}</span>`; let ch = null;
+  try { ch = localStorage.getItem("gs-logo:" + n.toLowerCase()); } catch (e) {}
+  if (ch && ch.startsWith("none:") && Date.now() - Number(ch.slice(5)) < 6048e5) return ini; // não achou há menos de 7 dias: não insiste
+  const c = logoCands(n); if (!c.length) return ini;
+  return `<img class="plogo" alt="" loading="lazy" referrerpolicy="no-referrer" data-n="${esc(n)}" data-i="0" src="${esc(c[0])}">`;
+}
+function logoNext(im) {
+  const c = logoCands(im.dataset.n), i = +im.dataset.i + 1;
+  if (i < c.length) { im.dataset.i = i; im.src = c[i]; return; }
+  try { localStorage.setItem("gs-logo:" + im.dataset.n.toLowerCase(), "none:" + Date.now()); } catch (e) {}
+  const sp = document.createElement("span"); sp.className = "plg"; sp.setAttribute("aria-hidden", "true"); sp.textContent = im.dataset.n.charAt(0).toUpperCase(); im.replaceWith(sp);
+}
+document.addEventListener("error", e => { const im = e.target; if (im && im.classList && im.classList.contains("plogo")) logoNext(im); }, true);
+document.addEventListener("load", e => { const im = e.target; if (!im || !im.classList || !im.classList.contains("plogo") || im.src.startsWith("data:")) return;
+  if (im.naturalWidth < 20) return logoNext(im); try { localStorage.setItem("gs-logo:" + im.dataset.n.toLowerCase(), im.src); } catch (x) {} }, true);
 function listaProjetos() {
   const q = $("#hQ").value.trim().toLowerCase(), d = projs.filter(p => !q || [p.nome, p.cliente, p.localidade].join(" ").toLowerCase().includes(q));
   $("#pList").innerHTML = d.length ? d.map(p => { const sit = situacao(p, p.pct), pe = periodo(p);
     return `<article class="card pc" tabindex="0" role="link" data-id="${p.id}" aria-label="Abrir ${esc(p.nome)}">
-      <div class="pt"><h3>${esc(p.nome)}</h3><span class="tag" style="--c:${sit.c}">${sit.t}</span>${canProj ? menuHtml(p) : ""}</div>
+      <div class="pt">${logoHtml(p)}<h3>${esc(p.nome)}</h3><span class="tag" style="--c:${sit.c}">${sit.t}</span>${canProj ? menuHtml(p) : ""}</div>
       <div class="ps">${esc([p.cliente, p.localidade].filter(Boolean).join(" · ") || "—")}</div>
       <div class="ps">${dtBR(pe.ini)} a ${dtBR(pe.fim)}</div>
       <div class="pp"><b>${p.pct}%</b><span>andamento total</span></div><div class="pbar"><u style="width:${p.pct}%"></u></div>
@@ -1408,7 +1439,7 @@ async function abrirProjeto(id, tab, seq) {
   lastProjId = proj.id; setView("proj", TABS[t]); setHeader(proj.nome, [proj.cliente, proj.localidade].filter(Boolean).join(" · ") || perLabel());
   document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x.dataset.t === TABS[t]));
 }
-function abrirUsuarios() { proj = null; setView("users", "t4"); setHeader("Usuários", "Acessos e log de ações"); users(); }
+function abrirUsuarios() { proj = null; setView("users", "t4"); document.body.classList.toggle("has-last", !!lastProjId); document.querySelectorAll("nav button").forEach(x => x.classList.remove("on")); setHeader("Usuários", "Acessos e log de ações"); users(); }
 
 // ---------- Criar / editar / excluir projeto ----------
 function editarProjeto(p) {
@@ -1550,7 +1581,7 @@ $("#dA").onchange = dash; $("#evP").onchange = dash; $("#evS").onchange = dash;
 // ---- Aba Parâmetros (editor/admin) ----
 const sec = document.createElement("section"); sec.id = "t6"; sec.className = "hide"; $("main").appendChild(sec); SEC.push("t6"); TABS.parametros = "t6";
 const nb = document.createElement("button"); nb.dataset.t = "t6"; nb.dataset.r = "parametros"; nb.innerHTML = '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span>Parâmetros</span>';
-nb.onclick = () => { if (proj) location.hash = `#/projeto/${proj.id}/parametros`; }; $("nav").appendChild(nb);
+nb.onclick = () => { const id = proj ? proj.id : lastProjId; if (id) location.hash = `#/projeto/${id}/parametros`; }; $("nav").appendChild(nb);
 const _ap = abrirProjeto;
 abrirProjeto = async function (id, tab, seq) { nb.classList.toggle("hide", !canProj); if (tab === "parametros" && !canProj) tab = "dashboard";
   await _ap(id, tab, seq); if (proj && proj.id === id && tab === "parametros") renderPar(); };
@@ -1781,7 +1812,7 @@ const _load = load; load = async function () { await _load(); if (proj) await lo
 // ---- Aba Suprimentos ----
 const sec = document.createElement("section"); sec.id = "t7"; sec.className = "hide"; $("main").appendChild(sec); SEC.push("t7"); TABS.suprimentos = "t7";
 const nb = document.createElement("button"); nb.dataset.t = "t7"; nb.dataset.r = "suprimentos"; nb.innerHTML = '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/></svg><span>Suprimentos</span>';
-nb.onclick = () => { if (proj) location.hash = `#/projeto/${proj.id}/suprimentos`; }; $("nav").appendChild(nb);
+nb.onclick = () => { const id = proj ? proj.id : lastProjId; if (id) location.hash = `#/projeto/${id}/suprimentos`; }; $("nav").appendChild(nb);
 const _ap = abrirProjeto;
 abrirProjeto = async function (id, tab, seq) { await _ap(id, tab, seq); if (proj && proj.id === id && tab === "suprimentos") { if (canProj) await sync(true); renderSup(); } };
 const pontoDe = i => i.ponto_id != null ? rows.find(r => String(r.id) === String(i.ponto_id)) : null;
@@ -1794,7 +1825,11 @@ function renderSup() {
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0 12px"><label>Orçamento disponível (US$)<input id="sBu" type="number" min="0" step="any" value="${proj.orcamento_usd ?? ""}" ${canProj ? "" : "disabled"}></label>
   <label>Câmbio (R$ por US$)<input id="sBc" type="number" min="0" step="any" value="${proj.cambio_usd_brl ?? ""}" ${canProj ? "" : "disabled"}></label><label>Orçamento em R$<input id="sBr" disabled></label></div>
   <div class="cbx"><label class="sw"><input type="checkbox" id="sBauto" ${canProj ? "" : "disabled"}><span class="tr"></span><span class="lb">Atualizar câmbio automaticamente (todo dia)</span></label><small id="sBcs"></small></div><small class="err" id="sBe"></small>
-  <div class="cards" id="sV" style="margin-top:10px"></div><div class="ch"><canvas id="c6"></canvas></div></div>
+  <div class="cards" id="sV" style="margin-top:10px"></div>
+  <details class="gxd" id="sVd"><summary>Detalhamento do orçamento<small>previsto, em RC, em pedido, recebido e outros gastos</small></summary><div class="cards" id="sV2"></div></details>
+  <div class="ch"><canvas id="c6"></canvas></div>
+  <div class="sbx" id="gxEv"><div class="evh"><b>Evolução dos gastos do orçamento</b><small>acumulado por mês · R$</small></div><div class="ch"><canvas id="c7"></canvas></div><small id="c7m"></small></div>
+  <div class="sbx" id="gxOut"><div class="evh"><b>Outros gastos do orçamento</b>${canProj ? '<button class="p" id="gNew">+ Gasto</button>' : ""}</div><small>Elaboração dos projetos, fiscal do projeto e outros custos que saem do mesmo orçamento.</small><div id="gO"></div></div></div>
   <div class="cards" id="sK"></div><div class="grid"><div class="card"><b>Funil RC → Pedido → Entrega</b><div class="ch"><canvas id="c5"></canvas></div></div>
   <div class="card"><div class="evh"><b>Atenção</b><label style="margin:0">Sem RC há mais de <input id="sX" type="number" min="1" value="${X}" style="width:80px"> dias</label></div><div id="sA"></div></div></div>
   <div class="card tw"><table class="st"><thead><tr><th>Código SAP</th><th>Sphera</th><th>Descrição</th><th>Qtd</th><th>Valor unit.</th><th>Valor total</th><th>Situação</th><th>RC</th><th>Pedido</th><th>Prazo</th><th>Recebido</th>${xCampos().map(p => `<th>${esc(p.nome)}</th>`).join("")}</tr></thead><tbody id="sT"></tbody></table></div><small id="sC"></small>`;
@@ -1802,6 +1837,9 @@ function renderSup() {
   $("#sX").onchange = e => { X = Math.max(1, +e.target.value || 15); pinta(); }; $("#sExp").onclick = exporta; if ($("#sRcs")) $("#sRcs").onclick = copiaRcs;
   if (canProj) { $("#sNew").onclick = () => editaItem(null); $("#sImp").onclick = impOpen; $("#sBu").onchange = $("#sBc").onchange = salvaOrc; $("#sBauto").onchange = e => { if (!e.target.checked) { try { if (localStorage.getItem(cambManKey()) == null) localStorage.setItem(cambManKey(), $("#sBc").value); } catch (x) {} } cambSetAuto(e.target.checked); cambAplica().then(() => { if (canProj && !e.target.checked) salvaOrc(); }); }; } pinta(); pintaOrc(); cambAplica();
 }
+const _renderSup = renderSup;
+renderSup = function () { _renderSup(); if (canProj && $("#gNew")) $("#gNew").onclick = () => editaGasto(null); pintaGas();
+  const id = proj && proj.id; loadGas().then(() => { if (proj && proj.id === id && $("#c7")) { pintaOrc(); pintaGas(); } }); };
 // ---------- Câmbio USD→BRL automático (PTAX do Banco Central; reserva: AwesomeAPI) ----------
 const CAMB_KEY = "gs-cambio-auto", CAMB_CACHE = "gs-cambio-cache";
 const cambAuto = () => { try { return localStorage.getItem(CAMB_KEY) !== "0"; } catch (e) { return true; } };
@@ -1851,19 +1889,83 @@ async function salvaOrc() {
   proj.orcamento_usd = u; proj.cambio_usd_brl = c; if (!cambAuto()) { try { localStorage.setItem(cambManKey(), c == null ? "" : String(c)); } catch (e) {} } const pj = projs.find(x => x.id === proj.id); if (pj && pj !== proj) { pj.orcamento_usd = u; pj.cambio_usd_brl = c; }
   logP("Atualizou orçamento do projeto", `US$ ${u ?? "—"} · câmbio ${c ?? "—"}`); pintaOrc();
 }
+// ---- Outros gastos do orçamento (projeto, fiscal etc.) ----
+let GAS = [], GAS_PID = null; window.__gasErr = "";
+const gasOk = () => !!proj && GAS_PID === proj.id, gasLista = () => gasOk() ? GAS : [], gasTot = () => gasLista().reduce((t, g) => t + (Number(g.valor) || 0), 0);
+async function loadGas() { if (!proj) return; const id = proj.id, { data, error } = await sb.from("projeto_gastos").select("*").eq("projeto_id", id).order("data").order("id").limit(5000);
+  if (!proj || proj.id !== id) return; GAS = error ? [] : data; GAS_PID = id; window.__gasErr = error ? error.message : ""; }
 function pintaOrc() {
-  const u = proj.orcamento_usd != null ? Number(proj.orcamento_usd) : null, c = proj.cambio_usd_brl > 0 ? Number(proj.cambio_usd_brl) : null, orc = u != null && c ? u * c : null, v = supValores(SUP);
-  const toU = r => c ? r / c : null, sal = orc != null ? orc - v.comp : null, pct = orc ? Math.round(100 * v.comp / orc) + "%" : "—";
+  const u = proj.orcamento_usd != null ? Number(proj.orcamento_usd) : null, c = proj.cambio_usd_brl > 0 ? Number(proj.cambio_usd_brl) : null, orc = u != null && c ? u * c : null, v = supValores(SUP), og = gasTot(), comp = v.comp + og;
+  const toU = r => c ? r / c : null, sal = orc != null ? orc - comp : null, pct = orc ? Math.round(100 * comp / orc) + "%" : "—";
   $("#sBr").value = orc != null ? fR(orc) : (u != null ? "Informe o câmbio" : "");
   const sm = k => SUP.reduce((a, i) => a + (Number(i[k]) || 0), 0);
   const kp = (r, l, extra) => `<div class="card kpi" style="margin:0"><b class="sm"${extra || ""}>${fR(r)}</b><span>${l}</span><small>${c || r == null ? fU(r == null ? null : toU(r)) : "US$ — (informe o câmbio)"}</small></div>`;
+  // Resumo: só orçamento disponível, saldo livre e utilizado; o resto fica no "Detalhamento" (expansível)
   $("#sV").innerHTML = (orc != null ? kp(orc, "Orçamento disponível") : `<div class="card kpi" style="margin:0"><b class="sm">${u != null ? fU(u) : "—"}</b><span>Orçamento disponível</span><small>${u != null ? "informe o câmbio para ver em R$" : "informe o valor acima"}</small></div>`)
-    + kp(v.prev, "Previsto (itens sem RC)", ' data-sit="Sem RC"') + kp(v.rc, "Em RC (sem pedido)", ' data-sit="RC emitida"') + kp(v.pd, "Em pedido (contratado, a receber)", ' data-sit="Pedido emitido"') + kp(v.rec, "Recebido (realizado)", ' data-sit="Entregue"') + kp(v.comp, `Utilizado do orçamento (${pct})`) + (window.__novos ? kp(sm("valor_cotado"), "Cotado") + kp(sm("valor_pago"), "Pago") : "")
-    + (sal != null ? kp(sal, sal < 0 ? "Estouro do orçamento" : "Saldo livre", sal < 0 ? ' style="color:#d64545"' : "") : "");
-  const lab = ["Recebido", "Em pedido", "Em RC"], dat = [v.rec, v.pd, v.rc], col = ["#2e9e5b", "#3b82c4", "#f2a93b"];
+    + (sal != null ? kp(sal, sal < 0 ? "Estouro do orçamento" : "Saldo livre", sal < 0 ? ' style="color:#d64545"' : "") : "")
+    + kp(comp, `Utilizado do orçamento (${pct})`);
+  $("#sV2").innerHTML = kp(v.prev, "Previsto (itens sem RC)", ' data-sit="Sem RC"') + kp(v.rc, "Em RC (sem pedido)", ' data-sit="RC emitida"') + kp(v.pd, "Em pedido (contratado, a receber)", ' data-sit="Pedido emitido"') + kp(v.rec, "Recebido (realizado)", ' data-sit="Entregue"')
+    + kp(v.comp, "Itens de suprimentos (RC + pedido + recebido)") + kp(og, "Outros gastos (projeto, fiscal…)") + (window.__novos ? kp(sm("valor_cotado"), "Cotado") + kp(sm("valor_pago"), "Pago") : "");
+  const lab = ["Recebido", "Em pedido", "Em RC", "Outros gastos"], dat = [v.rec, v.pd, v.rc, og], col = ["#2e9e5b", "#3b82c4", "#f2a93b", "#8b5cf6"];
   if (sal != null && sal > 0) { lab.push("Saldo livre"); dat.push(sal); col.push("#d5dae2"); }
   charts.c6?.destroy(); charts.c6 = new Chart($("#c6"), { type: "doughnut", data: { labels: lab, datasets: [{ data: dat, backgroundColor: col }] },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, tooltip: { callbacks: { label: t => ` ${t.label}: ${fR(t.parsed)}${c ? " · " + fU(t.parsed / c) : ""}` } } } } });
+  pintaEvo(orc);
+}
+// Evolução acumulada por mês: utilizado (itens por data da RC/pedido + outros gastos), realizado (recebido + outros gastos) e linha do orçamento
+function pintaEvo(orc) {
+  const cv = $("#c7"); if (!cv) return;
+  const D = x => String(x || "").slice(0, 10), okD = d => /^\d{4}-\d{2}-\d{2}$/.test(d), ev = [];
+  SUP.forEach(i => { const st = sitOf(i), x = vTot(i) || 0; if (!x || st === 0) return;
+    const dc = D(st === 3 ? (i.pedido_data || i.rc_data || i.data_recebimento) : st === 2 ? (i.pedido_data || i.rc_data) : i.rc_data) || D(i.created_at);
+    if (okD(dc)) ev.push([dc, x, 0]); if (st === 3 && okD(D(i.data_recebimento))) ev.push([D(i.data_recebimento), x, 1]); });
+  gasLista().forEach(g => { const d = D(g.data), x = Number(g.valor) || 0; if (okD(d) && x) { ev.push([d, x, 0]); ev.push([d, x, 1]); } });
+  cv.parentElement.style.display = ev.length ? "" : "none"; const msg = $("#c7m");
+  if (msg) msg.textContent = ev.length ? "" : "Ainda não há gastos com data para montar a evolução. Itens com RC, pedido ou recebimento e os outros gastos aparecem aqui.";
+  if (!ev.length) { charts.c7?.destroy(); charts.c7 = null; return; }
+  const ym = d => d.slice(0, 7), hojeM = ym(ymd(hj())), ms = ev.map(e => ym(e[0])).sort(), ini = ms[0], fim = ms[ms.length - 1] > hojeM ? ms[ms.length - 1] : hojeM, keys = [];
+  let [y, m] = ini.split("-").map(Number); while (y + "-" + String(m).padStart(2, "0") <= fim) { keys.push(y + "-" + String(m).padStart(2, "0")); if (m === 12) { y++; m = 1; } else m++; }
+  const add = [{}, {}]; ev.forEach(e => { const k = ym(e[0]); add[e[2]][k] = (add[e[2]][k] || 0) + e[1]; });
+  let a0 = 0, a1 = 0; const s0 = [], s1 = []; keys.forEach(k => { a0 += add[0][k] || 0; a1 += add[1][k] || 0; s0.push(Math.round(a0 * 100) / 100); s1.push(Math.round(a1 * 100) / 100); });
+  const c = proj.cambio_usd_brl > 0 ? Number(proj.cambio_usd_brl) : null, cp = v => v >= 1e6 ? "R$ " + (v / 1e6).toFixed(1).replace(".", ",") + " mi" : v >= 1e3 ? "R$ " + Math.round(v / 1e3) + " mil" : "R$ " + v;
+  const ds = [{ label: "Utilizado (comprometido)", data: s0, borderColor: "#3b82c4", backgroundColor: "#3b82c433", fill: true, tension: .25, pointRadius: 2 }, { label: "Realizado (recebido + outros gastos)", data: s1, borderColor: "#2e9e5b", tension: .25, pointRadius: 2 }];
+  if (orc != null) ds.push({ label: "Orçamento disponível", data: keys.map(() => orc), borderColor: "#d64545", borderDash: [6, 4], pointRadius: 0, fill: false });
+  charts.c7?.destroy(); charts.c7 = new Chart(cv, { type: "line", data: { labels: keys.map(k => k.slice(5) + "/" + k.slice(2, 4)), datasets: ds },
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: "index", intersect: false }, scales: { y: { beginAtZero: true, ticks: { callback: cp } } },
+      plugins: { legend: { position: "bottom" }, tooltip: { callbacks: { label: t => ` ${t.dataset.label}: ${fR(t.parsed.y)}${c ? " · " + fU(t.parsed.y / c) : ""}` } } } } });
+}
+function pintaGas() {
+  const el = $("#gO"); if (!el) return;
+  if (window.__gasErr) { el.innerHTML = `<p class="err">${esc(window.__gasErr)}${/projeto_gastos/.test(window.__gasErr) ? " — execute o SQL fase3_06_projeto_gastos.sql no Supabase." : ""}</p>`; return; }
+  if (!gasOk()) { el.innerHTML = "<small>Carregando…</small>"; return; }
+  const L = GAS, c = proj.cambio_usd_brl > 0 ? Number(proj.cambio_usd_brl) : null, d = x => x ? dtBR(parseD(x)) : "—";
+  el.innerHTML = L.length ? L.map(g => `<div class="gl${canProj ? " ed" : ""}" data-id="${g.id}"><div><b>${esc(g.descricao)}</b><small>${esc([g.categoria, d(g.data), g.observacao].filter(Boolean).join(" · "))}</small></div><div class="gv">${fR(g.valor)}${c ? `<small>${fU(Number(g.valor) / c)}</small>` : ""}</div></div>`).join("")
+    + `<div class="gl"><b>Total de outros gastos</b><div class="gv">${fR(gasTot())}</div></div>`
+    : `<small>Nenhum gasto lançado. ${canProj ? "Use “+ Gasto” para incluir" : "Aqui aparecem"} elaboração dos projetos, fiscal do projeto etc.</small>`;
+  if (canProj) el.querySelectorAll(".gl.ed").forEach(r => r.onclick = () => editaGasto(GAS.find(g => String(g.id) === r.dataset.id)));
+}
+const gd = document.createElement("dialog"); gd.id = "gsGasto"; document.body.appendChild(gd);
+function editaGasto(g) {
+  if (!canProj) return;
+  const cats = ["Elaboração dos projetos", "Fiscal do projeto", "Outros"];
+  gd.innerHTML = `<form id="gF"><h3>${g ? "Editar gasto" : "Novo gasto do orçamento"}</h3><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0 12px">
+    <label style="grid-column:1/-1">Descrição<input name="descricao" required value="${esc(g?.descricao ?? "")}" placeholder="Ex.: Elaboração dos projetos – etapa 1"></label>
+    <label>Categoria<input name="categoria" list="gCat" value="${esc(g?.categoria ?? "")}" placeholder="Escolha ou digite"><datalist id="gCat">${cats.map(x => `<option value="${x}">`).join("")}</datalist></label>
+    <label>Valor (R$)<input name="valor" inputmode="decimal" required value="${g ? esc(String(g.valor).replace(".", ",")) : ""}" placeholder="0,00"></label>
+    <label>Data<input name="data" type="date" required value="${esc(g?.data ?? ymd(hj()))}"></label>
+    <label style="grid-column:1/-1">Observação<input name="observacao" value="${esc(g?.observacao ?? "")}"></label></div>
+    <p class="err" id="gE"></p><div class="bar" style="margin-top:12px"><button class="p">Salvar</button><button type="button" id="gCx">Cancelar</button>${g ? '<button type="button" class="d" id="gDel">Excluir</button>' : ""}</div></form>`;
+  $("#gCx").onclick = () => gd.close();
+  if ($("#gDel")) $("#gDel").onclick = async () => { if (!confirm("Excluir este gasto?")) return; const { data, error } = await sb.from("projeto_gastos").delete().eq("id", g.id).select("id");
+    if (error || !data?.length) return $("#gE").textContent = error ? error.message : "Sem permissão para excluir."; logP("Excluiu gasto do orçamento", g.descricao); gd.close(); await loadGas(); pintaOrc(); pintaGas(); };
+  $("#gF").onsubmit = async e => { e.preventDefault(); const o = Object.fromEntries(new FormData(e.target)), val = brNum(o.valor);
+    if (val == null || val < 0) return $("#gE").textContent = "Informe um valor válido (em R$).";
+    const row = { descricao: o.descricao.trim(), categoria: cl(o.categoria), valor: val, data: o.data, observacao: cl(o.observacao) };
+    if (!row.descricao) return $("#gE").textContent = "Informe a descrição.";
+    const { data, error } = await (g ? sb.from("projeto_gastos").update(row).eq("id", g.id).select("id") : sb.from("projeto_gastos").insert({ ...row, projeto_id: proj.id }).select("id"));
+    if (error || !data?.length) return $("#gE").textContent = error ? error.message + (/projeto_gastos/.test(error.message) ? " — execute o SQL fase3_06_projeto_gastos.sql." : "") : "Sem permissão para salvar.";
+    logP(g ? "Editou gasto do orçamento" : "Incluiu gasto do orçamento", `${row.descricao} · ${fR(val)}`); gd.close(); await loadGas(); pintaOrc(); pintaGas(); };
+  gd.showModal();
 }
 function filtrados() { const q = F.q.toLowerCase(); return SUP.filter(i => { const p = pontoDe(i);
   return (!F.sit || sitTxt(i) === F.sit || (F.sit === "Sem prazo" && semPrazo(i))) && (!F.area || (p && p.area === F.area)) && (!F.tipo || (p && p.tipo_projeto === F.tipo)) && (!q || [i.codigo_sap, i.codigo_sphera, i.descricao, ...xCampos().map(p => xVal(i, p))].join(" ").toLowerCase().includes(q)); }); }
@@ -2045,7 +2147,7 @@ document.querySelectorAll("#login input").forEach(i=>i.addEventListener("keydown
   const m = $("#mMenu"), btn = $("#mBtn"), B = document.body;
   const close = () => { m.classList.add("hide"); btn.setAttribute("aria-expanded", "false"); };
   const refresh = () => {
-    const inProj = B.classList.contains("v-proj") && proj, alvo = inProj ? proj.id : lastProjId; // na aba Usuários, as abas valem para o último projeto aberto
+    const inProj = B.classList.contains("v-proj") && proj, alvo = inProj ? proj.id : (B.classList.contains("v-users") ? lastProjId : null); // só dentro do projeto (ou em Usuários, para voltar a ele) aparecem as abas; na tela inicial só o básico
     m.querySelectorAll("[data-r]").forEach(b => {
       const nb = document.querySelector(`nav button[data-r="${b.dataset.r}"]`);
       b.classList.toggle("hide", !(alvo && nb && !nb.classList.contains("hide")));
@@ -2097,6 +2199,19 @@ document.querySelectorAll("#login input").forEach(i=>i.addEventListener("keydown
 @media(max-width:760px){#t2 .bar #fA,#t2 .bar #fS{display:none}#t2 .bar.gx-f #fA,#t2 .bar.gx-f #fS{display:block}
 #tb tr{flex-direction:row;flex-wrap:wrap;gap:0 10px;padding:8px 12px}#tb td{flex:1 1 100%}#tb td:has(.add){flex:1 1 calc(50% - 10px);align-items:center;padding:2px 0}#tb td:has(.add)::before{flex:1 1 auto}#t2.gx-area td[data-l="Área"]{display:none}}
 html[data-theme=dark] .gxd,html[data-theme=dark] .stb button.on{background:#151c2b}html[data-theme=dark] .stb{background:#0f1522}html[data-theme=dark] .gx-al,html[data-theme=dark] .gx-g{background:#3a1b1f;color:#ffb4b4;border-color:#7a3a3a}
+
+/* ===== Ajustes: resumo de suprimentos, gastos, logo, barra em Usuários ===== */
+#sV2{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))!important}#sV2 .kpi{container-type:inline-size;min-width:0;cursor:pointer}@supports(font-size:1cqw){#sV2 .kpi b.sm{font-size:clamp(12px,10cqw,24px)}}
+#sVd{margin:12px 0}#sVd .cards{margin-bottom:12px}
+.sbx{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}.sbx .ch{margin-top:8px}
+.gl{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}.gl.ed{cursor:pointer}.gl.ed:hover{background:#f7f9fd}
+.gl b{display:block;overflow-wrap:anywhere}.gl small{display:block}.gl .gv{font-weight:800;color:var(--ink);white-space:nowrap;text-align:right}.gl .gv small{font-weight:600}
+html[data-theme=dark] .gl.ed:hover{background:#1b2540}
+.plogo,.plg{width:40px;height:40px;flex:none;border-radius:10px;border:1px solid var(--line)}.plogo{background:#fff;object-fit:contain;padding:4px}
+.plg{display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px;color:var(--navy);background:#eef2fa}
+html[data-theme=dark] .plg{background:#1b2540;color:var(--ink)}
+.pc .pt{align-items:center}
+@media(max-width:899px){body.v-users.has-last nav{display:flex}body.v-users.has-last main{padding-bottom:calc(92px + env(safe-area-inset-bottom,0px))}}
 </style>
 <script id="gx-js">
 (function(){
@@ -2163,7 +2278,7 @@ function sup(){const sec=$("#t7"),sB=$("#sB");if(!sec||!sB||sec.querySelector(".
  const a=document.createElement("div");a.className="card";a.id="gxAn";pr.append(sB,a,kd,fd);pi.append(fil,tb,cn);
  const tabs=document.createElement("div");tabs.className="stb";tabs.innerHTML='<button data-p="r">Resumo</button><button data-p="i">Itens</button><button data-p="a">Atenção</button>';
  tabs.onclick=e=>{const b=e.target.closest("button");if(b){tab=b.dataset.p;show()}};sec.append(tabs,pr,pi,pa);an();show()}
-document.addEventListener("click",e=>{const c=e.target.closest("#sV .kpi");if(!c)return;const s=c.querySelector("[data-sit]");if(!s)return;tab="i";show();const f=$("#sFs");if(f){f.value=s.dataset.sit;f.dispatchEvent(new Event("change"))}});
+document.addEventListener("click",e=>{const c=e.target.closest("#sV .kpi,#sV2 .kpi");if(!c)return;const s=c.querySelector("[data-sit]");if(!s)return;tab="i";show();const f=$("#sFs");if(f){f.value=s.dataset.sit;f.dispatchEvent(new Event("change"))}});
 const t7=$("#t7");t7&&new MutationObserver(sup).observe(t7,{childList:true});sup();gxInit();
 })();
 </script>
