@@ -1407,8 +1407,8 @@ function listaProjetos() {
   const q = $("#hQ").value.trim().toLowerCase(), d = projs.filter(p => !q || [p.nome, p.cliente, p.localidade].join(" ").toLowerCase().includes(q));
   $("#pList").innerHTML = d.length ? d.map(p => { const sit = situacao(p, p.pct), pe = periodo(p);
     return `<article class="card pc" tabindex="0" role="link" data-id="${p.id}" aria-label="Abrir ${esc(p.nome)}">
-      <div class="pt">${logoHtml(p)}<h3>${esc(p.nome)}</h3><span class="tag" style="--c:${sit.c}">${sit.t}</span>${canProj ? menuHtml(p) : ""}</div>
-      <div class="ps">${esc([p.cliente, p.localidade].filter(Boolean).join(" · ") || "—")}</div>
+      <div class="pt"><h3>${esc(p.nome)}</h3><span class="tag" style="--c:${sit.c}">${sit.t}</span>${canProj ? menuHtml(p) : ""}</div>
+      <div class="ps cli">${logoHtml(p)}<span>${esc([p.cliente, p.localidade].filter(Boolean).join(" · ") || "—")}</span></div>
       <div class="ps">${dtBR(pe.ini)} a ${dtBR(pe.fim)}</div>
       <div class="pp"><b>${p.pct}%</b><span>andamento total</span></div><div class="pbar"><u style="width:${p.pct}%"></u></div>
       ${solDe(p) ? `<div class="aviso">⏳ Exclusão solicitada por ${esc(solDe(p).solicitante_email || "um editor")}</div>` : ""}
@@ -1939,7 +1939,7 @@ function pintaGas() {
   if (window.__gasErr) { el.innerHTML = `<p class="err">${esc(window.__gasErr)}${/projeto_gastos/.test(window.__gasErr) ? " — execute o SQL fase3_06_projeto_gastos.sql no Supabase." : ""}</p>`; return; }
   if (!gasOk()) { el.innerHTML = "<small>Carregando…</small>"; return; }
   const L = GAS, c = proj.cambio_usd_brl > 0 ? Number(proj.cambio_usd_brl) : null, d = x => x ? dtBR(parseD(x)) : "—";
-  el.innerHTML = L.length ? L.map(g => `<div class="gl${canProj ? " ed" : ""}" data-id="${g.id}"><div><b>${esc(g.descricao)}</b><small>${esc([g.categoria, d(g.data), g.observacao].filter(Boolean).join(" · "))}</small></div><div class="gv">${fR(g.valor)}${c ? `<small>${fU(Number(g.valor) / c)}</small>` : ""}</div></div>`).join("")
+  el.innerHTML = L.length ? L.map(g => `<div class="gl${canProj ? " ed" : ""}" data-id="${g.id}"><div><b>${esc(g.descricao)}</b><small>${esc([g.categoria, d(g.data), g.observacao].filter(Boolean).join(" · "))}</small></div><div class="gv">${fR(g.valor)}${g.valor_usd != null ? `<small>${fU(g.valor_usd)} lançado</small>` : c ? `<small>${fU(Number(g.valor) / c)}</small>` : ""}</div></div>`).join("")
     + `<div class="gl"><b>Total de outros gastos</b><div class="gv">${fR(gasTot())}</div></div>`
     : `<small>Nenhum gasto lançado. ${canProj ? "Use “+ Gasto” para incluir" : "Aqui aparecem"} elaboração dos projetos, fiscal do projeto etc.</small>`;
   if (canProj) el.querySelectorAll(".gl.ed").forEach(r => r.onclick = () => editaGasto(GAS.find(g => String(g.id) === r.dataset.id)));
@@ -1951,7 +1951,8 @@ function editaGasto(g) {
   gd.innerHTML = `<form id="gF"><h3>${g ? "Editar gasto" : "Novo gasto do orçamento"}</h3><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0 12px">
     <label style="grid-column:1/-1">Descrição<input name="descricao" required value="${esc(g?.descricao ?? "")}" placeholder="Ex.: Elaboração dos projetos – etapa 1"></label>
     <label>Categoria<input name="categoria" list="gCat" value="${esc(g?.categoria ?? "")}" placeholder="Escolha ou digite"><datalist id="gCat">${cats.map(x => `<option value="${x}">`).join("")}</datalist></label>
-    <label>Valor (R$)<input name="valor" inputmode="decimal" required value="${g ? esc(String(g.valor).replace(".", ",")) : ""}" placeholder="0,00"></label>
+    <label>Moeda<select name="moeda"><option value="BRL">R$ (real)</option><option value="USD" ${g && g.valor_usd != null ? "selected" : ""}>US$ (dólar)</option></select></label>
+    <label>Valor<input name="valor" inputmode="decimal" required value="${g ? esc(String(g.valor_usd != null ? g.valor_usd : g.valor).replace(".", ",")) : ""}" placeholder="0,00"></label>
     <label>Data<input name="data" type="date" required value="${esc(g?.data ?? ymd(hj()))}"></label>
     <label style="grid-column:1/-1">Observação<input name="observacao" value="${esc(g?.observacao ?? "")}"></label></div>
     <p class="err" id="gE"></p><div class="bar" style="margin-top:12px"><button class="p">Salvar</button><button type="button" id="gCx">Cancelar</button>${g ? '<button type="button" class="d" id="gDel">Excluir</button>' : ""}</div></form>`;
@@ -1959,12 +1960,14 @@ function editaGasto(g) {
   if ($("#gDel")) $("#gDel").onclick = async () => { if (!confirm("Excluir este gasto?")) return; const { data, error } = await sb.from("projeto_gastos").delete().eq("id", g.id).select("id");
     if (error || !data?.length) return $("#gE").textContent = error ? error.message : "Sem permissão para excluir."; logP("Excluiu gasto do orçamento", g.descricao); gd.close(); await loadGas(); pintaOrc(); pintaGas(); };
   $("#gF").onsubmit = async e => { e.preventDefault(); const o = Object.fromEntries(new FormData(e.target)), val = brNum(o.valor);
-    if (val == null || val < 0) return $("#gE").textContent = "Informe um valor válido (em R$).";
-    const row = { descricao: o.descricao.trim(), categoria: cl(o.categoria), valor: val, data: o.data, observacao: cl(o.observacao) };
+    if (val == null || val < 0) return $("#gE").textContent = "Informe um valor válido.";
+    const cb = proj.cambio_usd_brl > 0 ? Number(proj.cambio_usd_brl) : null, usd = o.moeda === "USD";
+    if (usd && !cb) return $("#gE").textContent = "Para lançar em dólar, informe o câmbio no bloco Orçamento e câmbio.";
+    const row = { descricao: o.descricao.trim(), categoria: cl(o.categoria), valor: usd ? Math.round(val * cb * 100) / 100 : val, valor_usd: usd ? val : null, data: o.data, observacao: cl(o.observacao) };
     if (!row.descricao) return $("#gE").textContent = "Informe a descrição.";
     const { data, error } = await (g ? sb.from("projeto_gastos").update(row).eq("id", g.id).select("id") : sb.from("projeto_gastos").insert({ ...row, projeto_id: proj.id }).select("id"));
     if (error || !data?.length) return $("#gE").textContent = error ? error.message + (/projeto_gastos/.test(error.message) ? " — execute o SQL fase3_06_projeto_gastos.sql." : "") : "Sem permissão para salvar.";
-    logP(g ? "Editou gasto do orçamento" : "Incluiu gasto do orçamento", `${row.descricao} · ${fR(val)}`); gd.close(); await loadGas(); pintaOrc(); pintaGas(); };
+    logP(g ? "Editou gasto do orçamento" : "Incluiu gasto do orçamento", `${row.descricao} · ${usd ? fU(val) : fR(val)}`); gd.close(); await loadGas(); pintaOrc(); pintaGas(); };
   gd.showModal();
 }
 function filtrados() { const q = F.q.toLowerCase(); return SUP.filter(i => { const p = pontoDe(i);
@@ -2210,7 +2213,9 @@ html[data-theme=dark] .gl.ed:hover{background:#1b2540}
 .plogo,.plg{width:40px;height:40px;flex:none;border-radius:10px;border:1px solid var(--line)}.plogo{background:#fff;object-fit:contain;padding:4px}
 .plg{display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px;color:var(--navy);background:#eef2fa}
 html[data-theme=dark] .plg{background:#1b2540;color:var(--ink)}
-.pc .pt{align-items:center}
+.pc .pt{align-items:flex-start}.pc .cli{display:flex;align-items:center;gap:8px}.cli .plogo,.cli .plg{width:30px;height:30px;border-radius:8px;padding:3px;font-size:14px}
+@media(max-width:899px){body.v-proj #mBtn,body.v-users.has-last #mBtn{display:none!important}
+body.v-proj #mMenu,body.v-users.has-last #mMenu{top:auto;bottom:calc(76px + env(safe-area-inset-bottom,0px));left:10px;right:10px;max-height:calc(100vh - 160px);box-shadow:0 -10px 36px #0f1b2d33}}
 @media(max-width:899px){body.v-users.has-last nav{display:flex}body.v-users.has-last main{padding-bottom:calc(92px + env(safe-area-inset-bottom,0px))}}
 </style>
 <script id="gx-js">
