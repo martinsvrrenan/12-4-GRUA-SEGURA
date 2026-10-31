@@ -2244,6 +2244,7 @@ document.querySelectorAll("#login input").forEach(i=>i.addEventListener("keydown
 #gxTop{margin-bottom:14px}.gx-h{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
 .gx-al{background:#fdecec;border:1px solid #e08a8a;color:#8a1f1f;border-radius:12px;padding:10px 14px;margin-bottom:10px}
 .gx-k{margin-bottom:12px}.gx-bad{color:#d64545}
+#evS,#evP{display:none!important}.evh .bar .gxsg{flex:1 1 100%;margin:0;flex-wrap:wrap}.gxsg button{flex:1 1 auto;padding:9px 10px;font-size:12.5px;white-space:nowrap}
 .gx-et{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:14px}.gx-et .card{margin:0}
 .gx-b{display:grid;grid-template-columns:104px 1fr 40px;gap:8px;align-items:center;margin-top:9px;font-size:13px}
 .gx-t{display:block;height:8px;border-radius:4px;background:var(--line);overflow:hidden}.gx-t i{display:block;height:100%}
@@ -2315,7 +2316,7 @@ function build(){const k=$("#kpis"),top=$("#gxTop");if(!k||!top||k.children.leng
  let gi=-1,gd=9;for(let i=1;i<4;i++){const d=E[i-1][1]-E[i][1];if(d>gd){gd=d;gi=i}}
  const col=p=>p>=70?"#2e9e5b":p>=30?"#d9822b":"#d64545",bar=(n,p)=>`<div class="gx-b"><span>${esc(n)}</span><span class="gx-t"><i style="width:${Math.max(p,p>0?2:0)}%;background:${col(p)}"></i></span><span>${p}%</span></div>`;
  const ars=[...new Set(rows.map(r=>r.area).filter(Boolean))],pa=ars.map(a=>{let p=0;try{p=Number(andamento(rows.filter(r=>r.area===a)))||0}catch(e){}return bar(a,p)}).join("");
- const cards=[C[1],C[3],me,at,te].filter(Boolean).map(c=>c===at&&late?c.outerHTML.replace("<b>",'<b class="gx-bad">'):c.outerHTML).join("");
+ const cards=[C[1],C[2],C[3],te].filter(Boolean).map(c=>c.outerHTML).join("");
  top.innerHTML=`<div class="gx-h"><span class="seg"><button data-gu="l" class="${unit==="l"?"on":""}">Linhas</button><button data-gu="p" class="${unit==="p"?"on":""}">Pontos</button></span><button id="gxPers" type="button">Personalizar painel</button></div>`
  +(late?`<div class="gx-al"><b>Projeto atrás da meta</b> · ${esc(val(at))} em relação à meta linear${te?` · término previsto ${esc(val(te))}${/após/.test(te.textContent.toLowerCase())?" (depois do prazo)":""}`:""}</div>`:"")
  +`<div class="cards gx-k">${cards}</div><div class="gx-et"><div class="card"><b>Etapas</b>${E.map(([n,p])=>bar(n,p)).join("")}${gi>0?`<span class="gx-g">Gargalo: ${esc(E[gi][0])} · ${E[gi-1][1]}% ${esc(E[gi-1][0].toLowerCase())} contra ${E[gi][1]}%</span>`:""}</div><div class="card"><b>Andamento por área</b>${pa||"—"}</div></div>`;
@@ -2345,6 +2346,19 @@ function sup(){const sec=$("#t7"),sB=$("#sB");if(!sec||!sB||sec.querySelector(".
  tabs.onclick=e=>{const b=e.target.closest("button");if(b){tab=b.dataset.p;show()}};sec.append(tabs,pr,pi,pa);an();show()}
 document.addEventListener("click",e=>{const c=e.target.closest("#sV .kpi,#sV2 .kpi");if(!c)return;const s=c.querySelector("[data-sit]");if(!s)return;tab="i";show();const f=$("#sFs");if(f){f.value=s.dataset.sit;f.dispatchEvent(new Event("change"))}});
 const t7=$("#t7");t7&&new MutationObserver(sup).observe(t7,{childList:true});sup();gxInit();
+/* Evolução e andamento: cada opção das listas vira um botão */
+function btnGroup(sel){
+ if(!sel||sel.dataset.bg)return;sel.dataset.bg="1";
+ const g=document.createElement("div");g.className="seg gxsg";g.setAttribute("role","group");g.setAttribute("aria-label",sel.title||"Opções");sel.after(g);
+ let sig="";
+ const draw=()=>{const ops=[...sel.options],now=ops.map(o=>o.value+"|"+o.textContent).join(";")+"#"+sel.value+"#"+sel.classList.contains("hide");
+  if(now===sig)return;sig=now;g.classList.toggle("hide",sel.classList.contains("hide"));
+  g.innerHTML=ops.map(o=>`<button type="button" data-v="${esc(o.value)}" class="${o.value===sel.value?"on":""}" aria-pressed="${o.value===sel.value}">${esc(o.textContent)}</button>`).join("");};
+ g.addEventListener("click",e=>{const b=e.target.closest("button[data-v]");if(!b||b.dataset.v===sel.value)return;sel.value=b.dataset.v;sel.dispatchEvent(new Event("change",{bubbles:true}));draw();});
+ new MutationObserver(draw).observe(sel,{childList:true,attributes:true,attributeFilter:["class"]});
+ setInterval(draw,300);draw();
+}
+btnGroup($("#evS"));btnGroup($("#evP"));
 })();
 </script>
 </body>
