@@ -2244,7 +2244,7 @@ document.querySelectorAll("#login input").forEach(i=>i.addEventListener("keydown
 #gxTop{margin-bottom:14px}.gx-h{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
 .gx-al{background:#fdecec;border:1px solid #e08a8a;color:#8a1f1f;border-radius:12px;padding:10px 14px;margin-bottom:10px}
 .gx-k{margin-bottom:12px}.gx-bad{color:#d64545}
-#evS,#evP{display:none!important}.evh .bar .gxsg{flex:1 1 100%;margin:0;flex-wrap:wrap}.gxsg button{flex:1 1 auto;padding:9px 10px;font-size:12.5px;white-space:nowrap}
+#evS,#evP,#dA{display:none!important}#t1>.bar .gxsg,.evh .bar .gxsg{flex:1 1 100%;margin:0;flex-wrap:wrap}.gxsg button{flex:1 1 auto;padding:9px 10px;font-size:12.5px;white-space:nowrap}
 .gx-et{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:14px}.gx-et .card{margin:0}
 .gx-b{display:grid;grid-template-columns:104px 1fr 40px;gap:8px;align-items:center;margin-top:9px;font-size:13px}
 .gx-t{display:block;height:8px;border-radius:4px;background:var(--line);overflow:hidden}.gx-t i{display:block;height:100%}
@@ -2358,7 +2358,7 @@ function btnGroup(sel){
  new MutationObserver(draw).observe(sel,{childList:true,attributes:true,attributeFilter:["class"]});
  setInterval(draw,300);draw();
 }
-btnGroup($("#evS"));btnGroup($("#evP"));
+btnGroup($("#evS"));btnGroup($("#evP"));btnGroup($("#dA"));
 })();
 </script>
 </body>
