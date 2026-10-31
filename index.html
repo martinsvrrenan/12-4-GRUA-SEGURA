@@ -1017,7 +1017,7 @@ $("#rx").onclick = () => {
   add("Evolução semanal", EH, evoLines(evo(d, "w")));
   add("Evolução mensal", EH, evoLines(evo(d, "m")));
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(d.map(expRow)), "Dados");
-  const sr = window.supRel ? window.supRel() : null; if (sr && sr.t) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sr.rows), "Suprimentos");
+  const sr = window.supRel ? window.supRel() : null; if (sr && sr.t) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sr.rows), "Suprimentos"); if (sr && sr.fin && sr.fin.hrows.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sr.fin.hrows), "Gastos");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Projeto", proj.nome], ["Cliente", proj.cliente || ""], ["Local", proj.localidade || ""], ["Período", perLabel()], ["Gerado em", today()]]), "Projeto");
   wb.SheetNames.unshift(wb.SheetNames.pop());
   XLSX.writeFile(wb, `relatorio_${slug()}_${stamp()}.xlsx`);
@@ -1080,7 +1080,7 @@ $("#rp").onclick = () => {
   const hd = (t, sub) => `<header class="hd"><div class="bar"></div><div><h1>${esc2(t)}</h1><p>${esc2(sub)}</p></div><img class="ic" src="${TERN.icon}" alt=""></header>`;
   const ft = n => `<footer class="ft"><span>${TFOOT.replace(/ /g, "&nbsp;")}</span><span>${n}</span></footer>`;
   const kp = kpiList(s).map(([l, v, sub, col]) => `<div class="kpi" style="border-top-color:#${col}"><strong>${esc2(v)}</strong><b>${esc2(l)}</b><em>${esc2(sub).replace(/\n/g, "<br>")}</em></div>`).join("");
-  const sr = window.supRel ? window.supRel() : { t: 0, kp: [], att: [] };
+  const sr = window.supRel ? window.supRel(true) : { t: 0, kp: [], att: [] };
   const pages = [
     `<section class="page cover" style="background-image:url(${TERN.bg})"><div class="cdate">${esc2(today())}</div><img class="clogo" src="${TERN.logo}" alt="Ternium"><div class="ctitle"><h1>${esc2(proj.nome)}</h1><p>${esc2([proj.cliente, proj.localidade].filter(Boolean).join(" · ") || "Acompanhamento do avanço do projeto")} · ${esc2(perLabel())}${a ? " · " + esc2(a) : ""}</p></div></section>`,
     `<section class="page">${hd("Visão geral do projeto", `Indicadores consolidados · ${scope}`)}<div class="kpis">${kp}</div>
@@ -1091,8 +1091,11 @@ $("#rp").onclick = () => {
     `<section class="page">${hd(fyLabel(), `${dtBR(new Date(pj.T0))} a ${dtBR(new Date(pj.T1))}` + " · andamento total em pontos de adequação (média das 4 etapas: levantamento, desenho, Sphera e SAP)")}<div class="kpis k5">${projKpis(pj, "pontos", "Andamento total").map(([v, l]) => `<div class="kpi"><strong>${esc2(v)}</strong><em>${esc2(l)}</em></div>`).join("")}</div>
 <div class="proj">${projSvg()}</div>
 <p class="note">Projeção: ritmo médio desde ${dtBR(new Date(pj.T0))} mantido até ${dtBR(new Date(pj.T1))} (limitada ao total de pontos). Meta linear: avanço constante da data de início à data fim. O realizado dos meses anteriores depende do histórico registrado no aplicativo.</p>${ft(4)}</section>`,
-    `<section class="page">${hd("Suprimentos", `${proj.nome} · situação dos itens`)}${sr.t ? `<div class="kpis k5">${sr.kp.map(([v, l]) => `<div class="kpi"><strong>${esc2(v)}</strong><em>${esc2(l)}</em></div>`).join("")}</div><h2 style="margin-top:7mm">Itens em atenção (atrasados ou sem prazo)</h2>${sr.att.length ? tbl(["Código", "Descrição", "Situação", "Prazo"], sr.att.slice(0, 10)) + (sr.att.length > 10 ? `<p class="note">Exibindo 10 de ${sr.att.length}. Consulte o aplicativo para a lista completa.</p>` : "") : `<p class="ok" style="margin-top:12mm">Nenhum item atrasado ou sem prazo.</p>`}` : `<p class="note">Nenhum item de suprimentos cadastrado neste projeto.</p>`}${ft(5)}</section>`,
-    `<section class="page">${hd(`Próximas ações · ${pd.length} pendência(s)`, "Lista resumida para orientar o acompanhamento")}${pd.length ? tbl(["Área", "Equipamento", "Tipo de projeto", "Situação"], pd.slice(0, 12).map(([r, t]) => [r.area, r.equipamento, r.tipo_projeto || "—", t])) + (pd.length > 12 ? `<p class="note">Exibindo 12 de ${pd.length} pendências. Consulte o aplicativo para a lista completa.</p>` : "") : `<p class="ok">Nenhuma pendência identificada com os critérios atuais.</p>`}${ft(6)}</section>`
+    `<section class="page">${hd("Suprimentos · Orçamento e gastos", `${proj.nome} · valores em R$`)}${sr.fin ? `<div class="kpis k5">${sr.fin.kp.map(([v, l]) => `<div class="kpi"><strong>${esc2(v)}</strong><em>${esc2(l)}</em></div>`).join("")}</div>
+<div class="cols"><div><h2>Evolução dos gastos (acumulado por mês)</h2>${sr.fin.img1 ? `<img class="gimg" src="${sr.fin.img1}" alt="Evolução dos gastos do orçamento">` : `<p class="note">Sem gastos com data para montar a evolução.</p>`}</div><div><h2>Composição do orçamento</h2>${sr.fin.img2 ? `<img class="gimg" src="${sr.fin.img2}" alt="Composição do orçamento">` : `<p class="note">Sem valores para exibir.</p>`}</div></div>
+<h2 style="margin-top:4mm">Histórico de gastos</h2>${sr.fin.hist.length ? tbl(["Data", "Descrição", "Origem", "Valor"], sr.fin.hist.slice(0, 8)) + (sr.fin.hist.length > 8 ? `<p class="note">Exibindo 8 de ${sr.fin.hist.length} lançamentos, do mais recente ao mais antigo. Consulte o aplicativo ou o Excel para a lista completa.</p>` : "") : `<p class="note">Nenhum gasto lançado.</p>`}` : `<p class="note">Nenhum orçamento ou gasto cadastrado neste projeto.</p>`}${ft(5)}</section>`,
+    `<section class="page">${hd("Suprimentos · Prazos", `${proj.nome} · situação dos itens`)}${sr.t ? `<div class="kpis k5">${sr.kp.map(([v, l]) => `<div class="kpi"><strong>${esc2(v)}</strong><em>${esc2(l)}</em></div>`).join("")}</div><h2 style="margin-top:7mm">Itens em atenção (atrasados ou sem prazo)</h2>${sr.att.length ? tbl(["Código", "Descrição", "Situação", "Prazo"], sr.att.slice(0, 10)) + (sr.att.length > 10 ? `<p class="note">Exibindo 10 de ${sr.att.length}. Consulte o aplicativo para a lista completa.</p>` : "") : `<p class="ok" style="margin-top:12mm">Nenhum item atrasado ou sem prazo.</p>`}` : `<p class="note">Nenhum item de suprimentos cadastrado neste projeto.</p>`}${ft(6)}</section>`,
+    `<section class="page">${hd(`Próximas ações · ${pd.length} pendência(s)`, "Lista resumida para orientar o acompanhamento")}${pd.length ? tbl(["Área", "Equipamento", "Tipo de projeto", "Situação"], pd.slice(0, 12).map(([r, t]) => [r.area, r.equipamento, r.tipo_projeto || "—", t])) + (pd.length > 12 ? `<p class="note">Exibindo 12 de ${pd.length} pendências. Consulte o aplicativo para a lista completa.</p>` : "") : `<p class="ok">Nenhuma pendência identificada com os critérios atuais.</p>`}${ft(7)}</section>`
   ];
   w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Relatório – ${esc2(proj.nome)}</title>
 <style>
@@ -1112,7 +1115,7 @@ html,body{margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;color:#666;-
 table{width:100%;border-collapse:collapse;font-size:8.5pt}th{background:#666;color:#fff;text-align:right;padding:2mm 2.2mm;font-weight:700}td{padding:2mm 2.2mm;border-bottom:1px solid #d3d3d3;text-align:right;color:#666}
 th:first-child,td:first-child{text-align:left}tr.tot td{font-weight:700;background:#f4f4f4}
 .note{margin:6mm 0 0;padding:1mm 0 1mm 3mm;border-left:1.2mm solid #ff9900;font-size:8.5pt;line-height:1.45;color:#666}.ok{font-size:16pt;font-weight:700;color:#00b351;text-align:center;margin-top:30mm}
-.kpis.k5{grid-template-columns:repeat(5,1fr)}.kpis.k5 .kpi strong{font-size:20pt}.kpis.k5 .kpi em{font-size:8pt;margin-top:1mm}.proj{margin-top:7mm}.proj svg{width:100%;height:auto;display:block}
+.kpis.k5{grid-template-columns:repeat(5,1fr)}.kpis.k5 .kpi strong{font-size:20pt}.kpis.k5 .kpi em{font-size:8pt;margin-top:1mm}.proj{margin-top:7mm}.gimg{width:100%;height:auto;display:block}.proj svg{width:100%;height:auto;display:block}
 .charts{display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin-top:2mm}.charts svg{width:100%;height:auto;display:block}
 @media screen{body{background:#e6e6e6;padding:12px}.page{margin:0 auto 14px;box-shadow:0 2px 12px #0003}.printbtn{display:block;margin:0 auto 12px;padding:9px 16px;background:#ff9900;color:#fff;border:0;border-radius:5px;font-size:14px;font-weight:700}}
 @media print{.printbtn{display:none}body{padding:0}}
@@ -1231,9 +1234,26 @@ $("#rpp").onclick = async () => {
   sl.addImage({ data: U(projImg()), x: 0.527, y: 2.65, w: 12.2, h: 3.95, altText: `Gráfico do ${fyLabel().toLowerCase()} com andamento total realizado, projeção e meta linear` });
   note(sl, `Projeção: ritmo médio desde ${dtBR(new Date(pj.T0))} mantido até ${dtBR(new Date(pj.T1))}. Meta linear: avanço constante da data de início à data fim.`, 0.527, 6.68, 12.2, 0.4);
 
-  // 5c — Suprimentos
-  sl = content("Suprimentos", `${proj.nome} · situação dos itens`);
-  const sr = window.supRel ? window.supRel() : { t: 0, kp: [], att: [] };
+  // 5c — Suprimentos: orçamento e gastos
+  sl = content("Suprimentos · Orçamento e gastos", `${proj.nome} · valores em R$`);
+  const sg = window.supRel ? window.supRel(true) : null, fn = sg && sg.fin;
+  if (fn) {
+    fn.kp.forEach(([v, l], i) => { const x = 0.527 + i * 2.47;
+      sl.addShape(P.ShapeType.rect, { x, y: 1.3, w: 2.3, h: 1.05, fill: { color: "FFFFFF" }, line: { color: TC.light, width: 0.75 } });
+      sl.addShape(P.ShapeType.rect, { x, y: 1.3, w: 2.3, h: 0.07, fill: { color: TC.orange }, line: { color: TC.orange, transparency: 100 } });
+      sl.addText(String(v), { x: x + 0.05, y: 1.42, w: 2.2, h: 0.45, fontFace: FT, fontSize: 18, bold: true, color: TC.gray, align: "center", margin: 0, fit: "shrink", isTextBox: true });
+      sl.addText(l, { x: x + 0.08, y: 1.88, w: 2.14, h: 0.4, fontFace: FT, fontSize: 9, color: TC.mid, align: "center", valign: "top", margin: 0, fit: "shrink", isTextBox: true }); });
+    if (fn.img1) sl.addImage({ data: U(fn.img1), x: 0.527, y: 2.5, w: 7.2, h: 2.2, altText: "Evolução acumulada dos gastos do orçamento por mês" });
+    if (fn.img2) sl.addImage({ data: U(fn.img2), x: 7.9, y: 2.5, w: 4.85, h: 2.2, altText: "Composição do orçamento" });
+    h2(sl, "Histórico de gastos", 0.527, 4.75, 8);
+    if (fn.hist.length) sl.addTable([["Data", "Descrição", "Origem", "Valor"].map(t => cell(t, { bold: true, color: "FFFFFF", fill: { color: TC.gray } })), ...fn.hist.slice(0, 5).map(r => r.map(t => cell(t, { fill: { color: "FFFFFF" } })))], { x: 0.527, y: 5.1, w: 12.25, colW: [1.6, 5.6, 3.2, 1.85], rowH: 0.3, border: { type: "solid", color: TC.light, pt: 0.75 }, autoPage: false });
+    else sl.addText("Nenhum gasto lançado.", { x: 0.527, y: 5.2, w: 12.2, h: 0.5, fontFace: FT, fontSize: 14, color: TC.mid, margin: 0, isTextBox: true });
+    if (fn.hist.length > 5) note(sl, `Exibindo 5 de ${fn.hist.length} lançamentos, do mais recente ao mais antigo. Lista completa no aplicativo e na exportação em Excel.`, 0.527, 6.72, 12.2, 0.4);
+  } else sl.addText("Nenhum orçamento ou gasto cadastrado neste projeto.", { x: 0.8, y: 2.8, w: 11.7, h: 0.8, fontFace: FT, fontSize: 20, color: TC.mid, align: "center", margin: 0, isTextBox: true });
+
+  // 5d — Suprimentos: prazos e atenção
+  sl = content("Suprimentos · Prazos e atenção", `${proj.nome} · situação dos itens`);
+  const sr = window.supRel ? window.supRel(true) : { t: 0, kp: [], att: [] };
   if (sr.t) {
     sr.kp.forEach(([v, l], i) => { const x = 0.527 + i * 2.47;
       sl.addShape(P.ShapeType.rect, { x, y: 1.35, w: 2.3, h: 1.15, fill: { color: "FFFFFF" }, line: { color: TC.light, width: 0.75 } });
@@ -1807,7 +1827,7 @@ async function sync(ask) {
     if (!error) { ch = true; logP(rm ? "Removeu itens de suprimentos" : "Manteve itens de suprimentos como manuais", `${orf.length} item(ns)`); } }
   if (ch) { const { data } = await sb.from("suprimentos").select("*").eq("projeto_id", proj.id).order("id").limit(5000); if (data) SUP = data; if (ins.length) logP("Migrou pontos para suprimentos", `${ins.length} novo(s)`); }
 }
-const _load = load; load = async function () { await _load(); if (proj) await loadSup(); };
+const _load = load; load = async function () { await _load(); if (proj) { await loadSup(); await loadGas(); } };
 
 // ---- Aba Suprimentos ----
 const sec = document.createElement("section"); sec.id = "t7"; sec.className = "hide"; $("main").appendChild(sec); SEC.push("t7"); TABS.suprimentos = "t7";
@@ -2133,8 +2153,41 @@ function exporta() {
   const XC = xCampos(), H = [...ORD.map(k => ff(k)[1]), ...XC.map(xCol)], out = SUP.map(i => ({ ...Object.fromEntries(ORD.map(k => [ff(k)[1], i[k] ?? ""])), ...Object.fromEntries(XC.map(p => [xCol(p), xVal(i, p)])), "Situação": sitTxt(i) })), wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(out, { header: [...H, "Situação"] }), "Suprimentos"); XLSX.writeFile(wb, `suprimentos_${proj.nome.replace(/[^\w]+/g, "_")}_${stamp()}.xlsx`); logP("Exportou suprimentos", `${SUP.length} itens`);
 }
-window.supRel = () => { const s = supStats(SUP), d = x => x ? dtBR(parseD(x)) : "—"; // dados de suprimentos para os relatórios
-  return { t: s.t, kp: [[s.t, "itens"], [pc3(s.rc, s.t), "com RC"], [pc3(s.pd, s.t), "com pedido"], [pc3(s.en, s.t), "entregues"], [`${s.at} (${pc3(s.at, s.t)})`, "atrasados"]],
+// ---- Gastos para os relatórios (PDF, PowerPoint e Excel) ----
+function gastoEv() {
+  const D = x => String(x || "").slice(0, 10), okD = d => /^\d{4}-\d{2}-\d{2}$/.test(d), ev = [];
+  SUP.forEach(i => { const st = sitOf(i), x = vTot(i) || 0; if (!x || st === 0) return;
+    const dc = D(st === 3 ? (i.pedido_data || i.rc_data || i.data_recebimento) : st === 2 ? (i.pedido_data || i.rc_data) : i.rc_data) || D(i.created_at), t = i.descricao || i.codigo_sap || i.codigo_sphera || "Item", o = st === 3 ? "Item recebido" : st === 2 ? "Item em pedido" : "Item em RC";
+    if (okD(dc)) ev.push({ d: dc, v: x, k: 0, t, o }); if (st === 3 && okD(D(i.data_recebimento))) ev.push({ d: D(i.data_recebimento), v: x, k: 1, t, o }); });
+  gasLista().forEach(g => { const d = D(g.data), x = Number(g.valor) || 0; if (okD(d) && x) ev.push({ d, v: x, k: 2, t: g.descricao, o: g.categoria || "Outros gastos" }); });
+  return ev;
+}
+function gastoSerie(ev) {
+  if (!ev.length) return null; const ym = d => d.slice(0, 7), hojeM = ym(ymd(hj())), ms = ev.map(e => ym(e.d)).sort(), fim = ms[ms.length - 1] > hojeM ? ms[ms.length - 1] : hojeM, keys = [];
+  let [y, m] = ms[0].split("-").map(Number); while (y + "-" + String(m).padStart(2, "0") <= fim) { keys.push(y + "-" + String(m).padStart(2, "0")); if (m === 12) { y++; m = 1; } else m++; }
+  const a = [{}, {}]; ev.forEach(e => { const k = ym(e.d); if (e.k !== 1) a[0][k] = (a[0][k] || 0) + e.v; if (e.k !== 0) a[1][k] = (a[1][k] || 0) + e.v; });
+  let t0 = 0, t1 = 0; const s0 = [], s1 = []; keys.forEach(k => { t0 += a[0][k] || 0; t1 += a[1][k] || 0; s0.push(Math.round(t0 * 100) / 100); s1.push(Math.round(t1 * 100) / 100); });
+  return { keys, s0, s1 };
+}
+const gfo = size => ({ size, family: "Arial" }), gcp = v => v >= 1e6 ? "R$ " + (v / 1e6).toFixed(1).replace(".", ",") + " mi" : v >= 1e3 ? "R$ " + Math.round(v / 1e3) + " mil" : "R$ " + v;
+function gastoImg(w, h, cfg) { const cv = document.createElement("canvas"); cv.width = w; cv.height = h; const ch = new Chart(cv, cfg); const url = cv.toDataURL("image/png"); ch.destroy(); return url; }
+function gastoFin(img) {
+  const u = proj.orcamento_usd != null ? Number(proj.orcamento_usd) : null, c = proj.cambio_usd_brl > 0 ? Number(proj.cambio_usd_brl) : null, orc = u != null && c ? u * c : null, v = supValores(SUP), og = gasTot(), comp = v.comp + og, sal = orc != null ? orc - comp : null, ev = gastoEv();
+  if (!ev.length && orc == null && !comp) return null;
+  const pct = orc ? Math.round(100 * comp / orc) : null, ser = gastoSerie(ev), dt = d => dtBR(parseD(d));
+  const kp = [[orc != null ? fR(orc) : u != null ? fU(u) : "—", "Orçamento disponível" + (u != null && orc != null ? ` (${fU(u)})` : "")], [fR(comp), "Utilizado do orçamento" + (pct != null ? ` (${pct}%)` : "")], [sal != null ? fR(sal) : "—", sal != null && sal < 0 ? "Estouro do orçamento" : "Saldo livre"], [fR(og), "Outros gastos (projeto, fiscal…)"], [fR(v.rec), "Itens recebidos (realizado)"]];
+  const hs = ev.filter(e => e.k !== 1).sort((a, b) => b.d.localeCompare(a.d)), out = { orc, comp, og, sal, kp, hist: hs.map(e => [dt(e.d), e.t, e.o, fR(e.v)]), hrows: hs.map(e => ({ "Data": dt(e.d), "Descrição": e.t, "Origem": e.o, "Valor (R$)": e.v })), img1: null, img2: null };
+  if (img) {
+    if (ser) { const ds = [{ label: "Utilizado (comprometido)", data: ser.s0, borderColor: "#3b82c4", backgroundColor: "#3b82c433", fill: true, tension: .25, borderWidth: 4, pointRadius: 4 }, { label: "Realizado (recebido + outros gastos)", data: ser.s1, borderColor: "#2e9e5b", tension: .25, borderWidth: 4, pointRadius: 4 }];
+      if (orc != null) ds.push({ label: "Orçamento disponível", data: ser.keys.map(() => orc), borderColor: "#d64545", borderDash: [12, 8], borderWidth: 3, pointRadius: 0, fill: false });
+      out.img1 = gastoImg(1260, 385, { type: "line", data: { labels: ser.keys.map(k => k.slice(5) + "/" + k.slice(2, 4)), datasets: ds }, options: { responsive: false, animation: false, devicePixelRatio: 1, scales: { x: { ticks: { font: gfo(16), color: "#666666" }, grid: { display: false } }, y: { beginAtZero: true, ticks: { font: gfo(16), color: "#666666", callback: gcp }, grid: { color: "#D3D3D3" } } }, plugins: { legend: { position: "bottom", labels: { font: gfo(16), color: "#666666", boxWidth: 30 } } } } }); }
+    const parts = [["Recebido", v.rec, "#2e9e5b"], ["Em pedido", v.pd, "#3b82c4"], ["Em RC", v.rc, "#f2a93b"], ["Outros gastos", og, "#8b5cf6"], ["Saldo livre", sal != null && sal > 0 ? sal : 0, "#d5dae2"]].filter(x => x[1] > 0);
+    if (parts.length) out.img2 = gastoImg(880, 400, { type: "doughnut", data: { labels: parts.map(x => x[0]), datasets: [{ data: parts.map(x => x[1]), backgroundColor: parts.map(x => x[2]) }] }, options: { responsive: false, animation: false, devicePixelRatio: 1, plugins: { legend: { position: "right", labels: { font: gfo(18), color: "#666666", boxWidth: 28 } } } } });
+  }
+  return out;
+}
+window.supRel = (img) => { const s = supStats(SUP), d = x => x ? dtBR(parseD(x)) : "—"; // dados de suprimentos para os relatórios
+  return { t: s.t, fin: gastoFin(img), kp: [[s.t, "itens"], [pc3(s.rc, s.t), "com RC"], [pc3(s.pd, s.t), "com pedido"], [pc3(s.en, s.t), "entregues"], [`${s.at} (${pc3(s.at, s.t)})`, "atrasados"]],
     att: SUP.filter(i => atras(i) || semPrazo(i)).map(i => [i.codigo_sap || i.codigo_sphera || "—", i.descricao || "—", sitTxt(i), d(i.prazo_entrega)]),
     rows: SUP.map(i => ({ ...Object.fromEntries(ORD.map(k => [ff(k)[1], i[k] ?? ""])), ...Object.fromEntries(xCampos().map(p => [xCol(p), xVal(i, p)])), "Situação": sitTxt(i) })) }; };
 })();
