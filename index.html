@@ -266,7 +266,7 @@ html[data-theme=dark] .bdg{background:#222d45;color:#c9d3e8;border-color:#34405c
 <nav><button data-t="t1" data-r="dashboard" class="on"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z"/></svg><span>Dashboard</span></button><button data-t="t2" data-r="cadastro"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Cadastro</span></button><button data-t="t5" data-r="relatorios"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 17v-3M12 17v-6M16 17v-2"/></svg><span>Relatórios</span></button><button data-t="t3" data-r="dados"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v13M3 13l4 4 4-4M17 20V7M13 11l4-4 4 4"/></svg><span class="lg">Importar / Exportar</span><span class="sh">Dados</span></button></nav>
 <main>
  <section id="home" class="hide">
-  <div class="hh"><h2>Projetos</h2><div class="bar"><input id="hQ" type="search" placeholder="Buscar projeto, cliente ou local…" aria-label="Buscar projeto"><button class="p hide" id="pNovo">+ Novo projeto</button></div></div>
+  <div class="hh"><h2>Projetos</h2><div class="bar"><input id="hQ" type="search" autocomplete="off" placeholder="Buscar projeto, cliente ou local…" aria-label="Buscar projeto"><button class="p hide" id="pNovo">+ Novo projeto</button></div></div>
   <div id="solic"></div>
   <div class="pgrid" id="pList"></div>
  </section>
@@ -1380,9 +1380,9 @@ async function fetchCols(t, cols) { // lê só as colunas pedidas, em páginas d
   }
 }
 async function abrirHome(seq) {
-  proj = null; rows = []; hist = []; setView("home", "home"); setHeader("Grua Segura", "Gestão de projetos");
+  proj = null; rows = []; hist = []; setView("home", "home"); setHeader("Grua Segura", "Gestão de projetos"); $("#hQ").value = "";
   $("#pList").innerHTML = "<small>Carregando projetos…</small>";
-  const [pr, pt, so] = await Promise.all([sb.from("projetos").select("*").eq("ativo", true).order("data_inicio", { ascending: false }).order("id"),
+  const [pr, pt, so] = await Promise.all([sb.from("projetos").select("*").or("ativo.is.null,ativo.eq.true").order("data_inicio", { ascending: false }).order("id"),
     fetchCols("pontos", "projeto_id,status_levantamento,status_projeto"),
     canProj ? sb.from("projeto_exclusoes").select("*").eq("status", "pendente").order("created_at") : Promise.resolve({ data: [] })]);
   if (seq !== navSeq) return;
@@ -1424,7 +1424,7 @@ document.addEventListener("error", e => { const im = e.target; if (im && im.clas
 document.addEventListener("load", e => { const im = e.target; if (!im || !im.classList || !im.classList.contains("plogo") || im.src.startsWith("data:")) return;
   if (im.naturalWidth < 20) return logoNext(im); try { localStorage.setItem("gs-logo:" + im.dataset.n.toLowerCase(), im.src); } catch (x) {} }, true);
 function listaProjetos() {
-  const q = $("#hQ").value.trim().toLowerCase(), d = projs.filter(p => !q || [p.nome, p.cliente, p.localidade].join(" ").toLowerCase().includes(q));
+  const nz = x => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, ""), q = nz($("#hQ").value), d = projs.filter(p => !q || nz([p.nome, p.cliente, p.localidade].join(" ")).includes(q));
   $("#pList").innerHTML = d.length ? d.map(p => { const sit = situacao(p, p.pct), pe = periodo(p);
     return `<article class="card pc" tabindex="0" role="link" data-id="${p.id}" aria-label="Abrir ${esc(p.nome)}">
       <div class="pt"><h3>${esc(p.nome)}</h3><span class="tag" style="--c:${sit.c}">${sit.t}</span>${canProj ? menuHtml(p) : ""}</div>
@@ -1433,7 +1433,8 @@ function listaProjetos() {
       <div class="pp"><b>${p.pct}%</b><span>andamento total</span></div><div class="pbar"><u style="width:${p.pct}%"></u></div>
       ${solDe(p) ? `<div class="aviso">⏳ Exclusão solicitada por ${esc(solDe(p).solicitante_email || "um editor")}</div>` : ""}
       <div class="pfoot"><span>${diasTxt(p)}</span></div></article>`; }).join("")
-    : `<div class="card"><b>${projs.length ? "Nenhum projeto encontrado." : "Nenhum projeto cadastrado."}</b>${!projs.length && canNew ? "<p>Toque em “+ Novo projeto” para começar.</p>" : ""}</div>`;
+    : `<div class="card"><b>${projs.length ? "Nenhum projeto encontrado." : "Nenhum projeto cadastrado."}</b>${!projs.length && canNew ? "<p>Toque em “+ Novo projeto” para começar.</p>" : ""}${projs.length ? `<p><button type="button" id="hQx">Limpar busca</button></p>` : ""}</div>`;
+  const qx = $("#hQx"); if (qx) qx.onclick = () => { $("#hQ").value = ""; listaProjetos(); };
   document.querySelectorAll("#pList .pc").forEach(c => {
     const abre = () => { location.hash = `#/projeto/${c.dataset.id}/dashboard`; };
     c.onclick = abre; c.onkeydown = e => { if (e.target === c && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); abre(); } };
@@ -1478,7 +1479,7 @@ $("#pjF").onsubmit = async e => {
   o.nome = o.nome.trim(); o.cliente = o.cliente.trim() || null; o.localidade = o.localidade.trim() || null;
   if (!o.nome) return alert("Informe o nome do projeto.");
   if (o.data_fim < o.data_inicio) return alert("A data de término precisa ser igual ou posterior à data de início.");
-  const fy = Number(o.ano_fiscal_mes_inicio) || 7; o.ano_fiscal_mes_inicio = fy;
+  const fy = Number(o.ano_fiscal_mes_inicio) || 7; o.ano_fiscal_mes_inicio = fy; if (!id) o.ativo = true;
   const salvar = x => id ? sb.from("projetos").update(x).eq("id", id).select() : sb.from("projetos").insert(x).select();
   let { data, error } = await salvar(o), semFy = false;
   if (error && /ano_fiscal_mes_inicio/.test(error.message)) { const { ano_fiscal_mes_inicio, ...o2 } = o; semFy = true; ({ data, error } = await salvar(o2)); } // coluna ainda não criada no Supabase
@@ -1689,7 +1690,7 @@ async function wzNext() {
 }
 async function wzSave() {
   if (!canNew) return "Sem permissão.";
-  const b = W.b, fy = Number(b.fy) || 7, base = { nome: b.nome, cliente: b.cli || null, localidade: b.loc || null, data_inicio: b.ini, data_fim: b.fim };
+  const b = W.b, fy = Number(b.fy) || 7, base = { nome: b.nome, cliente: b.cli || null, localidade: b.loc || null, data_inicio: b.ini, data_fim: b.fim, ativo: true };
   let { data, error } = await sb.from("projetos").insert({ ...base, ano_fiscal_mes_inicio: fy }).select();
   if (error && /ano_fiscal_mes_inicio/.test(error.message)) { ({ data, error } = await sb.from("projetos").insert(base).select()); if (!error && data && data.length) { try { localStorage.setItem("gs-fy-" + data[0].id, String(fy)); } catch (x) {} } }
   if (error || !data || !data.length) return error ? (/duplicate|unique/i.test(error.message) ? "Já existe um projeto com esse nome." : error.message) : "Sem permissão para criar projetos.";
