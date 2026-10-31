@@ -2471,7 +2471,7 @@ btnGroup($("#evS"));btnGroup($("#evP"));btnGroup($("#dA"));
     const d = rowsAtivas(), areas = AREAS.filter(a => d.some(r => r.area === a)), scopes = { "": scopeData(d) };
     areas.forEach(a => { scopes[a] = scopeData(d.filter(r => r.area === a)); });
     const etapas = cfgK().length ? [["tot", "Andamento total"], ...ETP.filter(e => cfgK().includes(e[1])).map(e => [e[1], e[0]])] : [];
-    return { meta: { nome: proj.nome, cliente: proj.cliente || "", local: proj.localidade || "", periodo: perLabel(), gerado: today() },
+    return { meta: { nome: proj.nome, cliente: proj.cliente || "", logos: logoCands(proj.cliente), local: proj.localidade || "", periodo: perLabel(), gerado: today() },
       areas, etapas, scopes, sup: window.supSite ? window.supSite() : null };
   }
 
@@ -2496,6 +2496,15 @@ btnGroup($("#evS"));btnGroup($("#evP"));btnGroup($("#dA"));
     Chart.defaults.color = "#5b6677";
 
     // ----- cabeçalho e abas -----
+    const logo = (candidatos, nome) => { // tenta os endereços em ordem; se nenhum servir, mostra a inicial do cliente
+      const box = $("#logo"); if (!nome) return;
+      box.innerHTML = `<span class="plg">${esc(nome.charAt(0).toUpperCase())}</span>`;
+      const img = new Image(); let i = 0; img.className = "plogo"; img.alt = ""; img.referrerPolicy = "no-referrer";
+      const proximo = () => { if (i < candidatos.length) img.src = candidatos[i++]; };
+      img.onerror = proximo; img.onload = () => { if (img.naturalWidth < 20) proximo(); else box.replaceChildren(img); };
+      proximo();
+    };
+    logo(D.meta.logos || [], D.meta.cliente);
     $("#titulo").textContent = D.meta.nome;
     $("#sub").textContent = [D.meta.cliente, D.meta.local, D.meta.periodo].filter(Boolean).join(" · ");
     $("#gerado").textContent = "Dados de " + D.meta.gerado;
@@ -2593,6 +2602,8 @@ btnGroup($("#evS"));btnGroup($("#evP"));btnGroup($("#dA"));
 body{margin:0;font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--txt);background:var(--bg)}
 header{background:var(--navy);color:#fff;padding:18px 22px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-end}
 header h1{margin:0;font-size:20px}header small{color:#9db0d3}
+.who{display:flex;align-items:center;gap:12px}.plogo,.plg{width:46px;height:46px;flex:none;border-radius:10px;display:block}.plogo{background:#fff;object-fit:contain;padding:5px}
+.plg{display:flex;align-items:center;justify-content:center;background:#eef2fa;color:var(--navy);font-weight:800;font-size:19px}
 nav{display:flex;gap:6px;padding:10px 22px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
 nav button{border:0;background:transparent;padding:8px 16px;border-radius:10px;font:inherit;font-weight:700;color:var(--mut);cursor:pointer}
 nav button.on{background:var(--navy);color:#fff}
@@ -2607,7 +2618,8 @@ select,input{font:inherit;padding:8px 12px;border:1px solid #cdd4e1;border-radiu
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:14px}
 .kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
 .kpi::before{content:"";display:block;width:20px;height:4px;border-radius:2px;background:var(--amber);margin-bottom:10px}
-.kpi b{display:block;font-size:24px;line-height:1.15;color:var(--navy)}.kpi span{font-size:12px;color:var(--mut);font-weight:600}
+.kpi{min-width:0}.kpi b{display:block;font-size:clamp(17px,2vw,24px);line-height:1.2;color:var(--navy);overflow-wrap:anywhere}.kpi span{font-size:12px;color:var(--mut);font-weight:600;overflow-wrap:anywhere}
+.money{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}.money .kpi b{font-size:clamp(16px,1.6vw,20px)}
 .kpi small{display:block;margin-top:6px;font-size:11.5px;color:var(--mut)}
 .pb{height:5px;border-radius:3px;background:#e9edf4;margin-top:8px;overflow:hidden}.pb u{display:block;height:100%;background:#2e9e5b}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr));gap:14px}
@@ -2621,7 +2633,7 @@ footer{text-align:center;color:var(--mut);font-size:12px;padding:20px}
 @media print{nav,.bar select,.seg{display:none}.card,.kpi{break-inside:avoid}}`;
 
   const SITE_BODY = `
-<header><div><h1 id="titulo"></h1><small id="sub"></small></div><small id="gerado"></small></header>
+<header><div class="who"><span id="logo"></span><div><h1 id="titulo"></h1><small id="sub"></small></div></div><small id="gerado"></small></header>
 <nav><button data-t="p" class="on">Painel</button><button data-t="s">Suprimentos</button></nav>
 <main>
  <section id="painel">
@@ -2640,10 +2652,10 @@ footer{text-align:center;color:var(--mut);font-size:12px;padding:20px}
   <div class="card"><details><summary>Pendências<span class="cnt" id="pendN">0</span></summary><div class="tw" id="pendT"></div></details></div>
  </section>
  <section id="suprimentos" hidden>
-  <div id="supFin" hidden><div class="kpis" id="finKpis"></div>
+  <div id="supFin" hidden><div class="kpis money" id="finKpis"></div>
    <div class="grid"><div class="card"><h2>Composição do orçamento</h2><div class="ch"><canvas id="cParts"></canvas></div></div>
     <div class="card"><h2>Evolução dos gastos (acumulado por mês)</h2><div class="ch"><canvas id="cGastos"></canvas></div></div></div></div>
-  <div class="kpis" id="supPrazos"></div>
+  <div class="kpis money" id="supPrazos"></div>
   <div class="grid"><div class="card"><h2>Funil RC → Pedido → Entrega</h2><div class="ch"><canvas id="cSupFunil"></canvas></div></div>
    <div class="card"><details open><summary>Itens em atenção<span class="cnt" id="attN">0</span></summary><div class="tw" id="supAtencao"></div></details></div></div>
   <div class="card" id="supAnalise"><h2>Análise de custos</h2><div class="bar"><select id="anSel" aria-label="Análise"></select><small id="anTotal"></small></div><div class="ch tall"><canvas id="cAn"></canvas></div></div>
