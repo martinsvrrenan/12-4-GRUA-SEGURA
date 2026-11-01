@@ -540,14 +540,15 @@ const onlineAgora = u => u.id === me || (u.online_ate && new Date(u.online_ate).
 const avisoErro = (e, sql) => e.message + (noSql(e) ? " " + sql : "");
 
 async function users() {
-  const [pr, lg, ex, mb] = await Promise.all([sb.from("perfis").select("*").order("created_at"),
+  const [pr, lg, ex, mb, pu] = await Promise.all([sb.from("perfis").select("*").order("created_at"),
     sb.from("logs_acao").select("user_id,acao,detalhe,created_at").order("created_at", { ascending: false }).limit(1500),
-    sb.rpc("admin_usuarios_extra"), sb.from("projeto_membros").select("user_id")]);
+    sb.rpc("admin_usuarios_extra"), sb.from("projeto_membros").select("user_id"), sb.from("perfil_usuario").select("*")]);
   if (pr.error) return;
   const last = {}, nProj = {}, extra = Object.fromEntries((ex.data || []).map(x => [x.uid, x]));
   (lg.data || []).forEach(l => { if (l.user_id && !last[l.user_id]) last[l.user_id] = l; });
   (mb.data || []).forEach(m => { nProj[m.user_id] = (nProj[m.user_id] || 0) + 1; });
-  UL = pr.data.map(u => ({ ...u, last: last[u.id], on: onlineAgora(u), conf: ex.error ? null : extra[u.id]?.confirmado, blq: !!extra[u.id]?.bloqueado, nProj: mb.error ? null : nProj[u.id] || 0, extras: !ex.error }));
+  const pfm = Object.fromEntries((pu.data || []).map(x => [x.user_id, x]));
+  UL = pr.data.map(u => ({ ...u, pf: pfm[u.id] || {}, last: last[u.id], on: onlineAgora(u), conf: ex.error ? null : extra[u.id]?.confirmado, blq: !!extra[u.id]?.bloqueado, nProj: mb.error ? null : nProj[u.id] || 0, extras: !ex.error }));
   usuariosTela();
   const cur = $("#lgU").value;
   $("#lgU").innerHTML = '<option value="">Todos os usuários</option>' + pr.data.map(u => `<option value="${u.id}">${esc(u.email)}</option>`).join("");
@@ -567,7 +568,7 @@ function usuariosTela() {
     const eu = u.id === me, l = u.last;
     const projetos = u.papel === "admin" ? "Todos" : u.nProj == null ? "—" : `<button type="button" class="lk" data-pj="${u.id}">${u.nProj} ${u.nProj === 1 ? "projeto" : "projetos"}</button>`;
     return `<tr class="${u.papel === "pendente" ? "pend" : ""}"><td class="h"><div class="ucel"><span class="av" aria-hidden="true">${esc(u.email.charAt(0).toUpperCase())}</span>
-      <div><b>${esc(u.email)}</b>${eu ? " <small>(você)</small>" : ""}<div class="ubd">${u.conf === false ? '<span class="bdg pendente">E-mail não confirmado</span>' : ""}${u.blq ? '<span class="bdg bloq">Conta bloqueada</span>' : ""}</div></div></div></td>
+      <div><b>${esc(u.email)}</b>${eu ? " <small>(você)</small>" : ""}${(() => { const f = u.pf || {}, emp = f.empresa != null ? f.empresa : (window.gxTernium && gxTernium(u.email) ? "Ternium" : ""), t = [f.nome, emp, f.cargo].filter(Boolean).join(" · "); return t ? `<br><small>${esc(t)}</small>` : ""; })()}<div class="ubd">${u.conf === false ? '<span class="bdg pendente">E-mail não confirmado</span>' : ""}${u.blq ? '<span class="bdg bloq">Conta bloqueada</span>' : ""}</div></div></div></td>
       <td data-l="Status"><div class="v"><span class="dot ${u.on ? "on" : ""}"></span>${u.on ? "Online" : "Offline"}</div></td>
       <td data-l="Perfil"><div class="v"><span class="bdg ${esc(u.papel)}">${esc(PAPEL_LBL[u.papel] || u.papel)}</span></div></td>
       <td data-l="Projetos"><div class="v">${projetos}</div></td>
@@ -591,7 +592,7 @@ function abrirMenuUsuario(bt) {
   fecharMenuUsuario(); if (abria) return;
   const u = UL.find(x => x.id === bt.dataset.u); if (!u) return; const eu = u.id === me;
   const grupos = [
-    [["proj", "Gerenciar projetos", u.papel !== "admin"], ["pap", "Alterar nível de acesso", !eu]],
+    [["perfil", "Editar perfil", true], ["proj", "Gerenciar projetos", u.papel !== "admin"], ["pap", "Alterar nível de acesso", !eu]],
     [["pw", "Alterar senha", true], ["link", "Enviar link de redefinição de senha", true], ["conf", "Confirmar e-mail", u.conf === false], ["ses", "Encerrar sessões", !eu]],
     [["log", "Ver atividade", true], ["copy", "Copiar e-mail", true]],
     [["blq", u.blq ? "Desbloquear conta" : "Bloquear conta", !eu && u.extras], ["del", "Excluir conta", !eu, "dg"]]];
@@ -2898,26 +2899,47 @@ const ICO='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"
 const cf=(t,msg,ok)=>new Promise(res=>{const d=document.createElement("dialog");d.style.width="min(420px,92vw)";
  d.innerHTML=`<h3>${E(t)}</h3><p>${E(msg)}</p><div class="bar" style="margin-top:14px;justify-content:flex-end"><button type="button" data-v="0">Cancelar</button><button type="button" class="p" data-v="1">${E(ok||"Confirmar")}</button></div>`;
  let r=false;d.onclick=e=>{const b=e.target.closest("[data-v]");if(b){r=b.dataset.v==="1";d.close()}};d.onclose=()=>{d.remove();res(r)};document.body.appendChild(d);d.showModal()});
+const ternium=e=>/@([a-z0-9-]+\.)*ternium\./i.test(e||"");
+window.gxTernium=ternium;
+function senha(){const d=document.createElement("dialog");d.id="gxPw";d.style.width="min(440px,94vw)";
+ d.innerHTML=`<h3>Alterar senha</h3><small>Informe a senha atual e escolha a nova.</small>
+ <label>Senha atual<input id="gwA" type="password" autocomplete="current-password"></label>
+ <label>Nova senha (mínimo 6 caracteres)<input id="gwP" type="password" autocomplete="new-password"></label>
+ <label>Confirmar nova senha<input id="gwP2" type="password" autocomplete="new-password"></label>
+ <small id="gwM" class="err"></small>
+ <div class="bar" style="margin-top:14px;justify-content:flex-end"><button type="button" data-v="x">Cancelar</button><button type="button" class="p" data-v="ok">Alterar senha</button></div>`;
+ const q=x=>d.querySelector(x),m=(t,ok)=>{q("#gwM").textContent=t;q("#gwM").className=ok?"":"err"};let busy=false;
+ d.onclick=async e=>{const b=e.target.closest("[data-v]");if(!b||busy)return;if(b.dataset.v==="x")return d.close();
+  const a=q("#gwA").value,n=q("#gwP").value,c=q("#gwP2").value;
+  if(!a||!n)return m("Informe a senha atual e a nova senha.");
+  if(n.length<6)return m("A nova senha precisa ter pelo menos 6 caracteres.");
+  if(n!==c)return m("A confirmação não confere com a nova senha.");
+  if(n===a)return m("A nova senha deve ser diferente da atual.");
+  busy=true;const ok=await cf("Alterar senha","Deseja realmente alterar a sua senha?","Alterar senha");
+  if(!ok){busy=false;return}
+  const v=await sb.auth.signInWithPassword({email:myEmail,password:a});if(v.error){busy=false;return m("Senha atual incorreta.")}
+  const{error}=await sb.auth.updateUser({password:n});busy=false;
+  if(error)return m("Não foi possível alterar: "+error.message);
+  d.close();alert("Senha alterada com sucesso.")};
+ d.onclose=()=>d.remove();document.body.appendChild(d);d.showModal()}
 async function abrir(){
  let d=$("#gxPf");if(!d){d=document.createElement("dialog");d.id="gxPf";document.body.appendChild(d)}
  d.innerHTML="<h3>Meu perfil</h3><small>Carregando…</small>";d.showModal();
  const r=await sb.from("perfil_usuario").select("*").eq("user_id",me).maybeSingle(),p=r.data||{},semTab=r.error&&/perfil_usuario/.test(r.error.message);
+ const emp=p.empresa!=null?p.empresa:(ternium(myEmail)?"Ternium":"");if(p.empresa==null&&emp&&!semTab&&!r.error)sb.from("perfil_usuario").upsert({user_id:me,empresa:emp,nome:p.nome||null,cargo:p.cargo||null,telefone:p.telefone||null});
  const dark=document.documentElement.getAttribute("data-theme")==="dark",pap=(PAPEIS.find(x=>x[0]===papel)||[0,papel])[1];
  d.innerHTML=`<h3>Meu perfil</h3><small>${E(myEmail)} · ${E(pap)}</small>
  <p style="margin:16px 0 0"><b>Dados pessoais</b></p>
  <label>E-mail (não pode ser alterado aqui)<input value="${E(myEmail)}" disabled></label>
  <label>Nome<input id="gpN" autocomplete="name" value="${E(p.nome)}"></label>
- <label>Empresa<input id="gpE" autocomplete="organization" value="${E(p.empresa)}"></label>
+ <label>Empresa<input id="gpE" autocomplete="organization" value="${E(emp)}"></label>
  <label>Cargo<input id="gpC" autocomplete="organization-title" value="${E(p.cargo)}"></label>
  <label>Telefone<input id="gpT" type="tel" autocomplete="tel" value="${E(p.telefone)}"></label>
  <div class="bar" style="margin-top:10px"><button class="p" id="gpS">Salvar dados</button></div><small id="gpM1" class="err"></small>
  <p style="margin:18px 0 0"><b>Aparência</b></p>
  <div class="seg" id="gpTh" role="group" aria-label="Tema" style="margin-top:8px"><button type="button" data-t="light" class="${dark?"":"on"}" style="display:flex;gap:8px;align-items:center;justify-content:center">${ICO_SOL}<span>Claro</span></button><button type="button" data-t="dark" class="${dark?"on":""}" style="display:flex;gap:8px;align-items:center;justify-content:center">${ICO_LUA}<span>Escuro</span></button></div>
- <details class="dt" id="gpD" style="margin-top:18px"><summary>Alterar senha</summary><div>
- <label>Senha atual<input id="gpA" type="password" autocomplete="current-password"></label>
- <label>Nova senha (mínimo 6 caracteres)<input id="gpP" type="password" autocomplete="new-password"></label>
- <label>Confirmar nova senha<input id="gpP2" type="password" autocomplete="new-password"></label>
- <div class="bar" style="margin-top:10px"><button class="p" id="gpSn">Alterar senha</button></div><small id="gpM2"></small></div></details>
+ <p style="margin:18px 0 0"><b>Segurança</b></p>
+ <div class="bar" style="margin-top:8px"><button type="button" id="gpPw">Alterar senha</button></div>
  <p style="margin:18px 0 0"><b>Sessão</b></p>
  <div class="bar"><button id="gpSa">Sair de todos os aparelhos</button><button id="gpO">Sair</button></div>
  <div class="bar" style="margin-top:14px"><button id="gpX">Fechar</button></div>`;
@@ -2925,20 +2947,22 @@ async function abrir(){
  $("#gpX").onclick=()=>d.close();$("#gpO").onclick=()=>{d.close();$("#out").click()};
  $("#gpTh").onclick=e=>{const b=e.target.closest("button[data-t]");if(!b)return;aplicaTema(b.dataset.t,true);$("#gpTh").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b))};
  $("#gpS").onclick=async()=>{if(semTab)return m("#gpM1","Falta rodar o SQL fase6_perfil_usuario.sql no Supabase.");
-  const{error}=await sb.from("perfil_usuario").upsert({user_id:me,nome:$("#gpN").value.trim()||null,empresa:$("#gpE").value.trim()||null,cargo:$("#gpC").value.trim()||null,telefone:$("#gpT").value.trim()||null,updated_at:new Date().toISOString()});
+  const{error}=await sb.from("perfil_usuario").upsert({user_id:me,nome:$("#gpN").value.trim()||null,empresa:$("#gpE").value.trim(),cargo:$("#gpC").value.trim()||null,telefone:$("#gpT").value.trim()||null,updated_at:new Date().toISOString()});
   m("#gpM1",error?"Não foi possível salvar: "+error.message:"Dados salvos.",!error)};
- $("#gpSn").onclick=async()=>{const a=$("#gpA").value,n=$("#gpP").value,c=$("#gpP2").value;
-  if(!a||!n)return m("#gpM2","Informe a senha atual e a nova senha.");
-  if(n.length<6)return m("#gpM2","A nova senha precisa ter pelo menos 6 caracteres.");
-  if(n!==c)return m("#gpM2","A confirmação não confere com a nova senha.");
-  if(n===a)return m("#gpM2","A nova senha deve ser diferente da atual.");
-  if(!await cf("Alterar senha","Deseja realmente alterar a sua senha?","Alterar senha"))return;
-  const v=await sb.auth.signInWithPassword({email:myEmail,password:a});if(v.error)return m("#gpM2","Senha atual incorreta.");
-  const{error}=await sb.auth.updateUser({password:n});
-  if(error)return m("#gpM2","Não foi possível alterar: "+error.message);
-  ["#gpA","#gpP","#gpP2"].forEach(i=>$(i).value="");m("#gpM2","Senha alterada.",true)};
+ $("#gpPw").onclick=senha;
  $("#gpSa").onclick=async()=>{if(await cf("Sair de todos os aparelhos","Encerrar a sessão em todos os aparelhos, inclusive este?","Sair de todos")){await sb.auth.signOut({scope:"global"});location.reload()}};
 }
+ACOES_USUARIO.perfil=u=>{const f=u.pf||{},emp=f.empresa!=null?f.empresa:(ternium(u.email)?"Ternium":""),d=document.createElement("dialog");
+ d.innerHTML=`<h3>Editar perfil</h3><small>${E(u.email)} · ${E((PAPEL_LBL[u.papel]||u.papel))}</small>
+ <label>Nome<input id="gaN" value="${E(f.nome)}"></label><label>Empresa<input id="gaE" value="${E(emp)}"></label>
+ <label>Cargo<input id="gaC" value="${E(f.cargo)}"></label><label>Telefone<input id="gaT" type="tel" value="${E(f.telefone)}"></label>
+ <small id="gaM" class="err"></small><div class="bar" style="margin-top:14px;justify-content:flex-end"><button type="button" data-v="x">Cancelar</button><button type="button" class="p" data-v="ok">Salvar</button></div>
+ <small>O nível de acesso, os projetos e a senha ficam nas outras opções do menu do usuário.</small>`;
+ d.onclick=async e=>{const b=e.target.closest("[data-v]");if(!b)return;if(b.dataset.v==="x")return d.close();
+  const{error}=await sb.from("perfil_usuario").upsert({user_id:u.id,nome:d.querySelector("#gaN").value.trim()||null,empresa:d.querySelector("#gaE").value.trim(),cargo:d.querySelector("#gaC").value.trim()||null,telefone:d.querySelector("#gaT").value.trim()||null,updated_at:new Date().toISOString()});
+  if(error)return d.querySelector("#gaM").textContent="Não foi possível salvar: "+error.message;
+  logAcao("Editou perfil",u.email);d.close();users()};
+ d.onclose=()=>d.remove();document.body.appendChild(d);d.showModal()};
 const hb=$("header .hb");if(hb){const b=document.createElement("button");b.id="hPf";b.title="Meu perfil";b.setAttribute("aria-label","Meu perfil");b.innerHTML=ICO+'<span class="hl">Perfil</span>';b.onclick=abrir;hb.insertBefore(b,$("#tema")||hb.firstChild)}
 const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.createElement("button");b.className="mi";b.id="mPf";b.setAttribute("role","menuitem");b.textContent="Meu perfil";b.onclick=abrir;mm.insertBefore(b,hr)}
 })();
