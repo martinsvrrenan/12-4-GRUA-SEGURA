@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#06122b">
+<meta name="theme-color" content="#14284b">
 <script>try{var t=localStorage.getItem("gs-tema");document.documentElement.setAttribute("data-theme",t==="light"?"light":"dark")}catch(e){document.documentElement.setAttribute("data-theme","dark")}</script>
 <link rel="manifest" href="manifest.json?v=3">
 <link rel="icon" type="image/svg+xml" href="<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='15' fill='#14284b'/><path d='M32 33 43 37v8c0 7-5 11-11 14-6-3-11-7-11-14v-8z' fill='#ffc21a'/><path d='m26.5 45.5 4 4 7.5-8' stroke='#14284b' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/><rect x='9' y='13' width='46' height='6' rx='3' fill='#ffc21a'/><rect x='9' y='10' width='5' height='12' rx='2' fill='#fff'/><rect x='50' y='10' width='5' height='12' rx='2' fill='#fff'/><rect x='25' y='19' width='14' height='6' rx='2' fill='#fff'/><path d='M32 25v8' stroke='#fff' stroke-width='2.4' stroke-linecap='round'/></svg>">
@@ -174,7 +174,7 @@ html[data-theme=dark] .mn{background:#1a2336;border-color:#34405c;box-shadow:0 1
 /* ===== Login industrial ===== */
 #login{display:grid;grid-template-columns:1.05fr 1fr;max-width:940px;margin:6vh auto;border-radius:18px;overflow:hidden;background:#fff;border:1px solid var(--line);box-shadow:0 24px 60px #0f1b2d30}
 #login::before{content:"";grid-column:1/-1;height:8px;background:repeating-linear-gradient(-45deg,#ffc21a 0 14px,#14284b 14px 28px)}
-.lg-hero{padding:34px 32px;color:#fff;display:flex;flex-direction:column;gap:14px;background:linear-gradient(#ffffff0a 1px,transparent 1px),linear-gradient(90deg,#ffffff0a 1px,transparent 1px),linear-gradient(160deg,#0f1b2d,#14284b 75%);background-size:28px 28px,28px 28px,auto}
+.lg-hero{padding:34px 32px;color:#fff;display:flex;flex-direction:column;gap:14px;background:linear-gradient(#ffffff0a 1px,transparent 1px),linear-gradient(90deg,#ffffff0a 1px,transparent 1px),linear-gradient(#14284b,#14284b);background-size:28px 28px,28px 28px,auto}
 .lg-brand{display:flex;align-items:center;gap:12px;font-weight:800;letter-spacing:2.5px;font-size:13px;color:#ffc21a}
 .lg-hero h1{margin:14px 0 0;font-size:26px;line-height:1.2;letter-spacing:-.4px}.lg-hero p{margin:0;color:#b9c6e0;font-size:14px}
 .lg-ft{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:11px}.lg-ft li{position:relative;padding-left:22px;font-size:13.5px;font-weight:600;color:#dbe4f5}
@@ -517,7 +517,7 @@ const ICO_LUA = '<svg class="tic" viewBox="0 0 24 24" aria-hidden="true"><path d
 function aplicaTema(t, salvar) {
   const dark = t === "dark";
   document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
-  document.querySelector('meta[name="theme-color"]').setAttribute("content", dark ? "#06122b" : "#0c1c40");
+  document.querySelector('meta[name="theme-color"]').setAttribute("content", "#14284b");
   document.querySelectorAll(".tema").forEach(el => { const ic = dark ? ICO_SOL : ICO_LUA; el.innerHTML = el.dataset.txt ? ic + "<span>" + (dark ? "Modo claro" : "Modo escuro") + "</span>" : ic; el.title = el.getAttribute("aria-label") || ""; if (!el.dataset.txt) { el.title = dark ? "Mudar para modo claro" : "Mudar para modo escuro"; el.setAttribute("aria-label", el.title); } });
   Chart.defaults.color = dark ? "#b3bfd6" : "#5b6677"; Chart.defaults.borderColor = dark ? "#2b3550" : "rgba(0,0,0,0.1)";
   if (salvar) { try { localStorage.setItem("gs-tema", t); } catch (e) {} }
@@ -3005,13 +3005,13 @@ html[data-theme] body{background:linear-gradient(#e9eef8,#f4f6fb) fixed;color:va
 html[data-theme=dark] body{background:radial-gradient(90% 40% at 50% -4%,#173a78 0,transparent 72%),linear-gradient(#07163a,#040b1d 70%) fixed}
 
 /* Cabeçalho */
-html[data-theme] header{background:rgba(6,16,40,.88);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid #ffffff14;padding-left:16px;padding-right:16px}
+html[data-theme] header,html[data-theme=dark] header{background:#14284b;-webkit-backdrop-filter:none;backdrop-filter:none;border-bottom:1px solid #ffffff1f;padding-left:16px;padding-right:16px}
 html[data-theme] header .logo{width:46px;height:46px;border-radius:14px;box-shadow:0 0 0 1px #ffffff22}
 html[data-theme] header h1{font-size:22px;font-weight:800;letter-spacing:-.5px;color:#fff}
 html[data-theme] header small{color:#9fb3da;font-size:13px}
 body.v-proj header h1,body.v-users header h1{font-size:15px}
-html[data-theme] header button{min-height:44px;padding:0 14px;border-radius:14px;background:#0f2455;border:1px solid #27458a;color:#fff}
-html[data-theme] header button:hover{background:#17327a}
+html[data-theme] header button{min-height:44px;padding:0 14px;border-radius:14px;background:#ffffff14;border:1px solid #ffffff40;color:#fff}
+html[data-theme] header button:hover{background:#ffffff26}
 html[data-theme] header #tema,html[data-theme] header #mBtn{width:44px;padding:0}
 @media(max-width:899px){html[data-theme] header #mBtn{display:inline-flex}}
 
@@ -3032,7 +3032,7 @@ html[data-theme] button:hover{background:var(--s)}
 html[data-theme] :is(.km,.eye,.lk,.gx-mb,.mn button,.seg button,.stb button,nav button){background:transparent;border:0}
 html[data-theme] #mMenu .mi{background:transparent;border:0}
 html[data-theme] :is(.km,.gx-mb,.mn button,nav button):hover,html[data-theme] #mMenu .mi:hover{background:var(--hov)}
-html[data-theme] header button{background:#0f2455;border:1px solid #27458a;color:#fff}
+html[data-theme] header button{background:#ffffff14;border:1px solid #ffffff40;color:#fff}
 html[data-theme] button.p{background:linear-gradient(180deg,var(--yel2),var(--yel));color:#0b1733;border:0;font-weight:800;box-shadow:0 6px 16px #f7b92836}
 html[data-theme] button.p:hover{background:linear-gradient(180deg,#ffe08a,#f9c23c)}
 html[data-theme] button.d{background:#d64545;color:#fff;border:0}
