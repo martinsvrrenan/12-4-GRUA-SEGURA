@@ -2861,23 +2861,30 @@ function periodo2(){const d=dlg(`<h3>Período do projeto e ano fiscal</h3><small
   if(error||!data||!data.length)return alert("Não foi possível salvar: "+(error?error.message:"sem permissão"));
   Object.assign(proj,{data_inicio:i,data_fim:f,ano_fiscal_mes_inicio:m});const pe=periodo(proj);PROJ={ini:pe.ini,fim:pe.fim,fyM:fyMes(proj)};
   d.close();evoOpts();dash();try{setHeader(proj.nome,[proj.cliente,proj.localidade].filter(Boolean).join(" · ")||perLabel())}catch(x){}}}
+function fyDlg(){const y0=fyAno(PROJ.ini,PROJ.fyM),y1=fyAno(PROJ.fim,PROJ.fyM),f=CF.fy||{},d=dlg(`<h3>Anos fiscais exibidos</h3><small>Ano fiscal do projeto: ${y0} a ${y1}. Informe o ano em que cada ano fiscal começa (ex.: 2026 = ${fyWin(2026).label}) para listar mais anos no gráfico, mesmo além das datas do projeto.</small>
+ <label>Primeiro ano<input type="number" id="gxFa" min="2000" max="2100" value="${f.a||y0}"></label><label>Último ano<input type="number" id="gxFb" min="2000" max="2100" value="${f.b||y1}"></label>${bar}`);
+ d.onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;if(b.dataset.a!=="ok")return d.close();const a=+$("#gxFa").value,z=+$("#gxFb").value;
+  if(!(a>=2000&&z>=a&&z<=2100))return alert("Informe anos válidos, com o último igual ou posterior ao primeiro.");CF.fy={a,b:z};cfgSave();d.close();evoOpts();dash()}}
 function custom(){const w=curWin(),d=dlg(`<h3>Período personalizado</h3><small>Escolha qualquer intervalo para o gráfico (ex.: vários anos).</small>
  <label>De<input type="date" id="gxCa" value="${isoD(w.a)}"></label><label>Até<input type="date" id="gxCb" value="${isoD(w.b)}"></label>${bar}`);
  d.onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;if(b.dataset.a!=="ok")return d.close();const a=$("#gxCa").value,z=$("#gxCb").value;
   if(!a||!z||z<a)return alert("Informe as duas datas, com o fim igual ou posterior ao início.");CF.cu={a,b:z};cfgSave();d.close();evoOpts();$("#evP").value="cu";dash()}}
 function menu(sec){cfgLoad();const T={k:"Indicadores principais",ind:"Todos os indicadores",evo:"Evolução e andamento"}[sec],B=(a,t)=>`<button class="gx-mi" data-a="${a}">${t}</button>`;
- const it=sec==="k"?B("sk","Escolher indicadores"):sec==="ind"?B("vis",CF.vis==="l"?"Visualizar em cards":"Visualizar em lista")+B("st","Escolher indicadores"):B("se","Cards do gráfico")+B("per","Período do projeto e ano fiscal")+B("cu","Período personalizado do gráfico");
+ const it=sec==="k"?B("sk","Escolher indicadores"):sec==="ind"?B("vis",CF.vis==="l"?"Visualizar em cards":"Visualizar em lista")+B("st","Escolher indicadores"):B("se","Cards do gráfico")+B("fy","Anos fiscais exibidos")+B("per","Período do projeto e ano fiscal")+B("cu","Período personalizado do gráfico");
  const d=dlg(`<h3>${T}</h3>${it}${B("rs","Restaurar padrão")}<div class="bar" style="margin-top:12px"><button type="button" data-a="x">Fechar</button></div>`);
  d.onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a;
   if(a==="x")return d.close();
   if(a==="vis"){CF.vis=CF.vis==="l"?"g":"l";cfgSave();d.close();return renderAll()}
-  if(a==="rs"){if(sec==="k")delete CF.k;else if(sec==="ind"){delete CF.t;delete CF.vis}else{delete CF.e;delete CF.cu;CU=null}cfgSave();d.close();if(sec==="evo")evoOpts();return dash()}
+  if(a==="rs"){if(sec==="k")delete CF.k;else if(sec==="ind"){delete CF.t;delete CF.vis}else{delete CF.e;delete CF.cu;delete CF.fy;CU=null}cfgSave();d.close();if(sec==="evo")evoOpts();return dash()}
   if(a==="sk")return pick("Indicadores principais","k",()=>true,()=>["k:1","k:2","k:3"].concat(teKey()));
   if(a==="st")return pick("Todos os indicadores","t",()=>true,L=>L.map(x=>x.key));
   if(a==="se")return pick("Cards do gráfico de evolução","e",x=>x.key[0]==="e",L=>L.map(x=>x.key));
-  if(a==="per")return periodo2();if(a==="cu")return custom()}}
+  if(a==="fy")return fyDlg();if(a==="per")return periodo2();if(a==="cu")return custom()}}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-gm]");if(!b)return;e.preventDefault();e.stopPropagation();menu(b.dataset.gm)},true);
 const _eo=evoOpts;evoOpts=function(){CFid=null;cfgLoad();CU=CF.cu?{a:evParse(CF.cu.a),b:evParse(CF.cu.b,true)}:null;_eo();
+ if(CF.fy){const s=$("#evP"),cur=s.value,have=new Set([...s.options].map(o=>o.value)),all=[...s.options].find(o=>o.value==="all");
+  for(let y=CF.fy.a;y<=CF.fy.b;y++)if(!have.has("fy:"+y)){const o=document.createElement("option");o.value="fy:"+y;o.textContent=fyWin(y).label;s.insertBefore(o,all||null)}
+  [...s.options].filter(o=>o.value.startsWith("fy:")).sort((a,b)=>+a.value.slice(3)-+b.value.slice(3)).forEach(o=>s.insertBefore(o,all||null));s.value=cur}
  if(CU){const s=$("#evP"),o=document.createElement("option");o.value="cu";o.textContent="Personalizado: "+dtBR(CU.a)+" a "+dtBR(CU.b);s.insertBefore(o,[...s.options].find(x=>x.value==="w")||null)}};
 const s1=$("#gxInd>summary");s1&&s1.insertAdjacentHTML("beforeend",gxMb("ind"));const h=$("#gxEvo .evh");h&&h.insertAdjacentHTML("beforeend",gxMb("evo"));
 })();
