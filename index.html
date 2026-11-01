@@ -256,7 +256,7 @@ html[data-theme=dark] .bdg{background:#222d45;color:#c9d3e8;border-color:#34405c
 </div>
 
 <div id="app" class="hide">
-<header><div class="brand"><button id="back" aria-label="Voltar para a lista de projetos" title="Voltar para a lista de projetos">←<span class="tx"> Projetos</span></button><svg class="logo" aria-hidden="true"><use href="#lg"/></svg><div><h1 id="hT">Grua Segura</h1><small id="hS">Gestão de projetos</small></div></div><div class="hb"><button id="hUsr" aria-label="Usuários" title="Usuários e log de ações"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c2 .6 3.3 2.2 3.5 5.2"/></svg><span class="hl">Usuários</span></button><button id="tema" class="tema" title="Alternar modo escuro" aria-label="Alternar modo escuro"></button><button id="out">Sair</button><button id="mBtn" aria-label="Menu" aria-haspopup="true" aria-expanded="false" title="Menu"><svg class="ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button></div></header>
+<header><div class="brand"><button id="back" aria-label="Voltar para a lista de projetos" title="Voltar para a lista de projetos">←<span class="tx"> Projetos</span></button><svg class="logo" aria-hidden="true"><use href="#lg"/></svg><div><h1 id="hT">Grua Segura</h1><small id="hS">Gestão de projetos</small></div></div><div class="hb"><button id="hUsr" aria-label="Usuários" title="Usuários e log de ações"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c2 .6 3.3 2.2 3.5 5.2"/></svg><span class="hl">Usuários</span></button><button id="tema" class="tema" title="Alternar modo escuro" aria-label="Alternar modo escuro"></button><button id="out">Sair</button><button id="mBtn" aria-label="Menu" aria-haspopup="true" aria-expanded="false" title="Menu"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button></div></header>
 <div id="mMenu" class="hide" role="menu">
  <button class="mi" id="mHome" role="menuitem">Projetos</button>
  <button class="mi" data-r="dashboard" role="menuitem">Dashboard</button>
@@ -1623,7 +1623,7 @@ $("#pjF").onsubmit = async e => {
 };
 // ---------- Menu ⋮ do card, exclusão com senha e solicitações ----------
 const solDe = p => sols.find(x => x.projeto_id === p.id);
-const menuHtml = p => `<div class="mw"><button class="km" aria-label="Opções do projeto ${esc(p.nome)}" aria-haspopup="menu" aria-expanded="false"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><div class="mn hide" role="menu">
+const menuHtml = p => `<div class="mw"><button class="km" aria-label="Opções do projeto ${esc(p.nome)}" aria-haspopup="menu" aria-expanded="false"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button><div class="mn hide" role="menu">
   ${gerencia(p) ? `<button role="menuitem" data-pe="${p.id}">Pessoas com acesso</button>` : ""}
   ${canProj ? `<button role="menuitem" data-ed="${p.id}">Editar</button>
   <button role="menuitem" class="dg" data-rm="${p.id}" ${solDe(p) ? "disabled" : ""}>${solDe(p) ? "Exclusão já solicitada" : "Excluir"}</button>` : ""}</div></div>`;
@@ -2488,6 +2488,7 @@ body.v-proj #mMenu,body.v-users.has-last #mMenu{top:auto;bottom:calc(76px + env(
 #gxInd #kpis{display:none}#evP.gx-sel{display:block!important;flex:1 1 100%}
 .gx-ls{display:flex;flex-direction:column}.gx-lr{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:10px 0;border-bottom:1px solid var(--line);align-items:baseline}.gx-lr>span{font-weight:600}.gx-lr>b{font-size:18px;color:var(--ink)}.gx-lr>small{grid-column:1/-1}
 .gx-lb{grid-column:1/-1;height:4px;border-radius:2px;background:#e9edf4;overflow:hidden}.gx-lb u{display:block;height:100%;background:#2e9e5b}html[data-theme=dark] .gx-lb{background:#27314a}html[data-theme=dark] .gx-mb:hover{background:#1f2a45}
+@media(max-width:899px){#hPf{display:none!important}}
 </style>
 <script id="gx-js">
 (function(){
@@ -2887,6 +2888,55 @@ const _eo=evoOpts;evoOpts=function(){CFid=null;cfgLoad();CU=CF.cu?{a:evParse(CF.
   [...s.options].filter(o=>o.value.startsWith("fy:")).sort((a,b)=>+a.value.slice(3)-+b.value.slice(3)).forEach(o=>s.insertBefore(o,all||null));s.value=cur}
  if(CU){const s=$("#evP"),o=document.createElement("option");o.value="cu";o.textContent="Personalizado: "+dtBR(CU.a)+" a "+dtBR(CU.b);s.insertBefore(o,[...s.options].find(x=>x.value==="w")||null)}};
 const s1=$("#gxInd>summary");s1&&s1.insertAdjacentHTML("beforeend",gxMb("ind"));const h=$("#gxEvo .evh");h&&h.insertAdjacentHTML("beforeend",gxMb("evo"));
+})();
+</script>
+<script id="gx-perfil">
+/* ===== Meu perfil: dados, aparência e senha ===== */
+(function(){
+const $=s=>document.querySelector(s),E=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const ICO='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c.8-4 4-6 8-6s7.2 2 8 6"/></svg>';
+async function abrir(){
+ let d=$("#gxPf");if(!d){d=document.createElement("dialog");d.id="gxPf";document.body.appendChild(d)}
+ d.innerHTML="<h3>Meu perfil</h3><small>Carregando…</small>";d.showModal();
+ const r=await sb.from("perfil_usuario").select("*").eq("user_id",me).maybeSingle(),p=r.data||{},semTab=r.error&&/perfil_usuario/.test(r.error.message);
+ const dark=document.documentElement.getAttribute("data-theme")==="dark",pap=(PAPEIS.find(x=>x[0]===papel)||[0,papel])[1];
+ d.innerHTML=`<h3>Meu perfil</h3><small>${E(myEmail)} · ${E(pap)}</small>
+ <p style="margin:16px 0 0"><b>Dados pessoais</b></p>
+ <label>E-mail (não pode ser alterado aqui)<input value="${E(myEmail)}" disabled></label>
+ <label>Nome<input id="gpN" autocomplete="name" value="${E(p.nome)}"></label>
+ <label>Empresa<input id="gpE" autocomplete="organization" value="${E(p.empresa)}"></label>
+ <label>Cargo<input id="gpC" autocomplete="organization-title" value="${E(p.cargo)}"></label>
+ <label>Telefone<input id="gpT" type="tel" autocomplete="tel" value="${E(p.telefone)}"></label>
+ <div class="bar" style="margin-top:10px"><button class="p" id="gpS">Salvar dados</button></div><small id="gpM1" class="err"></small>
+ <p style="margin:18px 0 0"><b>Aparência</b></p>
+ <label>Tema<select id="gpTh"><option value="light"${dark?"":" selected"}>Claro</option><option value="dark"${dark?" selected":""}>Escuro</option></select></label>
+ <p style="margin:18px 0 0"><b>Alterar senha</b></p>
+ <label>Senha atual<input id="gpA" type="password" autocomplete="current-password"></label>
+ <label>Nova senha (mínimo 8 caracteres)<input id="gpP" type="password" autocomplete="new-password"></label>
+ <label>Confirmar nova senha<input id="gpP2" type="password" autocomplete="new-password"></label>
+ <div class="bar" style="margin-top:10px"><button class="p" id="gpSn">Alterar senha</button></div><small id="gpM2"></small>
+ <p style="margin:18px 0 0"><b>Sessão</b></p>
+ <div class="bar"><button id="gpSa">Sair de todos os aparelhos</button><button id="gpO">Sair</button></div>
+ <div class="bar" style="margin-top:14px"><button id="gpX">Fechar</button></div>`;
+ const m=(id,t,ok)=>{const e=$(id);e.textContent=t;e.className=ok?"":"err"};
+ $("#gpX").onclick=()=>d.close();$("#gpO").onclick=()=>{d.close();$("#out").click()};
+ $("#gpTh").onchange=e=>aplicaTema(e.target.value,true);
+ $("#gpS").onclick=async()=>{if(semTab)return m("#gpM1","Falta rodar o SQL fase6_perfil_usuario.sql no Supabase.");
+  const{error}=await sb.from("perfil_usuario").upsert({user_id:me,nome:$("#gpN").value.trim()||null,empresa:$("#gpE").value.trim()||null,cargo:$("#gpC").value.trim()||null,telefone:$("#gpT").value.trim()||null,updated_at:new Date().toISOString()});
+  m("#gpM1",error?"Não foi possível salvar: "+error.message:"Dados salvos.",!error)};
+ $("#gpSn").onclick=async()=>{const a=$("#gpA").value,n=$("#gpP").value,c=$("#gpP2").value;
+  if(!a||!n)return m("#gpM2","Informe a senha atual e a nova senha.");
+  if(n.length<8)return m("#gpM2","A nova senha precisa ter pelo menos 8 caracteres.");
+  if(n!==c)return m("#gpM2","A confirmação não confere com a nova senha.");
+  if(n===a)return m("#gpM2","A nova senha deve ser diferente da atual.");
+  const v=await sb.auth.signInWithPassword({email:myEmail,password:a});if(v.error)return m("#gpM2","Senha atual incorreta.");
+  const{error}=await sb.auth.updateUser({password:n});
+  if(error)return m("#gpM2","Não foi possível alterar: "+error.message);
+  ["#gpA","#gpP","#gpP2"].forEach(i=>$(i).value="");m("#gpM2","Senha alterada.",true)};
+ $("#gpSa").onclick=async()=>{if(confirm("Encerrar a sessão em todos os aparelhos, inclusive este?")){await sb.auth.signOut({scope:"global"});location.reload()}};
+}
+const hb=$("header .hb");if(hb){const b=document.createElement("button");b.id="hPf";b.title="Meu perfil";b.setAttribute("aria-label","Meu perfil");b.innerHTML=ICO+'<span class="hl">Perfil</span>';b.onclick=abrir;hb.insertBefore(b,$("#tema")||hb.firstChild)}
+const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.createElement("button");b.className="mi";b.id="mPf";b.setAttribute("role","menuitem");b.textContent="Meu perfil";b.onclick=abrir;mm.insertBefore(b,hr)}
 })();
 </script>
 </body>
