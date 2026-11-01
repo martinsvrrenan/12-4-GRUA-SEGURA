@@ -2895,6 +2895,9 @@ const s1=$("#gxInd>summary");s1&&s1.insertAdjacentHTML("beforeend",gxMb("ind"));
 (function(){
 const $=s=>document.querySelector(s),E=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const ICO='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c.8-4 4-6 8-6s7.2 2 8 6"/></svg>';
+const cf=(t,msg,ok)=>new Promise(res=>{const d=document.createElement("dialog");d.style.width="min(420px,92vw)";
+ d.innerHTML=`<h3>${E(t)}</h3><p>${E(msg)}</p><div class="bar" style="margin-top:14px;justify-content:flex-end"><button type="button" data-v="0">Cancelar</button><button type="button" class="p" data-v="1">${E(ok||"Confirmar")}</button></div>`;
+ let r=false;d.onclick=e=>{const b=e.target.closest("[data-v]");if(b){r=b.dataset.v==="1";d.close()}};d.onclose=()=>{d.remove();res(r)};document.body.appendChild(d);d.showModal()});
 async function abrir(){
  let d=$("#gxPf");if(!d){d=document.createElement("dialog");d.id="gxPf";document.body.appendChild(d)}
  d.innerHTML="<h3>Meu perfil</h3><small>Carregando…</small>";d.showModal();
@@ -2910,11 +2913,11 @@ async function abrir(){
  <div class="bar" style="margin-top:10px"><button class="p" id="gpS">Salvar dados</button></div><small id="gpM1" class="err"></small>
  <p style="margin:18px 0 0"><b>Aparência</b></p>
  <label>Tema<select id="gpTh"><option value="light"${dark?"":" selected"}>Claro</option><option value="dark"${dark?" selected":""}>Escuro</option></select></label>
- <p style="margin:18px 0 0"><b>Alterar senha</b></p>
+ <details class="dt" id="gpD" style="margin-top:18px"><summary>Alterar senha</summary><div>
  <label>Senha atual<input id="gpA" type="password" autocomplete="current-password"></label>
- <label>Nova senha (mínimo 8 caracteres)<input id="gpP" type="password" autocomplete="new-password"></label>
+ <label>Nova senha (mínimo 6 caracteres)<input id="gpP" type="password" autocomplete="new-password"></label>
  <label>Confirmar nova senha<input id="gpP2" type="password" autocomplete="new-password"></label>
- <div class="bar" style="margin-top:10px"><button class="p" id="gpSn">Alterar senha</button></div><small id="gpM2"></small>
+ <div class="bar" style="margin-top:10px"><button class="p" id="gpSn">Alterar senha</button></div><small id="gpM2"></small></div></details>
  <p style="margin:18px 0 0"><b>Sessão</b></p>
  <div class="bar"><button id="gpSa">Sair de todos os aparelhos</button><button id="gpO">Sair</button></div>
  <div class="bar" style="margin-top:14px"><button id="gpX">Fechar</button></div>`;
@@ -2926,14 +2929,15 @@ async function abrir(){
   m("#gpM1",error?"Não foi possível salvar: "+error.message:"Dados salvos.",!error)};
  $("#gpSn").onclick=async()=>{const a=$("#gpA").value,n=$("#gpP").value,c=$("#gpP2").value;
   if(!a||!n)return m("#gpM2","Informe a senha atual e a nova senha.");
-  if(n.length<8)return m("#gpM2","A nova senha precisa ter pelo menos 8 caracteres.");
+  if(n.length<6)return m("#gpM2","A nova senha precisa ter pelo menos 6 caracteres.");
   if(n!==c)return m("#gpM2","A confirmação não confere com a nova senha.");
   if(n===a)return m("#gpM2","A nova senha deve ser diferente da atual.");
+  if(!await cf("Alterar senha","Deseja realmente alterar a sua senha?","Alterar senha"))return;
   const v=await sb.auth.signInWithPassword({email:myEmail,password:a});if(v.error)return m("#gpM2","Senha atual incorreta.");
   const{error}=await sb.auth.updateUser({password:n});
   if(error)return m("#gpM2","Não foi possível alterar: "+error.message);
   ["#gpA","#gpP","#gpP2"].forEach(i=>$(i).value="");m("#gpM2","Senha alterada.",true)};
- $("#gpSa").onclick=async()=>{if(confirm("Encerrar a sessão em todos os aparelhos, inclusive este?")){await sb.auth.signOut({scope:"global"});location.reload()}};
+ $("#gpSa").onclick=async()=>{if(await cf("Sair de todos os aparelhos","Encerrar a sessão em todos os aparelhos, inclusive este?","Sair de todos")){await sb.auth.signOut({scope:"global"});location.reload()}};
 }
 const hb=$("header .hb");if(hb){const b=document.createElement("button");b.id="hPf";b.title="Meu perfil";b.setAttribute("aria-label","Meu perfil");b.innerHTML=ICO+'<span class="hl">Perfil</span>';b.onclick=abrir;hb.insertBefore(b,$("#tema")||hb.firstChild)}
 const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.createElement("button");b.className="mi";b.id="mPf";b.setAttribute("role","menuitem");b.textContent="Meu perfil";b.onclick=abrir;mm.insertBefore(b,hr)}
