@@ -273,31 +273,6 @@ html[data-theme=dark] .bdg{background:#222d45;color:#c9d3e8;border-color:#34405c
 <nav><button data-t="t1" data-r="dashboard" class="on"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z"/></svg><span>Dashboard</span></button><button data-t="t2" data-r="cadastro"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Cadastro</span></button><button data-t="t5" data-r="relatorios"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 17v-3M12 17v-6M16 17v-2"/></svg><span>Relatórios</span></button><button data-t="t3" data-r="dados"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v13M3 13l4 4 4-4M17 20V7M13 11l4-4 4 4"/></svg><span class="lg">Importar / Exportar</span><span class="sh">Dados</span></button></nav>
 <main>
  <section id="home" class="hide">
-  <div class="hero">
-   <svg class="hero-art" viewBox="0 0 400 240" preserveAspectRatio="xMaxYMid slice" aria-hidden="true">
-    <defs>
-     <linearGradient id="hgBg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0b2a5c"/><stop offset="1" stop-color="#1b4a8f"/></linearGradient>
-     <linearGradient id="hgY" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd450"/><stop offset="1" stop-color="#e59f0b"/></linearGradient>
-    </defs>
-    <rect width="400" height="240" fill="url(#hgBg)"/>
-    <g stroke="#9cc0ff" stroke-opacity=".22" fill="none" stroke-width="1.4">
-     <path d="M140 0l90 110M230 0L140 110M250 0l90 110M340 0L250 110M120 38H400M120 76H400M310 110v130M372 96v144"/>
-    </g>
-    <polygon points="150,92 400,40 400,84 150,138" fill="url(#hgY)"/>
-    <polygon points="150,138 400,84 400,95 150,150" fill="#a86d05"/>
-    <g fill="#8a5a04" opacity=".5"><circle cx="190" cy="104" r="2.2"/><circle cx="220" cy="98" r="2.2"/><circle cx="330" cy="76" r="2.2"/><circle cx="360" cy="70" r="2.2"/></g>
-    <rect x="148" y="86" width="14" height="70" rx="3" fill="#1b2a4a"/>
-    <rect x="248" y="108" width="58" height="28" rx="5" fill="#14213f"/>
-    <rect x="248" y="108" width="58" height="6" rx="3" fill="#ffc82e"/>
-    <circle cx="262" cy="144" r="6" fill="#0d1731"/><circle cx="292" cy="144" r="6" fill="#0d1731"/>
-    <path d="M277 136v44" stroke="#c9d6ee" stroke-width="3" stroke-dasharray="4 3"/>
-    <rect x="266" y="178" width="22" height="16" rx="4" fill="#ffc82e"/>
-    <rect x="266" y="184" width="22" height="4" fill="#14213f"/>
-    <path d="M277 194v12a10 10 0 1 1-10 10" stroke="#ffc82e" stroke-width="7" fill="none" stroke-linecap="round"/>
-   </svg>
-   <h2 class="hero-t"><span>Segurança</span> em cada detalhe</h2>
-   <svg class="hero-sw" viewBox="0 0 400 46" preserveAspectRatio="none" aria-hidden="true"><path d="M0 26C110 44 230 46 400 14v6C230 54 110 52 0 34z" fill="#ffc21a"/></svg>
-  </div>
   <div class="card sum hide" id="hSum"></div>
   <div class="hh"><h2><span class="hi"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h4.1c.6 0 1.2.3 1.6.8L12.4 6.3h6.1A2.5 2.5 0 0 1 21 8.8V17.5A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/><rect x="8" y="11" width="8" height="2.2" rx="1.1" fill="#0b1733"/></svg></span>Projetos</h2><div class="bar"><input id="hQ" type="search" autocomplete="off" placeholder="Buscar projeto, cliente ou local…" aria-label="Buscar projeto"><button class="p hide" id="pNovo">+ Novo projeto</button></div></div>
   <div id="solic"></div>
@@ -3098,13 +3073,6 @@ html[data-theme] #login{background:var(--s);border-color:var(--bd)}
 html[data-theme] .lg-form h2{color:var(--ink)}
 
 /* ===== Tela de projetos ===== */
-.hero{position:relative;overflow:hidden;border-radius:26px;min-height:196px;margin-bottom:18px;display:flex;align-items:center;background:#0b2a5c;border:1px solid #27458a;isolation:isolate}
-.hero-art{position:absolute;inset:0;width:100%;height:100%;z-index:-2}
-.hero::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#06122b 18%,#06122bcc 48%,#06122b00 82%)}
-.hero-sw{position:absolute;left:0;right:0;bottom:-1px;width:100%;height:46px;z-index:0;pointer-events:none}
-.hero-t{margin:0;padding:26px 0 40px 24px;max-width:62%;font-size:clamp(27px,7.4vw,40px);line-height:1.12;font-weight:800;letter-spacing:-1px;color:#fff}
-.hero-t span{color:var(--yel)}
-@media(min-width:760px){.hero{min-height:230px}.hero-t{max-width:48%;padding-left:36px}}
 
 html[data-theme] .hh{margin-bottom:12px;gap:12px 14px}
 html[data-theme] .hh h2{display:flex;align-items:center;gap:12px;font-size:30px;font-weight:800;letter-spacing:-.8px}
@@ -3177,7 +3145,6 @@ html[data-theme] .pc .pt .mw{order:2;margin:-6px -8px -6px auto}
 html[data-theme] .pc .pt h3{order:3;flex:1 1 100%}
 .donut{width:128px;height:128px}.donut small{font-size:9.5px}.donut b{font-size:26px}
 .ov-b{gap:18px;flex-wrap:nowrap}.lgd{flex:1 1 0;min-width:0}
-.hero-art{left:auto;right:0;width:min(100%,620px)}
 html[data-theme=light] .pc .pc-lg{box-shadow:0 0 0 1px var(--bd)}
 </style>
 </body>
