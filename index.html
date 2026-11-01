@@ -171,24 +171,6 @@ body.v-proj header h1,body.v-users header h1{white-space:normal;display:-webkit-
 .sl{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:12px 0 0;margin-top:12px;border-top:1px solid var(--line)}.sl>div{min-width:0}.sl .ac{display:flex;gap:8px;flex-wrap:wrap}
 html[data-theme=dark] .mn{background:#1a2336;border-color:#34405c;box-shadow:0 10px 30px #0008}html[data-theme=dark] .mn button{background:transparent}html[data-theme=dark] .mn button:hover{background:#222d45}html[data-theme=dark] .mn button.dg{color:#ff8a80}
 
-/* ===== Login industrial ===== */
-#login{display:grid;grid-template-columns:1.05fr 1fr;max-width:940px;margin:6vh auto;border-radius:18px;overflow:hidden;background:#fff;border:1px solid var(--line);box-shadow:0 24px 60px #0f1b2d30}
-#login::before{content:"";grid-column:1/-1;height:8px;background:repeating-linear-gradient(-45deg,#ffc21a 0 14px,#14284b 14px 28px)}
-.lg-hero{padding:34px 32px;color:#fff;display:flex;flex-direction:column;gap:14px;background:linear-gradient(#ffffff0a 1px,transparent 1px),linear-gradient(90deg,#ffffff0a 1px,transparent 1px),linear-gradient(#14284b,#14284b);background-size:28px 28px,28px 28px,auto}
-.lg-brand{display:flex;align-items:center;gap:12px;font-weight:800;letter-spacing:2.5px;font-size:13px;color:#ffc21a}
-.lg-hero h1{margin:14px 0 0;font-size:26px;line-height:1.2;letter-spacing:-.4px}.lg-hero p{margin:0;color:#b9c6e0;font-size:14px}
-.lg-ft{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:11px}.lg-ft li{position:relative;padding-left:22px;font-size:13.5px;font-weight:600;color:#dbe4f5}
-.lg-ft li::before{content:"";position:absolute;left:0;top:6px;width:9px;height:9px;background:#ffc21a;border-radius:2px}
-.lg-sf{margin-top:auto;padding-top:18px;color:#8ea2c8;font-size:11.5px}
-.lg-form{padding:34px 32px;display:flex;flex-direction:column;justify-content:center;min-width:0}
-.lg-form h2{margin:0 0 4px;font-size:22px;letter-spacing:-.4px;color:var(--ink)}.lg-form .sub{margin:0 0 14px;color:var(--mut);font-size:13px}
-.fld{position:relative;margin-top:4px}.fld>svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--mut);pointer-events:none}
-.fld input{width:100%;margin:0;padding-left:40px;padding-right:76px}
-.fld .eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:transparent;min-height:0;padding:8px 10px;font-size:12px;color:var(--blue)}
-#go{width:100%;margin-top:18px;min-height:46px;font-size:15px;border-bottom:3px solid #ffc21a}
-.lg-form .lnk{margin:10px 0 0;font-size:13px}
-html[data-theme=dark] #login{background:#151c2b;box-shadow:0 24px 60px #0008}
-@media(max-width:760px){#login{grid-template-columns:1fr;margin:12px auto}.lg-hero{padding:20px 20px 16px;gap:8px}.lg-hero h1{font-size:19px;margin-top:6px}.lg-hero p,.lg-ft,.lg-sf{display:none}.lg-form{padding:22px 20px 24px}.fld input{padding-top:11px;padding-bottom:11px}}
 .tic{width:22px;height:22px;flex:none;vertical-align:middle}
 .tema[data-txt] .tic,.mi.tema .tic{width:20px;height:20px;margin-right:10px;vertical-align:-5px}
 .mi.tema{display:flex!important;align-items:center}
@@ -226,32 +208,39 @@ html[data-theme=dark] .bdg{background:#222d45;color:#c9d3e8;border-color:#34405c
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="lg" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#14284b"/><path d="M32 33 43 37v8c0 7-5 11-11 14-6-3-11-7-11-14v-8z" fill="#ffc21a"/><path d="m26.5 45.5 4 4 7.5-8" stroke="#14284b" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="9" y="13" width="46" height="6" rx="3" fill="#ffc21a"/><rect x="9" y="10" width="5" height="12" rx="2" fill="#fff"/><rect x="50" y="10" width="5" height="12" rx="2" fill="#fff"/><rect x="25" y="19" width="14" height="6" rx="2" fill="#fff"/><path d="M32 25v8" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></symbol></svg>
 <div id="login" class="hide">
-  <aside class="lg-hero"><div class="lg-brand"><svg class="logo" aria-hidden="true"><use href="#lg"/></svg><span>GRUA SEGURA</span></div>
-   <h1>Gestão de projetos e suprimentos</h1><p>Andamento, cronograma e materiais de cada projeto em um só lugar.</p>
-   <ul class="lg-ft"><li>Andamento e cronograma por projeto</li><li>Suprimentos: RC, pedido, prazo e entrega</li><li>Relatórios executivos em PDF, PowerPoint e Excel</li></ul>
+  <aside class="lg-hero">
+   <div class="lg-brand"><svg class="logo" aria-hidden="true"><use href="#lg"/></svg><div><b>Grua Segura</b><small>Gestão de projetos</small></div></div>
+   <h1>Gestão de projetos e suprimentos</h1>
+   <p>Andamento, cronograma e materiais de cada projeto em um só lugar.</p>
+   <ul class="lg-ft">
+    <li><span class="lg-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17M9 15l2 2 4-4"/></svg></span><div><b>Andamento e cronograma</b><small>Acompanhe cada projeto</small></div></li>
+    <li><span class="lg-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg></span><div><b>Suprimentos</b><small>RC, pedido, prazo e entrega</small></div></li>
+    <li><span class="lg-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5M9.5 17v-3M12 17v-5.5M14.5 17v-2"/></svg></span><div><b>Relatórios executivos</b><small>PDF, PowerPoint e Excel</small></div></li>
+   </ul>
    <small class="lg-sf">Manutenção Central · Acesso restrito a pessoal autorizado</small></aside>
   <section class="lg-form">
    <h2 id="lt">Acessar o sistema</h2><p class="sub">Entre com seu e-mail e senha.</p>
-   <label>E-mail<div class="fld"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg><input id="em" type="email" placeholder="nome@empresa.com" autocomplete="username"></div></label>
-   <label>Senha<div class="fld"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="pw" type="password" placeholder="Sua senha" autocomplete="current-password"><button type="button" class="eye">Mostrar</button></div></label>
-   <label class="fldw hide">Repita a senha<div class="fld"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="pw2" type="password" placeholder="Repita a senha" autocomplete="new-password"><button type="button" class="eye">Mostrar</button></div></label>
+   <label>E-mail<div class="fld"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg><input id="em" type="email" placeholder="nome@empresa.com" autocomplete="username" autocapitalize="none" spellcheck="false"></div></label>
+   <label>Senha<div class="fld"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="pw" type="password" placeholder="Sua senha" autocomplete="current-password"><button type="button" class="eye" aria-label="Mostrar ou ocultar a senha">Mostrar</button></div></label>
+   <label class="fldw hide">Repita a senha<div class="fld"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="pw2" type="password" placeholder="Repita a senha" autocomplete="new-password"><button type="button" class="eye" aria-label="Mostrar ou ocultar a senha">Mostrar</button></div></label>
    <button class="p" id="go">Entrar</button>
+   <p class="err" id="lerr" role="alert" aria-live="polite"></p>
    <p class="lnk"><a href="#" id="fg">Esqueci minha senha</a></p>
-   <p class="lnk"><a href="#" id="tg">Criar nova conta</a></p>
-   <p class="lnk"><a href="#" class="tema" data-txt="1" id="tema2"></a></p>
-   <p class="err" id="lerr"></p></section>
+   <p class="lnk lg-alt"><a href="#" id="tg">Criar nova conta</a></p>
+   <p class="lnk"><a href="#" class="tema" data-txt="1" id="tema2"></a></p></section>
 </div>
-<div id="reset" class="card hide" style="max-width:400px;margin:9vh auto;padding:32px 28px;border-radius:20px">
-  <svg class="logo" aria-hidden="true" style="width:72px;height:72px;margin:0 auto 14px"><use href="#lg"/></svg>
-  <h2 style="margin:0 0 4px;text-align:center;font-size:22px">Nova senha</h2><p class="sub" style="text-align:center;color:var(--mut);margin:0 0 18px;font-size:13px">Escolha uma nova senha para entrar no app.</p>
-  <input id="rs1" type="password" placeholder="Nova senha (mín. 6 caracteres)" autocomplete="new-password" style="width:100%;margin-bottom:10px">
-  <input id="rs2" type="password" placeholder="Repita a nova senha" autocomplete="new-password" style="width:100%;margin-bottom:10px">
-  <button class="p" id="rsGo" style="width:100%">Salvar nova senha</button>
-  <p class="err" id="rsErr"></p>
+<div id="reset" class="card lg-solo hide">
+  <svg class="logo" aria-hidden="true"><use href="#lg"/></svg>
+  <h2>Nova senha</h2><p class="sub">Escolha uma nova senha para entrar no app.</p>
+  <label>Nova senha<div class="fld noeye"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="rs1" type="password" placeholder="Mínimo de 6 caracteres" autocomplete="new-password"></div></label>
+  <label>Repita a nova senha<div class="fld noeye"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="rs2" type="password" placeholder="Repita a nova senha" autocomplete="new-password"></div></label>
+  <button class="p" id="rsGo">Salvar nova senha</button>
+  <p class="err" id="rsErr" role="alert" aria-live="polite"></p>
 </div>
-<div id="wait" class="card hide" style="max-width:420px;margin:12vh auto">
-  <h3>Conta criada</h3>
-  <p>Seu acesso está aguardando liberação do administrador. Depois de liberado, entre novamente.</p>
+<div id="wait" class="card lg-solo hide">
+  <div class="lg-wi"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+  <h2>Conta criada</h2>
+  <p class="sub">Seu acesso está aguardando liberação do administrador. Depois de liberado, entre novamente.</p>
   <button id="wout">Sair</button>
 </div>
 
@@ -3071,9 +3060,70 @@ html[data-theme] nav button.on .ic{color:var(--yel)}
  html[data-theme] nav button.on::after{content:"";position:absolute;left:24%;right:24%;bottom:-5px;height:3px;border-radius:3px;background:var(--yel)}
 }
 
-/* Login */
-html[data-theme] #login{background:var(--s);border-color:var(--bd)}
-html[data-theme] .lg-form h2{color:var(--ink)}
+/* Login (v2) */
+html[data-theme] #login{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.04fr);width:calc(100% - 24px);max-width:980px;margin:clamp(12px,6vh,56px) auto;border-radius:26px;overflow:hidden;background:var(--s);border:1px solid var(--bd);box-shadow:var(--shadow),0 30px 70px #0f1b2d26}
+html[data-theme=dark] #login{box-shadow:0 30px 80px #000a}
+.lg-hero{position:relative;display:flex;flex-direction:column;gap:18px;padding:40px 36px 28px;color:#fff;background:radial-gradient(90% 55% at 0 0,#2a5bb85c,transparent 70%),radial-gradient(60% 40% at 100% 100%,#f7b92818,transparent 70%),#14284b}
+.lg-brand{display:flex;align-items:center;gap:14px;min-width:0}
+.lg-brand .logo{width:52px;height:52px;border-radius:15px;box-shadow:0 0 0 1px #ffffff26}
+.lg-brand b{display:block;font-size:22px;line-height:1.15;font-weight:800;letter-spacing:-.5px;color:#fff}
+.lg-brand small{display:block;margin-top:2px;color:#9fb3da;font-size:13px;font-weight:500}
+.lg-hero h1{margin:26px 0 0;font-size:32px;line-height:1.14;font-weight:800;letter-spacing:-.9px;color:#fff}
+.lg-hero h1::after{content:"";display:block;width:46px;height:4px;margin-top:16px;border-radius:4px;background:linear-gradient(90deg,var(--yel2),var(--yel))}
+.lg-hero p{margin:0;color:#b4c4e4;font-size:14.5px;line-height:1.55}
+.lg-ft{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:16px}
+.lg-ft li{display:flex;align-items:center;gap:14px;min-width:0}
+.lg-ic{width:44px;height:44px;flex:none;display:grid;place-items:center;border-radius:14px;background:#ffffff12;border:1px solid #ffffff26;color:var(--yel)}
+.lg-ic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.lg-ft b{display:block;font-size:14.5px;font-weight:800;line-height:1.25;color:#fff}
+.lg-ft small{display:block;margin-top:1px;font-size:12.5px;font-weight:600;line-height:1.3;color:#9fb3da}
+.lg-sf{display:block;margin-top:auto;padding-top:18px;border-top:1px solid #ffffff1f;color:#8ea6d2;font-size:12px;font-weight:600}
+.lg-form{display:flex;flex-direction:column;justify-content:center;min-width:0;padding:44px 40px}
+html[data-theme=dark] .lg-form{background:linear-gradient(165deg,var(--s2),var(--s) 72%)}
+html[data-theme] .lg-form h2{margin:0 0 6px;font-size:28px;line-height:1.15;font-weight:800;letter-spacing:-.7px;color:var(--ink)}
+.lg-form .sub{margin:0 0 6px;color:var(--mut);font-size:14px}
+.lg-form label,.lg-solo label{margin-top:16px;font-size:13px;font-weight:700;color:var(--mut)}
+.fld{position:relative;margin-top:6px}
+.fld>svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);width:20px;height:20px;color:var(--mut);pointer-events:none;transition:color .15s}
+.fld:focus-within>svg{color:var(--blue)}
+html[data-theme] .fld input{width:100%;margin:0;min-height:52px;padding:0 84px 0 46px;border-radius:16px;font-size:16px;font-weight:500}
+html[data-theme] .fld.noeye input{padding-right:16px}
+html[data-theme] .fld input:focus{border-color:var(--blue);box-shadow:0 0 0 4px color-mix(in srgb,var(--blue) 24%,transparent)}
+html[data-theme] .fld .eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);min-height:0;padding:8px 12px;border-radius:10px;font-size:12.5px;font-weight:700;color:var(--blue)}
+html[data-theme] .fld .eye:hover{background:var(--hov)}
+html[data-theme] :is(#go,#rsGo){width:100%;min-height:54px;margin-top:22px;border-radius:16px;font-size:17px;font-weight:800;letter-spacing:-.1px;transition:transform .15s,box-shadow .15s,background .15s}
+html[data-theme] :is(#go,#rsGo):active{transform:scale(.99)}
+html[data-theme] :is(#go,#rsGo):disabled{opacity:.6;cursor:default}
+.lg-form .lnk{margin:14px 0 0;font-size:14px}
+.lg-form .lnk a{font-weight:700;text-decoration:none}.lg-form .lnk a:hover{text-decoration:underline}
+.lg-form .lg-alt{margin-top:18px;padding-top:16px;border-top:1px solid var(--bd)}
+.lg-form .lnk .tema{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:12px;color:var(--mut);font-size:13px;font-weight:600}
+.lg-form .lnk .tema:hover{background:var(--hov);color:var(--tx);text-decoration:none}
+.lg-form .lnk .tema .tic{width:18px;height:18px;margin:0;vertical-align:0}
+.lg-form .err:empty,.lg-form #lerr:empty,.lg-solo .err:empty{display:none}
+.lg-form .err,.lg-form #lerr,.lg-solo .err{margin:16px 0 0;padding:11px 14px;border-radius:12px;font-size:13px;font-weight:600;line-height:1.4;text-align:left;background:#d645451a;border:1px solid #d6454555}
+.lg-form #lerr:not(.err):not(:empty){color:#1f7a47;background:#2e9e5b1a;border-color:#2e9e5b55}
+html[data-theme=dark] .lg-form #lerr:not(.err):not(:empty){color:#9fe0bb}
+
+/* Telas avulsas: nova senha e aguardando liberação */
+html[data-theme] .lg-solo{position:relative;overflow:hidden;width:calc(100% - 24px);max-width:440px;margin:clamp(12px,10vh,96px) auto;padding:38px 32px 32px;border-radius:26px;text-align:center}
+.lg-solo::before{content:"";position:absolute;left:0;top:30px;bottom:30px;width:4px;border-radius:0 4px 4px 0;background:linear-gradient(var(--yel2),var(--yel))}
+.lg-solo .logo{width:72px;height:72px;margin:0 auto 18px;border-radius:20px;box-shadow:0 0 0 1px var(--bd)}
+html[data-theme] .lg-solo h2{margin:0 0 6px;font-size:26px;line-height:1.15;font-weight:800;letter-spacing:-.6px;color:var(--ink)}
+.lg-solo .sub{margin:0 0 8px;color:var(--mut);font-size:14px;line-height:1.5}
+.lg-solo label{display:block;text-align:left}
+.lg-wi{width:72px;height:72px;margin:0 auto 18px;display:grid;place-items:center;border-radius:22px;color:var(--yel);background:#f7b9281f;border:1px solid #f7b92866}
+.lg-wi svg{width:34px;height:34px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+html[data-theme] #wout{width:100%;min-height:50px;margin-top:10px;border-radius:14px;font-weight:700}
+
+@media(max-width:820px){
+ html[data-theme] #login{grid-template-columns:1fr;max-width:480px;margin:12px auto 24px;border-radius:24px}
+ .lg-hero{padding:20px 22px;gap:0;box-shadow:inset 0 -3px 0 var(--yel)}
+ .lg-brand .logo{width:46px;height:46px;border-radius:14px}
+ .lg-hero h1,.lg-hero p,.lg-ft,.lg-sf{display:none}
+ .lg-form{padding:26px 22px 28px}
+ html[data-theme] .lg-form h2{font-size:25px}
+}
 
 /* ===== Tela de projetos ===== */
 
