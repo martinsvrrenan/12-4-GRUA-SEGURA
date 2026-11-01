@@ -2912,7 +2912,7 @@ async function abrir(){
  <label>Telefone<input id="gpT" type="tel" autocomplete="tel" value="${E(p.telefone)}"></label>
  <div class="bar" style="margin-top:10px"><button class="p" id="gpS">Salvar dados</button></div><small id="gpM1" class="err"></small>
  <p style="margin:18px 0 0"><b>Aparência</b></p>
- <label>Tema<select id="gpTh"><option value="light"${dark?"":" selected"}>Claro</option><option value="dark"${dark?" selected":""}>Escuro</option></select></label>
+ <div class="seg" id="gpTh" role="group" aria-label="Tema" style="margin-top:8px"><button type="button" data-t="light" class="${dark?"":"on"}" style="display:flex;gap:8px;align-items:center;justify-content:center">${ICO_SOL}<span>Claro</span></button><button type="button" data-t="dark" class="${dark?"on":""}" style="display:flex;gap:8px;align-items:center;justify-content:center">${ICO_LUA}<span>Escuro</span></button></div>
  <details class="dt" id="gpD" style="margin-top:18px"><summary>Alterar senha</summary><div>
  <label>Senha atual<input id="gpA" type="password" autocomplete="current-password"></label>
  <label>Nova senha (mínimo 6 caracteres)<input id="gpP" type="password" autocomplete="new-password"></label>
@@ -2923,7 +2923,7 @@ async function abrir(){
  <div class="bar" style="margin-top:14px"><button id="gpX">Fechar</button></div>`;
  const m=(id,t,ok)=>{const e=$(id);e.textContent=t;e.className=ok?"":"err"};
  $("#gpX").onclick=()=>d.close();$("#gpO").onclick=()=>{d.close();$("#out").click()};
- $("#gpTh").onchange=e=>aplicaTema(e.target.value,true);
+ $("#gpTh").onclick=e=>{const b=e.target.closest("button[data-t]");if(!b)return;aplicaTema(b.dataset.t,true);$("#gpTh").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b))};
  $("#gpS").onclick=async()=>{if(semTab)return m("#gpM1","Falta rodar o SQL fase6_perfil_usuario.sql no Supabase.");
   const{error}=await sb.from("perfil_usuario").upsert({user_id:me,nome:$("#gpN").value.trim()||null,empresa:$("#gpE").value.trim()||null,cargo:$("#gpC").value.trim()||null,telefone:$("#gpT").value.trim()||null,updated_at:new Date().toISOString()});
   m("#gpM1",error?"Não foi possível salvar: "+error.message:"Dados salvos.",!error)};
