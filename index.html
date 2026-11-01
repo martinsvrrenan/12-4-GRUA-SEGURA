@@ -256,7 +256,7 @@ html[data-theme=dark] .bdg{background:#222d45;color:#c9d3e8;border-color:#34405c
 </div>
 
 <div id="app" class="hide">
-<header><div class="brand"><button id="back" aria-label="Voltar para a lista de projetos" title="Voltar para a lista de projetos">←<span class="tx"> Projetos</span></button><svg class="logo" aria-hidden="true"><use href="#lg"/></svg><div><h1 id="hT">Grua Segura</h1><small id="hS">Gestão de projetos</small></div></div><div class="hb"><button id="hUsr" aria-label="Usuários" title="Usuários e log de ações"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c2 .6 3.3 2.2 3.5 5.2"/></svg><span class="hl">Usuários</span></button><button id="tema" class="tema" title="Alternar modo escuro" aria-label="Alternar modo escuro"></button><button id="out">Sair</button><button id="mBtn" aria-label="Menu" aria-haspopup="true" aria-expanded="false" title="Menu"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button></div></header>
+<header><div class="brand"><button id="back" aria-label="Voltar para a lista de projetos" title="Voltar para a lista de projetos"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg><span class="tx">Projetos</span></button><svg class="logo" aria-hidden="true"><use href="#lg"/></svg><div><h1 id="hT">Grua Segura</h1><small id="hS">Gestão de projetos</small></div></div><div class="hb"><button id="hUsr" aria-label="Usuários" title="Usuários e log de ações"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c2 .6 3.3 2.2 3.5 5.2"/></svg><span class="hl">Usuários</span></button><button id="tema" class="tema" title="Alternar modo escuro" aria-label="Alternar modo escuro"></button><button id="out">Sair</button><button id="mBtn" aria-label="Menu" aria-haspopup="true" aria-expanded="false" title="Menu"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button></div></header>
 <div id="mMenu" class="hide" role="menu">
  <button class="mi" id="mHome" role="menuitem">Projetos</button>
  <button class="mi" data-r="dashboard" role="menuitem">Dashboard</button>
@@ -3150,6 +3150,11 @@ html[data-theme] .pc .pt h3{order:3;flex:1 1 100%}
 .donut{width:128px;height:128px}.donut small{font-size:9.5px}.donut b{font-size:26px}
 .ov-b{gap:18px;flex-wrap:nowrap}.lgd{flex:1 1 0;min-width:0}
 html[data-theme=light] .pc .pc-lg{box-shadow:0 0 0 1px var(--bd)}
+html[data-theme] header #back{min-width:44px;justify-content:center;padding:0 12px;color:#ffc21a;background:#ffc21a1f;border:1px solid #ffc21a66;box-shadow:inset 0 1px 0 #ffffff14;font-weight:700;transition:background .15s,transform .15s}
+html[data-theme] header #back .ic{width:22px;height:22px}
+html[data-theme] header #back .tx{color:#fff}
+html[data-theme] header #back:hover{background:#ffc21a38}
+html[data-theme] header #back:active{transform:scale(.94)}
 </style>
 </body>
 </html>
