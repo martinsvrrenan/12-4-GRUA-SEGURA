@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#14284b">
-<script>try{var t=localStorage.getItem("gs-tema");if(t==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script>
+<meta name="theme-color" content="#06122b">
+<script>try{var t=localStorage.getItem("gs-tema");document.documentElement.setAttribute("data-theme",t==="light"?"light":"dark")}catch(e){document.documentElement.setAttribute("data-theme","dark")}</script>
 <link rel="manifest" href="manifest.json?v=3">
 <link rel="icon" type="image/svg+xml" href="<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='15' fill='#14284b'/><path d='M32 33 43 37v8c0 7-5 11-11 14-6-3-11-7-11-14v-8z' fill='#ffc21a'/><path d='m26.5 45.5 4 4 7.5-8' stroke='#14284b' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/><rect x='9' y='13' width='46' height='6' rx='3' fill='#ffc21a'/><rect x='9' y='10' width='5' height='12' rx='2' fill='#fff'/><rect x='50' y='10' width='5' height='12' rx='2' fill='#fff'/><rect x='25' y='19' width='14' height='6' rx='2' fill='#fff'/><path d='M32 25v8' stroke='#fff' stroke-width='2.4' stroke-linecap='round'/></svg>">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-v3-192.png">
@@ -273,9 +273,36 @@ html[data-theme=dark] .bdg{background:#222d45;color:#c9d3e8;border-color:#34405c
 <nav><button data-t="t1" data-r="dashboard" class="on"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z"/></svg><span>Dashboard</span></button><button data-t="t2" data-r="cadastro"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Cadastro</span></button><button data-t="t5" data-r="relatorios"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 17v-3M12 17v-6M16 17v-2"/></svg><span>Relatórios</span></button><button data-t="t3" data-r="dados"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v13M3 13l4 4 4-4M17 20V7M13 11l4-4 4 4"/></svg><span class="lg">Importar / Exportar</span><span class="sh">Dados</span></button></nav>
 <main>
  <section id="home" class="hide">
-  <div class="hh"><h2>Projetos</h2><div class="bar"><input id="hQ" type="search" autocomplete="off" placeholder="Buscar projeto, cliente ou local…" aria-label="Buscar projeto"><button class="p hide" id="pNovo">+ Novo projeto</button></div></div>
+  <div class="hero">
+   <svg class="hero-art" viewBox="0 0 400 240" preserveAspectRatio="xMaxYMid slice" aria-hidden="true">
+    <defs>
+     <linearGradient id="hgBg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0b2a5c"/><stop offset="1" stop-color="#1b4a8f"/></linearGradient>
+     <linearGradient id="hgY" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd450"/><stop offset="1" stop-color="#e59f0b"/></linearGradient>
+    </defs>
+    <rect width="400" height="240" fill="url(#hgBg)"/>
+    <g stroke="#9cc0ff" stroke-opacity=".22" fill="none" stroke-width="1.4">
+     <path d="M140 0l90 110M230 0L140 110M250 0l90 110M340 0L250 110M120 38H400M120 76H400M310 110v130M372 96v144"/>
+    </g>
+    <polygon points="150,92 400,40 400,84 150,138" fill="url(#hgY)"/>
+    <polygon points="150,138 400,84 400,95 150,150" fill="#a86d05"/>
+    <g fill="#8a5a04" opacity=".5"><circle cx="190" cy="104" r="2.2"/><circle cx="220" cy="98" r="2.2"/><circle cx="330" cy="76" r="2.2"/><circle cx="360" cy="70" r="2.2"/></g>
+    <rect x="148" y="86" width="14" height="70" rx="3" fill="#1b2a4a"/>
+    <rect x="248" y="108" width="58" height="28" rx="5" fill="#14213f"/>
+    <rect x="248" y="108" width="58" height="6" rx="3" fill="#ffc82e"/>
+    <circle cx="262" cy="144" r="6" fill="#0d1731"/><circle cx="292" cy="144" r="6" fill="#0d1731"/>
+    <path d="M277 136v44" stroke="#c9d6ee" stroke-width="3" stroke-dasharray="4 3"/>
+    <rect x="266" y="178" width="22" height="16" rx="4" fill="#ffc82e"/>
+    <rect x="266" y="184" width="22" height="4" fill="#14213f"/>
+    <path d="M277 194v12a10 10 0 1 1-10 10" stroke="#ffc82e" stroke-width="7" fill="none" stroke-linecap="round"/>
+   </svg>
+   <h2 class="hero-t"><span>Segurança</span> em cada detalhe</h2>
+   <svg class="hero-sw" viewBox="0 0 400 46" preserveAspectRatio="none" aria-hidden="true"><path d="M0 26C110 44 230 46 400 14v6C230 54 110 52 0 34z" fill="#ffc21a"/></svg>
+  </div>
+  <div class="card sum hide" id="hSum"></div>
+  <div class="hh"><h2><span class="hi"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h4.1c.6 0 1.2.3 1.6.8L12.4 6.3h6.1A2.5 2.5 0 0 1 21 8.8V17.5A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/><rect x="8" y="11" width="8" height="2.2" rx="1.1" fill="#0b1733"/></svg></span>Projetos</h2><div class="bar"><input id="hQ" type="search" autocomplete="off" placeholder="Buscar projeto, cliente ou local…" aria-label="Buscar projeto"><button class="p hide" id="pNovo">+ Novo projeto</button></div></div>
   <div id="solic"></div>
   <div class="pgrid" id="pList"></div>
+  <div class="card ov hide" id="hOv"></div>
  </section>
  <section id="t1">
   <div class="bar"><select id="dA"><option value="">Todas as áreas</option></select></div>
@@ -515,7 +542,7 @@ const ICO_LUA = '<svg class="tic" viewBox="0 0 24 24" aria-hidden="true"><path d
 function aplicaTema(t, salvar) {
   const dark = t === "dark";
   document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
-  document.querySelector('meta[name="theme-color"]').setAttribute("content", dark ? "#0f1a30" : "#14284b");
+  document.querySelector('meta[name="theme-color"]').setAttribute("content", dark ? "#06122b" : "#0c1c40");
   document.querySelectorAll(".tema").forEach(el => { const ic = dark ? ICO_SOL : ICO_LUA; el.innerHTML = el.dataset.txt ? ic + "<span>" + (dark ? "Modo claro" : "Modo escuro") + "</span>" : ic; el.title = el.getAttribute("aria-label") || ""; if (!el.dataset.txt) { el.title = dark ? "Mudar para modo claro" : "Mudar para modo escuro"; el.setAttribute("aria-label", el.title); } });
   Chart.defaults.color = dark ? "#b3bfd6" : "#5b6677"; Chart.defaults.borderColor = dark ? "#2b3550" : "rgba(0,0,0,0.1)";
   if (salvar) { try { localStorage.setItem("gs-tema", t); } catch (e) {} }
@@ -1481,10 +1508,10 @@ window.addEventListener("hashchange", route);
 // Situação do projeto a partir do período e do andamento
 function situacao(p, pct) {
   const { ini, fim } = periodo(p), now = Date.now();
-  if (pct >= 100) return { t: "Concluído", c: "#2e9e5b" };
-  if (now > fim.getTime()) return { t: "Atrasado", c: "#d64545" };
-  if (now < ini.getTime()) return { t: "Não iniciado", c: "#b0b7c3" };
-  return { t: "Em andamento", c: "#3b82c4" };
+  if (pct >= 100) return { t: "Concluído", c: "#22d3ee" };
+  if (now > fim.getTime()) return { t: "Atrasado", c: "#fb923c" };
+  if (now < ini.getTime()) return { t: "Não iniciado", c: "#8da2c8" };
+  return { t: "Em andamento", c: "#3ddc84" };
 }
 function diasTxt(p) {
   const { ini, fim } = periodo(p), now = Date.now(), pl = n => `${n} ${n === 1 ? "dia" : "dias"}`;
@@ -1555,18 +1582,43 @@ function logoNext(im) {
 document.addEventListener("error", e => { const im = e.target; if (im && im.classList && im.classList.contains("plogo")) logoNext(im); }, true);
 document.addEventListener("load", e => { const im = e.target; if (!im || !im.classList || !im.classList.contains("plogo") || im.src.startsWith("data:")) return;
   if (im.naturalWidth < 20) return logoNext(im); try { localStorage.setItem("gs-logo:" + im.dataset.n.toLowerCase(), im.src); } catch (x) {} }, true);
+function homeResumo() {
+  const hs = $("#hSum"), ho = $("#hOv"); if (!hs || !ho) return;
+  if (!projs || !projs.length) { hs.classList.add("hide"); ho.classList.add("hide"); return; }
+  hs.classList.remove("hide"); ho.classList.remove("hide");
+  const now = Date.now(), L = projs.map(p => ({ s: situacao(p, p.pct).t, fim: periodo(p).fim.getTime() })), n = k => L.filter(x => x.s === k).length;
+  const ativos = L.filter(x => x.s !== "Concluído"), dias = Math.max(0, ...ativos.map(x => Math.ceil((x.fim - now) / DAY)));
+  const media = Math.round(projs.reduce((t, p) => t + (Number(p.pct) || 0), 0) / projs.length);
+  hs.innerHTML = `<div class="sc"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 5 8 11v11c0 10 6.8 17.2 16 21 9.2-3.8 16-11 16-21V11z"/><path d="m16.5 24.5 5 5 10-10.5"/></svg><div><small>Projetos ativos</small><b>${ativos.length}</b></div></div><div class="sd"></div>
+    <div class="sc"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="9" width="36" height="33" rx="6"/><path d="M15 5v8M33 5v8M6 19h36M16 29h6M26 29h6M16 36h6"/></svg><div><small>Dias restantes</small><b>${dias}</b></div></div>`;
+  const segs = [["Concluídos", "#22d3ee", n("Concluído")], ["Em andamento", "#3ddc84", n("Em andamento")], ["Atrasados", "#fb923c", n("Atrasado")], ["Não iniciados", "#8da2c8", n("Não iniciado")]].filter((s, i) => i < 3 || s[2]);
+  const gap = segs.filter(s => s[2]).length > 1 ? .8 : 0; let off = 0;
+  const arcs = segs.map(([, c, v]) => { const len = 100 * v / projs.length, w = Math.max(len - gap, 0), a = v ? `<circle cx="50" cy="50" r="40" pathLength="100" stroke="${c}" stroke-dasharray="${w} ${100 - w}" stroke-dashoffset="${-off}"/>` : ""; off += len; return a; }).join("");
+  ho.innerHTML = `<div class="ov-h"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V11M12 20V4M19 20v-6"/></svg>Visão geral</div>
+    <div class="ov-b"><div class="donut" role="img" aria-label="Execução geral ${media}%"><svg viewBox="0 0 100 100"><circle class="tr" cx="50" cy="50" r="40"/>${arcs}</svg><div><b>${media}%</b><small>Execução geral</small></div></div>
+    <ul class="lgd">${segs.map(([l, c, v]) => `<li style="--c:${c}"><i></i>${l}<b>${v}</b></li>`).join("")}</ul></div>`;
+}
 function listaProjetos() {
   const nz = x => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, ""), q = nz($("#hQ").value), d = projs.filter(p => !q || nz([p.nome, p.cliente, p.localidade].join(" ")).includes(q));
   $("#pList").innerHTML = d.length ? d.map(p => { const sit = situacao(p, p.pct), pe = periodo(p);
+    const pct = Math.max(0, Math.min(100, Number(p.pct) || 0)), I = d => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+    const lg = logoHtml(p) || `<span class="plg" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M5 4v6M19 4v6M12 7v8"/><path d="M9 15h6l-1 5h-4z"/></svg></span>`;
     return `<article class="card pc" tabindex="0" role="link" data-id="${p.id}" aria-label="Abrir ${esc(p.nome)}">
-      <div class="pt"><h3>${esc(p.nome)}</h3><span class="tag" style="--c:${sit.c}">${sit.t}</span>${canProj || gerencia(p) ? menuHtml(p) : ""}</div>
-      <div class="ps cli">${logoHtml(p)}<span>${esc([p.cliente, p.localidade].filter(Boolean).join(" · ") || "—")}</span></div>
-      <div class="ps">${dtBR(pe.ini)} a ${dtBR(pe.fim)}</div>
-      <div class="pp"><b>${p.pct}%</b><span>andamento total</span></div><div class="pbar"><u style="width:${p.pct}%"></u></div>
-      ${solDe(p) ? `<div class="aviso">⏳ Exclusão solicitada por ${esc(solDe(p).solicitante_email || "um editor")}</div>` : ""}
-      <div class="pfoot"><span>${diasTxt(p)}</span></div></article>`; }).join("")
+      <div class="pc-lg">${lg}</div>
+      <div class="pc-in">
+       <div class="pt"><h3>${esc(p.nome)}</h3><span class="tag" style="--c:${sit.c}">${sit.t}</span>${canProj || gerencia(p) ? menuHtml(p) : ""}</div>
+       <div class="ps">${I('<path d="M12 21s-7-6.2-7-11.2a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.8" r="2.5"/>')}<span>${esc([p.cliente, p.localidade].filter(Boolean).join(" · ") || "—")}</span></div>
+       <div class="ps">${I('<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/>')}<span>${dtBR(pe.ini)} a ${dtBR(pe.fim)}</span></div>
+      </div>
+      <div class="pc-bt">
+       <div class="ring" role="img" aria-label="${pct}% de andamento"><svg viewBox="0 0 64 64"><circle class="rt" cx="32" cy="32" r="27"/>${pct ? `<circle class="rv" cx="32" cy="32" r="27" pathLength="100" stroke-dasharray="${pct} 100"/>` : ""}</svg><b>${pct}%</b></div>
+       <div class="pc-pg"><span class="l">andamento total</span><div class="pbar"><u style="width:${pct}%"></u></div><div class="pc-dd">${I('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>')}<span>${diasTxt(p)}</span></div></div>
+       <span class="go" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span>
+      </div>
+      ${solDe(p) ? `<div class="aviso">⏳ Exclusão solicitada por ${esc(solDe(p).solicitante_email || "um editor")}</div>` : ""}</article>`; }).join("")
     : `<div class="card"><b>${projs.length ? "Nenhum projeto encontrado." : "Nenhum projeto cadastrado."}</b>${!projs.length && canNew ? "<p>Toque em “+ Novo projeto” para começar.</p>" : ""}${projs.length ? `<p><button type="button" id="hQx">Limpar busca</button></p>` : ""}</div>`;
   const qx = $("#hQx"); if (qx) qx.onclick = () => { $("#hQ").value = ""; listaProjetos(); };
+  try { homeResumo(); } catch (e) {}
   document.querySelectorAll("#pList .pc").forEach(c => {
     const abre = () => { location.hash = `#/projeto/${c.dataset.id}/dashboard`; };
     c.onclick = abre; c.onkeydown = e => { if (e.target === c && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); abre(); } };
@@ -2967,5 +3019,166 @@ const hb=$("header .hb");if(hb){const b=document.createElement("button");b.id="h
 const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.createElement("button");b.className="mi";b.id="mPf";b.setAttribute("role","menuitem");b.textContent="Meu perfil";b.onclick=abrir;mm.insertBefore(b,hr)}
 })();
 </script>
+<style id="gs-v2">
+/* ===== Grua Segura · visual v2 (azul-marinho + amarelo de segurança) ===== */
+html[data-theme]{--yel:#f7b928;--yel2:#ffd45a;--ink:#0f1b2d;--bg:#eef2f9;--tx:#1a2433;--txt:#1a2433;--mut:#5d6d8a;--line:#dbe3f1;--bd:#dbe3f1;--s:#fff;--s2:#f3f6fc;--in:#fff;--blue:#2456b8;--navy:#14284b;--navbg:rgba(255,255,255,.94);--onc:#14284b;--hov:#14284b0f;--shadow:0 6px 22px #0f1b2d14;--top:calc(68px + env(safe-area-inset-top,0px))}
+html[data-theme=dark]{--ink:#fff;--bg:#050e22;--tx:#e8eefb;--txt:#e8eefb;--mut:#93a6cb;--line:#1f3a6b;--bd:#1f3a6b;--s:#0b1d42;--s2:#10285a;--in:#0a1a3b;--blue:#7fb0ff;--navy:#2a5bb8;--navbg:rgba(7,18,43,.95);--onc:#f7b928;--hov:#ffffff12;--shadow:0 10px 30px #0008}
+html[data-theme] body{background:linear-gradient(#e9eef8,#f4f6fb) fixed;color:var(--tx)}
+html[data-theme=dark] body{background:radial-gradient(90% 40% at 50% -4%,#173a78 0,transparent 72%),linear-gradient(#07163a,#040b1d 70%) fixed}
+
+/* Cabeçalho */
+html[data-theme] header{background:rgba(6,16,40,.88);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid #ffffff14;padding-left:16px;padding-right:16px}
+html[data-theme] header .logo{width:46px;height:46px;border-radius:14px;box-shadow:0 0 0 1px #ffffff22}
+html[data-theme] header h1{font-size:22px;font-weight:800;letter-spacing:-.5px;color:#fff}
+html[data-theme] header small{color:#9fb3da;font-size:13px}
+body.v-proj header h1,body.v-users header h1{font-size:15px}
+html[data-theme] header button{min-height:44px;padding:0 14px;border-radius:14px;background:#0f2455;border:1px solid #27458a;color:#fff}
+html[data-theme] header button:hover{background:#17327a}
+html[data-theme] header #tema,html[data-theme] header #mBtn{width:44px;padding:0}
+@media(max-width:899px){html[data-theme] header #mBtn{display:inline-flex}}
+
+/* Estrutura geral */
+html[data-theme] main{padding:18px}
+@media(max-width:760px){html[data-theme] main{padding:14px 12px calc(96px + env(safe-area-inset-bottom,0px))}}
+html[data-theme] .card{background:linear-gradient(165deg,var(--s2),var(--s) 72%);border:1px solid var(--bd);border-radius:20px;box-shadow:var(--shadow)}
+html[data-theme=light] .card{background:var(--s)}
+html[data-theme] .card>b{font-size:16px;font-weight:800;color:var(--ink)}
+html[data-theme] dialog{background:var(--s);color:var(--tx);border:1px solid var(--bd);border-radius:22px}
+html[data-theme] .hh h2,html[data-theme] #pgT{color:var(--ink)}
+
+/* Campos e botões */
+html[data-theme] :is(input,select,textarea){background:var(--in);border:1px solid var(--bd);color:var(--tx);border-radius:14px}
+html[data-theme] :is(input,select,textarea)::placeholder{color:var(--mut)}
+html[data-theme] button{background:var(--s2);border:1px solid var(--bd);color:var(--tx);border-radius:12px}
+html[data-theme] button:hover{background:var(--s)}
+html[data-theme] :is(.km,.eye,.lk,.gx-mb,.mn button,.seg button,.stb button,nav button){background:transparent;border:0}
+html[data-theme] #mMenu .mi{background:transparent;border:0}
+html[data-theme] :is(.km,.gx-mb,.mn button,nav button):hover,html[data-theme] #mMenu .mi:hover{background:var(--hov)}
+html[data-theme] header button{background:#0f2455;border:1px solid #27458a;color:#fff}
+html[data-theme] button.p{background:linear-gradient(180deg,var(--yel2),var(--yel));color:#0b1733;border:0;font-weight:800;box-shadow:0 6px 16px #f7b92836}
+html[data-theme] button.p:hover{background:linear-gradient(180deg,#ffe08a,#f9c23c)}
+html[data-theme] button.d{background:#d64545;color:#fff;border:0}
+html[data-theme] .seg{background:var(--in)}html[data-theme] .seg button.on{background:var(--yel);color:#0b1733}
+html[data-theme] .stb{background:var(--in)}html[data-theme] .stb button.on{background:var(--yel);color:#0b1733}
+html[data-theme] .tag{background:var(--s2);color:var(--tx)}
+html[data-theme] details.dt>summary{background:var(--s2);border-color:var(--bd);color:var(--ink);border-radius:14px}
+html[data-theme] .gxd{background:var(--s);border-color:var(--bd);border-radius:18px}
+html[data-theme] .uf{background:var(--in);border-color:var(--bd)}
+html[data-theme] .mn,html[data-theme] #mMenu{background:var(--s);border-color:var(--bd);border-radius:16px}
+html[data-theme] .plg{background:var(--s2);color:var(--ink)}
+html[data-theme] .ce:hover{background:var(--s2)}
+html[data-theme] .kpi .pb,html[data-theme] .gx-t,html[data-theme] .gx-lb{background:var(--in)}
+html[data-theme] .kpi .pb u{background:linear-gradient(90deg,#3b82f6,#60a5fa)}
+
+/* Tabelas */
+html[data-theme] th{background:var(--s2);color:var(--mut)}
+html[data-theme] tbody tr:hover td{background:var(--s2)}
+html[data-theme] table.st tr{background:var(--s);border-color:var(--bd)}
+html[data-theme] table.st tr.pend,html[data-theme] tr.pend{background:#f7b9281f}
+
+/* Indicadores */
+html[data-theme] .kpi{position:relative;padding:16px 16px 16px 22px;overflow:hidden}
+html[data-theme] .kpi::before{position:absolute;left:0;top:14px;bottom:14px;width:4px;height:auto;margin:0;border-radius:0 4px 4px 0;background:linear-gradient(var(--yel2),var(--yel))}
+html[data-theme] .kpi b{color:var(--ink)}
+
+/* Navegação */
+html[data-theme] nav{background:var(--navbg);border-color:var(--bd);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+html[data-theme] nav button{color:var(--mut);position:relative;border-radius:14px}
+html[data-theme] nav button:hover{color:var(--tx)}
+html[data-theme] nav button.on{background:#f7b9281a;color:var(--onc)}
+html[data-theme] nav button.on .ic{color:var(--yel)}
+@media(max-width:899px){
+ html[data-theme] nav{border-radius:24px 24px 0 0;box-shadow:0 -10px 30px #0005;border-top:1px solid var(--bd)}
+ html[data-theme] nav button.on{background:transparent}
+ html[data-theme] nav button.on::after{content:"";position:absolute;left:24%;right:24%;bottom:-5px;height:3px;border-radius:3px;background:var(--yel)}
+}
+
+/* Login */
+html[data-theme] #login{background:var(--s);border-color:var(--bd)}
+html[data-theme] .lg-form h2{color:var(--ink)}
+
+/* ===== Tela de projetos ===== */
+.hero{position:relative;overflow:hidden;border-radius:26px;min-height:196px;margin-bottom:18px;display:flex;align-items:center;background:#0b2a5c;border:1px solid #27458a;isolation:isolate}
+.hero-art{position:absolute;inset:0;width:100%;height:100%;z-index:-2}
+.hero::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#06122b 18%,#06122bcc 48%,#06122b00 82%)}
+.hero-sw{position:absolute;left:0;right:0;bottom:-1px;width:100%;height:46px;z-index:0;pointer-events:none}
+.hero-t{margin:0;padding:26px 0 40px 24px;max-width:62%;font-size:clamp(27px,7.4vw,40px);line-height:1.12;font-weight:800;letter-spacing:-1px;color:#fff}
+.hero-t span{color:var(--yel)}
+@media(min-width:760px){.hero{min-height:230px}.hero-t{max-width:48%;padding-left:36px}}
+
+html[data-theme] .hh{margin-bottom:12px;gap:12px 14px}
+html[data-theme] .hh h2{display:flex;align-items:center;gap:12px;font-size:30px;font-weight:800;letter-spacing:-.8px}
+.hh .hi{display:inline-flex;flex-direction:column;gap:5px;color:var(--yel)}
+.hh .hi svg{width:34px;height:34px;display:block}
+.hh .hi::after{content:"";height:3px;border-radius:3px;background:var(--yel)}
+html[data-theme] .hh .bar{flex:1 1 320px}
+@media(max-width:760px){html[data-theme] .hh .bar{flex:1 1 100%}}
+html[data-theme] #hQ{min-height:52px;padding-left:48px;border-radius:16px;font-size:16px;background:var(--in) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238da2c8' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat 16px center/21px}
+html[data-theme] #pNovo{min-height:54px;border-radius:16px;font-size:17px;font-weight:800}
+html[data-theme] .pgrid{grid-template-columns:repeat(auto-fill,minmax(min(360px,100%),1fr));gap:14px}
+
+html[data-theme] .pc{position:relative;overflow:hidden;display:grid;grid-template-columns:72px 1fr;gap:14px;padding:16px 16px 16px 20px;margin:0;border-radius:22px;cursor:pointer;transition:border-color .15s,transform .15s}
+html[data-theme] .pc::before{content:"";position:absolute;left:0;top:16px;bottom:16px;width:4px;border-radius:0 4px 4px 0;background:linear-gradient(var(--yel2),var(--yel))}
+html[data-theme] .pc:hover{border-color:var(--yel);box-shadow:var(--shadow)}
+html[data-theme] .pc:active{transform:scale(.99)}
+.pc .pc-lg{width:72px;height:72px;border-radius:16px;background:#fff;display:grid;place-items:center;overflow:hidden;box-shadow:0 0 0 1px #ffffff22}
+html[data-theme] .pc .pc-lg .plogo{width:100%;height:100%;padding:8px;border:0;border-radius:0;object-fit:contain;background:#fff}
+html[data-theme] .pc .pc-lg .plg{width:100%;height:100%;border:0;border-radius:0;background:#fff;color:#14284b;font-size:30px}
+.pc .pc-lg .plg svg{width:34px;height:34px}
+.pc .pc-in{min-width:0;display:flex;flex-direction:column;gap:6px}
+html[data-theme] .pc .pt{align-items:flex-start;gap:8px}
+html[data-theme] .pc h3{font-size:17px;font-weight:800;line-height:1.25;letter-spacing:-.2px;color:var(--ink)}
+html[data-theme] .pc .tag{flex:none;padding:5px 12px;border-radius:999px;font-size:12px;font-weight:700;background:color-mix(in srgb,var(--c) 16%,transparent);border:1px solid color-mix(in srgb,var(--c) 55%,transparent);color:color-mix(in srgb,var(--c) 35%,var(--ink))}
+html[data-theme] .pc .tag::before{background:var(--c);margin-right:7px}
+html[data-theme] .pc .ps{display:flex;align-items:flex-start;gap:8px;font-size:13.5px;font-weight:600;color:var(--mut)}
+.pc svg.i{width:17px;height:17px;flex:none;margin-top:1px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.pc .pc-bt{grid-column:1/-1;display:grid;grid-template-columns:68px 1fr 42px;gap:14px;align-items:center}
+.pc .ring{position:relative;width:68px;height:68px}
+.pc .ring svg{width:100%;height:100%;transform:rotate(-90deg);fill:none;stroke-width:6}
+.pc .ring .rt{stroke:#3b82f633}
+.pc .ring .rv{stroke:#4f8bff;stroke-linecap:round}
+.pc .ring b{position:absolute;inset:0;display:grid;place-items:center;font-size:17px;font-weight:800;color:var(--ink)}
+.pc .pc-pg{min-width:0;display:flex;flex-direction:column;gap:7px}
+.pc .pc-pg span.l{font-size:13.5px;font-weight:600;color:var(--tx)}
+html[data-theme] .pc .pbar{height:8px;border-radius:4px;background:var(--in)}
+html[data-theme] .pc .pbar u{background:linear-gradient(90deg,#3b82f6,#60a5fa);border-radius:4px}
+.pc .pc-dd{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--mut)}
+.pc .go{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--hov);color:var(--ink)}
+.pc .go svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.pc .aviso{grid-column:1/-1}
+
+/* Resumo e visão geral */
+.sum{display:grid;grid-template-columns:1fr 1px 1fr;gap:0 16px;align-items:center;position:relative;overflow:hidden;padding:18px 18px 18px 24px;margin-bottom:16px}
+.sum::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:4px;border-radius:0 4px 4px 0;background:linear-gradient(var(--yel2),var(--yel))}
+.sum .sc{display:flex;align-items:center;gap:12px;min-width:0}
+.sum .sc>svg{width:46px;height:46px;flex:none;fill:none;stroke:var(--yel);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.sum small{display:block;color:var(--mut);font-size:12.5px;font-weight:600;line-height:1.3}
+.sum .sc b{display:block;font-size:36px;line-height:1.05;font-weight:800;letter-spacing:-1px;color:var(--ink)}
+.sum .sd{align-self:stretch;background:var(--bd)}
+.ov{margin-top:16px;padding:18px}
+.ov-h{display:flex;align-items:center;gap:10px;margin-bottom:14px;font-size:17px;font-weight:800;color:var(--ink)}
+.ov-h svg{width:22px;height:22px;fill:none;stroke:var(--yel);stroke-width:2.4;stroke-linecap:round}
+.ov-b{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+.donut{position:relative;width:138px;height:138px;flex:none}
+.donut svg{width:100%;height:100%;transform:rotate(-90deg);fill:none;stroke-width:12}
+.donut .tr{stroke:#ffffff14}
+html[data-theme=light] .donut .tr{stroke:#14284b14}
+.donut div{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.donut b{font-size:28px;font-weight:800;color:var(--ink);line-height:1}
+.donut small{font-size:10.5px;color:var(--mut);font-weight:600;margin-top:3px}
+.lgd{list-style:none;margin:0;padding:0;flex:1 1 170px;display:grid;gap:12px}
+.lgd li{display:flex;align-items:center;gap:10px;font-weight:600;color:var(--tx)}
+.lgd li i{width:13px;height:13px;border-radius:50%;flex:none;background:var(--c)}
+.lgd li b{margin-left:auto;font-size:17px;color:var(--ink)}
+@media(max-width:380px){.sum{grid-template-columns:1fr;gap:12px}.sum .sd{display:none}}
+html[data-theme] .pc .pt{flex-wrap:wrap;align-items:center;row-gap:8px}
+html[data-theme] .pc .pt .tag{order:1}
+html[data-theme] .pc .pt .mw{order:2;margin:-6px -8px -6px auto}
+html[data-theme] .pc .pt h3{order:3;flex:1 1 100%}
+.donut{width:128px;height:128px}.donut small{font-size:9.5px}.donut b{font-size:26px}
+.ov-b{gap:18px;flex-wrap:nowrap}.lgd{flex:1 1 0;min-width:0}
+.hero-art{left:auto;right:0;width:min(100%,620px)}
+html[data-theme=light] .pc .pc-lg{box-shadow:0 0 0 1px var(--bd)}
+</style>
 </body>
 </html>
