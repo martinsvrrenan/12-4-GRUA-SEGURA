@@ -574,7 +574,7 @@ function usuariosTela() {
       <td data-l="Último login"><div class="v">${dtf(u.ultimo_login)}</div></td>
       <td data-l="Última ação"><div class="v">${l ? `${esc(l.acao)}${l.detalhe ? " · " + esc(l.detalhe) : ""}<br><small>${dtf(l.created_at)}</small>` : "—"}</div></td>
       <td data-l="Criada em"><div class="v">${new Date(u.created_at).toLocaleDateString("pt-BR")}</div></td>
-      <td><div class="v"><button class="km uk" data-u="${u.id}" aria-label="Opções de ${esc(u.email)}" aria-haspopup="menu" aria-expanded="false">⋮</button></div></td></tr>`;
+      <td><div class="v"><button class="km uk" data-u="${u.id}" aria-label="Opções de ${esc(u.email)}" aria-haspopup="menu" aria-expanded="false"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button></div></td></tr>`;
   }).join("") || '<tr><td colspan="8">Nenhum usuário encontrado.</td></tr>';
   $("#uCnt").textContent = `${lista.length} de ${UL.length} usuários`;
   document.querySelectorAll("#ub .uk").forEach(bt => bt.onclick = e => { e.stopPropagation(); abrirMenuUsuario(bt); });
@@ -858,8 +858,9 @@ function evoOpts() { // um item por ano fiscal que o projeto atravessa + duraç�
   o.push(`<option value="all">Duração total do projeto</option>`, `<option value="w">Semanal (12 semanas)</option>`, `<option value="m">Mensal (6 meses)</option>`);
   const s = $("#evP"); s.innerHTML = o.join(""); s.value = "fy:" + Math.min(y1, Math.max(y0, fyAno(new Date(), PROJ.fyM))); // abre no ano fiscal atual (ou no mais próximo do projeto)
 }
-const evIsProj = v => v === "all" || /^fy:/.test(v);
-function curWin() { const v = $("#evP") ? $("#evP").value : ""; if (v === "all") return winAll(); if (/^fy:/.test(v)) return fyWin(+v.slice(3));
+let CU = null; // período personalizado do gráfico (menu da seção Evolução)
+const evIsProj = v => v === "all" || v === "cu" || /^fy:/.test(v);
+function curWin() { const v = $("#evP") ? $("#evP").value : ""; if (v === "all") return winAll(); if (v === "cu" && CU) return { a: CU.a, b: CU.b, all: true, label: "Período personalizado" }; if (/^fy:/.test(v)) return fyWin(+v.slice(3));
   return fyWin(Math.min(fyAno(PROJ.fim, PROJ.fyM), Math.max(fyAno(PROJ.ini, PROJ.fyM), fyAno(new Date(), PROJ.fyM)))); } // relatórios: ano fiscal atual
 const fyLabel = win => (win || curWin()).label;
 const STG = [["Andamento total", "tot", "#14284b"], ["Levantamento", "lev", "#f2a93b"], ["Em projeto", "proj", "#d9822b"], ["Com desenho", "des", "#3b82c4"], ["No Sphera", "sph", "#7a5cc7"], ["No SAP", "sap", "#0e9aa7"]];
@@ -1622,7 +1623,7 @@ $("#pjF").onsubmit = async e => {
 };
 // ---------- Menu ⋮ do card, exclusão com senha e solicitações ----------
 const solDe = p => sols.find(x => x.projeto_id === p.id);
-const menuHtml = p => `<div class="mw"><button class="km" aria-label="Opções do projeto ${esc(p.nome)}" aria-haspopup="menu" aria-expanded="false">⋮</button><div class="mn hide" role="menu">
+const menuHtml = p => `<div class="mw"><button class="km" aria-label="Opções do projeto ${esc(p.nome)}" aria-haspopup="menu" aria-expanded="false"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><div class="mn hide" role="menu">
   ${gerencia(p) ? `<button role="menuitem" data-pe="${p.id}">Pessoas com acesso</button>` : ""}
   ${canProj ? `<button role="menuitem" data-ed="${p.id}">Editar</button>
   <button role="menuitem" class="dg" data-rm="${p.id}" ${solDe(p) ? "disabled" : ""}>${solDe(p) ? "Exclusão já solicitada" : "Excluir"}</button>` : ""}</div></div>`;
@@ -1752,7 +1753,7 @@ async function loadAll() { const { data, error } = await sb.from("projeto_parame
 function keep(sel, items, first) { const el = $(sel), v = el.value; fillSelect(el, items, first); el.value = items.includes(v) ? v : ""; }
 async function loadCfg() {
   await loadAll(); const a = par("area").filter(p => p.ativo).map(p => p.nome), t = par("tipo").filter(p => p.ativo).map(p => p.nome);
-  AREAS.splice(0, AREAS.length, ...(a.length ? a : DEF.a)); TIPOS.splice(0, TIPOS.length, ...(t.length ? t : DEF.t));
+  AREAS.splice(0, AREAS.length, ...a); TIPOS.splice(0, TIPOS.length, ...t);
   keep("#dA", AREAS, "Todas as áreas"); keep("#rA", AREAS, "Todas as áreas"); keep("#fA", AREAS, "Área"); fillSelect($("#fArea"), AREAS);
 }
 const _load = load; load = async function () { await loadCfg(); await _load(); };
@@ -2481,6 +2482,12 @@ html[data-theme=dark] .plg{background:#1b2540;color:var(--ink)}
 @media(max-width:899px){body.v-proj #mBtn,body.v-users.has-last #mBtn{display:none!important}
 body.v-proj #mMenu,body.v-users.has-last #mMenu{top:auto;bottom:calc(76px + env(safe-area-inset-bottom,0px));left:10px;right:10px;max-height:calc(100vh - 160px);box-shadow:0 -10px 36px #0f1b2d33}}
 @media(max-width:899px){body.v-users.has-last nav{display:flex}body.v-users.has-last main{padding-bottom:calc(92px + env(safe-area-inset-bottom,0px))}}
+.gx-mb{min-height:0;width:38px;height:38px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;color:var(--mut);border-radius:10px;flex:none}.gx-mb:hover{background:#eef2fb}.gx-mb svg,.km svg{width:22px;height:22px;display:block;margin:auto}
+.gx-sh{display:flex;justify-content:space-between;align-items:center;margin:6px 0}.gx-off-k .gx-sh{display:none}
+.gx-mi{display:block;width:100%;text-align:left;margin-top:8px}.gx-ck{display:flex;gap:10px;align-items:center;padding:8px 0;margin:0;font-size:14px;color:var(--txt)}.gx-ck input{width:auto;min-height:0;margin:0}
+#gxInd #kpis{display:none}#evP.gx-sel{display:block!important;flex:1 1 100%}
+.gx-ls{display:flex;flex-direction:column}.gx-lr{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:10px 0;border-bottom:1px solid var(--line);align-items:baseline}.gx-lr>span{font-weight:600}.gx-lr>b{font-size:18px;color:var(--ink)}.gx-lr>small{grid-column:1/-1}
+.gx-lb{grid-column:1/-1;height:4px;border-radius:2px;background:#e9edf4;overflow:hidden}.gx-lb u{display:block;height:100%;background:#2e9e5b}html[data-theme=dark] .gx-lb{background:#27314a}html[data-theme=dark] .gx-mb:hover{background:#1f2a45}
 </style>
 <script id="gx-js">
 (function(){
@@ -2520,10 +2527,10 @@ function build(){const k=$("#kpis"),top=$("#gxTop");if(!k||!top||k.children.leng
  let gi=-1,gd=9;for(let i=1;i<E.length;i++){const d=E[i-1][1]-E[i][1];if(d>gd){gd=d;gi=i}}
  const col=p=>p>=70?"#2e9e5b":p>=30?"#d9822b":"#d64545",bar=(n,p)=>`<div class="gx-b"><span>${esc(n)}</span><span class="gx-t"><i style="width:${Math.max(p,p>0?2:0)}%;background:${col(p)}"></i></span><span>${p}%</span></div>`;
  const ars=[...new Set(rows.map(r=>r.area).filter(Boolean))],pa=!ks.length?"":ars.map(a=>{let p=0;try{p=Number(andamento(rows.filter(r=>r.area===a)))||0}catch(e){}return bar(a,p)}).join("");
- const cards=[C[1],C[2],C[3],te].filter(Boolean).map(c=>c.outerHTML).join("");
+ const cards=(window.gxCards?window.gxCards(C,ev,te):[C[1],C[2],C[3],te].filter(Boolean)).map(c=>c.outerHTML).join("")||"<small>Nenhum indicador escolhido. Use o menu ☰.</small>";
  top.innerHTML=`<div class="gx-h"><span class="seg"><button data-gu="l" class="${unit==="l"?"on":""}">Linhas</button><button data-gu="p" class="${unit==="p"?"on":""}">Pontos</button></span><button id="gxPers" type="button">Personalizar painel</button></div>`
  +(late?`<div class="gx-al"><b>Projeto atrás da meta</b> · ${esc(val(at))} em relação à meta linear${te?` · término previsto ${esc(val(te))}${/após/.test(te.textContent.toLowerCase())?" (depois do prazo)":""}`:""}</div>`:"")
- +`<div class="cards gx-k">${cards}</div><div class="gx-et"><div class="card"><b>Etapas</b>${E.length?E.map(([n,p])=>bar(n,p)).join(""):"<small>Nenhuma etapa cadastrada. Adicione em Parâmetros › Etapas do fluxo.</small>"}${gi>0?`<span class="gx-g">Gargalo: ${esc(E[gi][0])} · ${E[gi-1][1]}% ${esc(E[gi-1][0].toLowerCase())} contra ${E[gi][1]}%</span>`:""}</div><div class="card"><b>Andamento por área</b>${pa||"—"}</div></div>`;
+ +`<div class="gx-sh"><b>Indicadores principais</b>${window.gxMb?window.gxMb("k"):""}</div><div class="cards gx-k">${cards}</div><div class="gx-et"><div class="card"><b>Etapas</b>${E.length?E.map(([n,p])=>bar(n,p)).join(""):"<small>Nenhuma etapa cadastrada. Adicione em Parâmetros › Etapas do fluxo.</small>"}${gi>0?`<span class="gx-g">Gargalo: ${esc(E[gi][0])} · ${E[gi-1][1]}% ${esc(E[gi-1][0].toLowerCase())} contra ${E[gi][1]}%</span>`:""}</div><div class="card"><b>Andamento por área</b>${pa||"—"}</div></div>`;
  top.querySelectorAll(".gx-al").forEach(e=>e.classList.add("gx-al"));top.querySelector(".gx-k")&&0;
  const kk=top.querySelector(".gx-k");if(kk)kk.classList.add("gx-k");const et=top.querySelector(".gx-et");et&&et.classList.add("gx-et")}
 function pers(){let d=$("#gxDlg");if(!d){d=document.createElement("dialog");d.id="gxDlg";document.body.appendChild(d)}const o=pref();
@@ -2556,7 +2563,7 @@ function btnGroup(sel){
  const g=document.createElement("div");g.className="seg gxsg";g.setAttribute("role","group");g.setAttribute("aria-label",sel.title||"Opções");sel.after(g);
  let sig="";
  const draw=()=>{const ops=[...sel.options],now=ops.map(o=>o.value+"|"+o.textContent).join(";")+"#"+sel.value+"#"+sel.classList.contains("hide");
-  if(now===sig)return;sig=now;g.classList.toggle("hide",sel.classList.contains("hide"));
+  if(now===sig)return;sig=now;const many=sel.id==="evP"&&ops.length>6;sel.classList.toggle("gx-sel",many);g.classList.toggle("hide",sel.classList.contains("hide")||many||(sel.id==="dA"&&ops.length<2));
   g.innerHTML=ops.map(o=>`<button type="button" data-v="${esc(o.value)}" class="${o.value===sel.value?"on":""}" aria-pressed="${o.value===sel.value}">${esc(o.textContent)}</button>`).join("");};
  g.addEventListener("click",e=>{const b=e.target.closest("button[data-v]");if(!b||b.dataset.v===sel.value)return;sel.value=b.dataset.v;sel.dispatchEvent(new Event("change",{bubbles:true}));draw();});
  new MutationObserver(draw).observe(sel,{childList:true,attributes:true,attributeFilter:["class"]});
@@ -2809,6 +2816,70 @@ footer{text-align:center;color:var(--mut);font-size:12px;padding:20px}
     btn.disabled = false; btn.textContent = txt;
   }
   $("#rh").onclick = exportar;
+})();
+</script>
+<script id="gx-cfg">
+/* ===== Painel configurável por projeto: cards, lista, período/ano fiscal e menus ☰ ===== */
+(function(){
+const $=s=>document.querySelector(s),E=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const ICO='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
+let CF={},CFid=null;
+function cfgLoad(){if(!proj||CFid===proj.id)return;CFid=proj.id;let o=proj.painel_config;
+ if(!o||typeof o!=="object"||!Object.keys(o).length){try{o=JSON.parse(localStorage.getItem("gs-pc-"+proj.id)||"{}")}catch(e){o={}}}
+ CF=JSON.parse(JSON.stringify(o||{}))}
+async function cfgSave(){if(!proj)return;try{localStorage.setItem("gs-pc-"+proj.id,JSON.stringify(CF))}catch(e){}
+ if(!canProj)return;const{error}=await sb.from("projetos").update({painel_config:CF}).eq("id",proj.id);
+ if(error)return alert("Salvo só neste aparelho: "+error.message);proj.painel_config=JSON.parse(JSON.stringify(CF))}
+const cl=c=>{const x=c.cloneNode(true);x.querySelectorAll(".seg").forEach(s=>s.remove());x.style.display="";return x};
+function cat(){const o=[],add=(b,p,g)=>{b&&[...b.children].forEach((c,i)=>{if(c.classList.contains("hide"))return;const s=c.querySelector("span"),v=c.querySelector("b");
+ o.push({key:p+i,g,el:c,l:s?s.textContent.trim():"Indicador",v:v?v.textContent.trim():""})})};add($("#kpis"),"k:","Indicadores do painel");add($("#evk"),"e:","Evolução e andamento");return o}
+const teKey=()=>{const ev=$("#evk")?[...$("#evk").children]:[],i=ev.findIndex(c=>/término|termino/.test(c.textContent.toLowerCase()));return i<0?[]:["e:"+i]};
+window.gxCards=(C,ev,te)=>{cfgLoad();const all=[...C.map((c,i)=>["k:"+i,c]),...ev.map((c,i)=>["e:"+i,c])],def=["k:1","k:2","k:3"].concat(te?["e:"+ev.indexOf(te)]:[]),sel=CF.k||def;
+ return all.filter(x=>sel.includes(x[0])&&!x[1].classList.contains("hide")).map(x=>cl(x[1]))};
+window.gxMb=s=>`<button type="button" class="gx-mb" data-gm="${s}" aria-label="Menu da seção" aria-haspopup="dialog">${ICO}</button>`;
+function renderAll(){const k=$("#kpis");if(!k||!$("#gxInd"))return;cfgLoad();let b=$("#gxAll");if(!b){b=document.createElement("div");b.id="gxAll";k.after(b)}
+ const L=cat().filter(x=>!CF.t||CF.t.includes(x.key));
+ if(!L.length){b.innerHTML="<small>Nenhum indicador selecionado. Use o menu ☰ desta seção.</small>";return}
+ b.innerHTML=CF.vis==="l"?'<div class="gx-ls">'+L.map(x=>{const sm=x.el.querySelector("small"),u=x.el.querySelector(".pb u");
+  return`<div class="gx-lr"><span>${E(x.l)}</span><b>${E(x.v)}</b>${sm?`<small>${E(sm.textContent.replace(/\s+/g," ").trim())}</small>`:""}${u?`<i class="gx-lb"><u style="width:${parseInt(u.style.width)||0}%"></u></i>`:""}</div>`}).join("")+"</div>"
+  :'<div class="cards">'+L.map(x=>cl(x.el).outerHTML).join("")+"</div>"}
+function applyEvk(){const e=$("#evk");if(!e)return;cfgLoad();[...e.children].forEach((c,i)=>{c.style.display=CF.e&&!CF.e.includes("e:"+i)?"none":""})}
+let rt=0;const refresh=()=>{cancelAnimationFrame(rt);rt=requestAnimationFrame(()=>{applyEvk();renderAll()})};
+["#kpis","#evk"].forEach(s=>{const n=$(s);n&&new MutationObserver(refresh).observe(n,{childList:true})});
+function dlg(h){let d=$("#gxM");if(!d){d=document.createElement("dialog");d.id="gxM";document.body.appendChild(d);d.addEventListener("click",e=>{if(e.target===d)d.close()})}d.innerHTML=h;d.showModal();return d}
+const bar='<div class="bar" style="margin-top:12px"><button class="p" data-a="ok">Salvar</button><button type="button" data-a="x">Cancelar</button></div>';
+function pick(title,prop,flt,def){const L=cat().filter(flt),cur=CF[prop]||def(L);let g="";
+ const d=dlg(`<h3>${title}</h3><small>Marque o que deve aparecer neste projeto.</small>${L.map(x=>(x.g!==g?(g=x.g,`<p style="margin:14px 0 2px"><b>${g}</b></p>`):"")+`<label class="gx-ck"><input type="checkbox" value="${x.key}" ${cur.includes(x.key)?"checked":""}>${E(x.l)} <small>${E(x.v)}</small></label>`).join("")}${bar}`);
+ d.onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;if(b.dataset.a==="ok"){CF[prop]=[...d.querySelectorAll("input:checked")].map(i=>i.value);cfgSave();d.close();dash()}else d.close()}}
+function periodo2(){const d=dlg(`<h3>Período do projeto e ano fiscal</h3><small>O gráfico cria um ano fiscal para cada ano que o projeto atravessa, sem limite de anos.</small>
+ <label>Início<input type="date" id="gxPi" value="${isoD(PROJ.ini)}"></label><label>Fim<input type="date" id="gxPf" value="${isoD(PROJ.fim)}"></label><label>Ano fiscal começa em<select id="gxPm">${fyOpts(PROJ.fyM)}</select></label>${bar}`);
+ d.onclick=async e=>{const b=e.target.closest("[data-a]");if(!b)return;if(b.dataset.a!=="ok")return d.close();
+  const i=$("#gxPi").value,f=$("#gxPf").value,m=Number($("#gxPm").value);
+  if(!i||!f||f<i)return alert("Informe início e fim, com o fim igual ou posterior ao início.");
+  if(!canProj)return alert("Só editor ou admin altera o período do projeto.");
+  const{data,error}=await sb.from("projetos").update({data_inicio:i,data_fim:f,ano_fiscal_mes_inicio:m}).eq("id",proj.id).select();
+  if(error||!data||!data.length)return alert("Não foi possível salvar: "+(error?error.message:"sem permissão"));
+  Object.assign(proj,{data_inicio:i,data_fim:f,ano_fiscal_mes_inicio:m});const pe=periodo(proj);PROJ={ini:pe.ini,fim:pe.fim,fyM:fyMes(proj)};
+  d.close();evoOpts();dash();try{setHeader(proj.nome,[proj.cliente,proj.localidade].filter(Boolean).join(" · ")||perLabel())}catch(x){}}}
+function custom(){const w=curWin(),d=dlg(`<h3>Período personalizado</h3><small>Escolha qualquer intervalo para o gráfico (ex.: vários anos).</small>
+ <label>De<input type="date" id="gxCa" value="${isoD(w.a)}"></label><label>Até<input type="date" id="gxCb" value="${isoD(w.b)}"></label>${bar}`);
+ d.onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;if(b.dataset.a!=="ok")return d.close();const a=$("#gxCa").value,z=$("#gxCb").value;
+  if(!a||!z||z<a)return alert("Informe as duas datas, com o fim igual ou posterior ao início.");CF.cu={a,b:z};cfgSave();d.close();evoOpts();$("#evP").value="cu";dash()}}
+function menu(sec){cfgLoad();const T={k:"Indicadores principais",ind:"Todos os indicadores",evo:"Evolução e andamento"}[sec],B=(a,t)=>`<button class="gx-mi" data-a="${a}">${t}</button>`;
+ const it=sec==="k"?B("sk","Escolher indicadores"):sec==="ind"?B("vis",CF.vis==="l"?"Visualizar em cards":"Visualizar em lista")+B("st","Escolher indicadores"):B("se","Cards do gráfico")+B("per","Período do projeto e ano fiscal")+B("cu","Período personalizado do gráfico");
+ const d=dlg(`<h3>${T}</h3>${it}${B("rs","Restaurar padrão")}<div class="bar" style="margin-top:12px"><button type="button" data-a="x">Fechar</button></div>`);
+ d.onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a;
+  if(a==="x")return d.close();
+  if(a==="vis"){CF.vis=CF.vis==="l"?"g":"l";cfgSave();d.close();return renderAll()}
+  if(a==="rs"){if(sec==="k")delete CF.k;else if(sec==="ind"){delete CF.t;delete CF.vis}else{delete CF.e;delete CF.cu;CU=null}cfgSave();d.close();if(sec==="evo")evoOpts();return dash()}
+  if(a==="sk")return pick("Indicadores principais","k",()=>true,()=>["k:1","k:2","k:3"].concat(teKey()));
+  if(a==="st")return pick("Todos os indicadores","t",()=>true,L=>L.map(x=>x.key));
+  if(a==="se")return pick("Cards do gráfico de evolução","e",x=>x.key[0]==="e",L=>L.map(x=>x.key));
+  if(a==="per")return periodo2();if(a==="cu")return custom()}}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-gm]");if(!b)return;e.preventDefault();e.stopPropagation();menu(b.dataset.gm)},true);
+const _eo=evoOpts;evoOpts=function(){CFid=null;cfgLoad();CU=CF.cu?{a:evParse(CF.cu.a),b:evParse(CF.cu.b,true)}:null;_eo();
+ if(CU){const s=$("#evP"),o=document.createElement("option");o.value="cu";o.textContent="Personalizado: "+dtBR(CU.a)+" a "+dtBR(CU.b);s.insertBefore(o,[...s.options].find(x=>x.value==="w")||null)}};
+const s1=$("#gxInd>summary");s1&&s1.insertAdjacentHTML("beforeend",gxMb("ind"));const h=$("#gxEvo .evh");h&&h.insertAdjacentHTML("beforeend",gxMb("evo"));
 })();
 </script>
 </body>
