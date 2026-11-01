@@ -53,8 +53,8 @@ details.dt>summary::-webkit-details-marker{display:none}details.dt>summary small
 .uf{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:10px 0;padding:14px;border:1px dashed #cdd4e1;border-radius:12px;background:#fafbfd}
 html,body{overflow-x:hidden}main,section,.card{min-width:0}
 .bar>*{min-width:0}.bar select{flex:1 1 200px;max-width:420px;width:auto;text-overflow:ellipsis}
-.evh{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px}.evh>b{flex:none}.evh .bar{margin:0;flex:1 1 300px;justify-content:flex-end}.evd{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.evd label{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;white-space:nowrap}.evd input{width:auto;min-width:0}.evd button{flex:none;padding:6px 10px}.evd.cs input{border-color:#f2a93b}
-@media(max-width:700px){.evd{flex:1 1 100%}.evd label{flex:1 1 140px}.evd input{flex:1 1 auto!important;width:100%!important}.evh .bar{justify-content:stretch}.bar select,.bar input:not([type=checkbox]){flex:1 1 100%;max-width:100%;width:100%}.bar button{flex:1 1 auto}.evh>b{flex:1 1 100%}}
+.evh{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px}.evh>b{flex:none}.evh .bar{margin:0;flex:1 1 300px;justify-content:flex-end}
+@media(max-width:700px){.evh .bar{justify-content:stretch}.bar select,.bar input:not([type=checkbox]){flex:1 1 100%;max-width:100%;width:100%}.bar button{flex:1 1 auto}.evh>b{flex:1 1 100%}}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:14px}
 .ch{height:300px;position:relative}.ch.tall{height:380px}
 input,select,textarea,button{font:inherit;padding:9px 12px;border:1px solid #cdd4e1;border-radius:10px;max-width:100%;background:#fff;color:var(--txt);transition:border-color .15s,box-shadow .15s,background .15s}
@@ -154,14 +154,14 @@ body.v-proj .logo{display:none}
 .hh{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:14px}.hh h2{margin:0;font-size:20px;letter-spacing:-.3px;color:var(--ink)}
 .hh .bar{margin:0;flex:1 1 280px;justify-content:flex-end}
 .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:14px}
-.pc{margin:0;cursor:pointer;display:flex;flex-direction:column;gap:6px;transition:border-color .15s,box-shadow .15s}.pc:hover{border-color:var(--blue);box-shadow:0 4px 18px #14284b1a}
+.pc{margin:0;display:flex;flex-direction:column;gap:6px}
 .pc .pt{display:flex;gap:8px;justify-content:space-between;align-items:flex-start}.pc h3{margin:0;font-size:16px;line-height:1.3;color:var(--ink);overflow-wrap:anywhere}
 .pc .ps{font-size:12.5px;color:var(--mut);font-weight:600;overflow-wrap:anywhere}
 .pc .pp{display:flex;align-items:baseline;gap:8px;margin-top:6px}.pc .pp b{font-size:30px;line-height:1;font-weight:800;letter-spacing:-.8px;color:var(--navy)}.pc .pp span{font-size:12px;color:var(--mut);font-weight:600}
 .pbar{height:6px;border-radius:3px;background:#e9edf4;overflow:hidden}.pbar u{display:block;height:100%;background:#2e9e5b;border-radius:3px}
 .pc .pfoot{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-top:4px;font-size:12.5px;font-weight:700;color:var(--mut)}
 .pc .pfoot .ac{display:flex;gap:6px}.pc .pfoot button{min-height:0;padding:5px 12px;font-size:12.5px}
-html[data-theme=dark] .pbar{background:#27314a}html[data-theme=dark] .pc:hover{box-shadow:0 4px 18px #0006}html[data-theme=dark] .pc .pp b{color:var(--ink)}
+html[data-theme=dark] .pbar{background:#27314a}html[data-theme=dark] .pc .pp b{color:var(--ink)}
 body.v-proj header h1,body.v-users header h1{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:13.5px;line-height:1.2}
 @media(max-width:440px){header{padding-left:12px;padding-right:12px;gap:8px}header .hb{gap:6px}header .hb button,#back{padding:7px 10px}}
 .pc .pt h3{flex:1;min-width:0}.mw{position:relative;flex:none;margin:-6px -8px 0 0}
@@ -279,7 +279,8 @@ html[data-theme=dark] .bdg{background:#222d45;color:#c9d3e8;border-color:#34405c
   </div>
   <div class="card">
    <div class="evh"><b>Evolução e andamento</b>
-    <div class="bar"><select id="evS" title="O que acompanhar no gráfico"><option value="tot" selected>Andamento total</option><option value="lev">Levantamento</option><option value="des">Com desenho</option><option value="sph">No Sphera</option><option value="sap">No SAP</option></select><span class="evd" id="evD"><label>Início<input type="date" id="evI"></label><label>Fim<input type="date" id="evF"></label><button type="button" id="evR" title="Voltar às datas padrão desta opção">↺</button></span><select id="evP"><option value="p">Ano fiscal 2026/2027</option><option value="w">Semanal (12 semanas)</option><option value="m">Mensal (6 meses)</option></select></div></div>
+    <div class="bar"><select id="evS" title="O que acompanhar no gráfico"><option value="tot" selected>Andamento total</option><option value="lev">Levantamento</option><option value="des">Com desenho</option><option value="sph">No Sphera</option><option value="sap">No SAP</option></select><select id="evP"><option value="p">Ano fiscal 2026/2027</option><option value="w">Semanal (12 semanas)</option><option value="m">Mensal (6 meses)</option></select></div></div>
+   <button type="button" class="evcap hide" id="evCap" aria-label="Alterar as datas desta etapa"><span id="evCapT"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
    <div class="cards" id="evk"></div>
    <div class="ch"><canvas id="c4"></canvas></div>
    <small id="evn"></small>
@@ -914,16 +915,18 @@ const isoD = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0"
 const evParse = (s, end) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ""); return m ? (end ? new Date(+m[1], m[2] - 1, +m[3], 23, 59, 59, 999) : new Date(+m[1], m[2] - 1, +m[3])) : null; };
 function evrRange(key, win) { evrLoad(); const o = EVR[key] || {}, a = evParse(o.ini), b = evParse(o.fim, true);
   return { ini: (a || PROJ.ini).getTime(), fim: (b || win.b).getTime(), custom: !!(a || b) }; }
-function evrSet(field) { evrLoad(); const k = $("#evS").value, v = $(field === "ini" ? "#evI" : "#evF").value, o = EVR[k] = EVR[k] || {};
-  const win = curWin(), cur = evrRange(k, win), a = field === "ini" ? evParse(v) : new Date(cur.ini), b = field === "fim" ? evParse(v, true) : new Date(cur.fim);
-  if (v && a && b && b.getTime() < a.getTime()) { alert("A data fim deve ser igual ou posterior à data de início."); return dash(); }
-  if (v) o[field] = v; else delete o[field];
-  if (!o.ini && !o.fim) delete EVR[k]; dash(); evrSave(); }
-$("#evI").onchange = () => evrSet("ini"); $("#evF").onchange = () => evrSet("fim");
-$("#evR").onclick = () => { evrLoad(); delete EVR[$("#evS").value]; dash(); evrSave(); };
+// Aplica início/fim ("AAAA-MM-DD") à etapa selecionada. Só guarda o que difere do padrão. Devolve a mensagem de erro, ou "" se deu certo.
+function evrApply(ini, fim) { evrLoad(); const k = $("#evS").value, a = evParse(ini), b = evParse(fim, true);
+  if (!a || !b) return "Informe as duas datas.";
+  if (b.getTime() < a.getTime()) return "A data fim deve ser igual ou posterior à data de início.";
+  const o = {}; if (ini !== isoD(PROJ.ini)) o.ini = ini; if (fim !== isoD(curWin().b)) o.fim = fim;
+  if (o.ini || o.fim) EVR[k] = o; else delete EVR[k];
+  dash(); evrSave(); return ""; }
+function evrReset() { evrLoad(); delete EVR[$("#evS").value]; dash(); evrSave(); }
+function evCapSet(nome, rg) { $("#evCapT").textContent = `${nome}: ${dtBR(new Date(rg.ini))} a ${dtBR(new Date(rg.fim))}${rg.custom ? " · datas ajustadas" : ""}`; }
 function evoDashProj(d) {
   const key = $("#evS").value, nm0 = STG.find(x => x[1] === key), nm = [nm0[0], nm0[1], key === "tot" && document.documentElement.getAttribute("data-theme") === "dark" ? "#6aa8ff" : nm0[2]], win0 = curWin(), rg = evrRange(key, win0), pr = evoProj(d, key, unit === "p", win0, rg), win = pr.win, u = unit === "p" ? "pontos" : "linhas";
-  $("#evI").value = isoD(new Date(rg.ini)); $("#evF").value = isoD(new Date(rg.fim)); $("#evD").classList.toggle("cs", rg.custom);
+  evCapSet(nm[0], rg);
   $("#evk").innerHTML = projKpis(pr, u, nm[0]).map(([v, l]) => `<div class="card kpi" style="margin:0"><b${String(v).length > 7 ? ' class="sm"' : ""}>${v}</b><span>${l}</span></div>`).join("");
   // rótulos no CENTRO de cada mês e linhas de grade nas divisas entre meses: o mês de julho é a 1ª coluna e o início (01/08) cai na divisa jul|ago
   const WA = win.a.getTime(), WB = win.b.getTime(), mm = [];
@@ -958,9 +961,9 @@ function evoDash(d) {
   evSync();
   if (!cfgK().length) { // nenhuma etapa cadastrada: gráfico e quadros vazios
     charts.c4?.destroy(); $("#evk").innerHTML = ""; $("#evt").innerHTML = ""; $("#evs").textContent = "Ver tabela";
-    $("#evS").classList.add("hide"); $("#evD").classList.add("hide");
+    $("#evS").classList.add("hide"); $("#evCap").classList.add("hide");
     $("#evn").textContent = "Nenhuma etapa cadastrada. Adicione em Parâmetros › Etapas do fluxo para acompanhar a evolução e o andamento."; return; }
-  const m0 = $("#evP").value; $("#evS").classList.toggle("hide", !evIsProj(m0)); $("#evD").classList.toggle("hide", !evIsProj(m0));
+  const m0 = $("#evP").value; $("#evS").classList.toggle("hide", !evIsProj(m0)); $("#evCap").classList.toggle("hide", !evIsProj(m0));
   if (evIsProj(m0)) return evoDashProj(d);
   evoDashHist(d);
   $("#evs").textContent = m0 === "w" ? "Ver histórico semanal (12 semanas)" : "Ver histórico mensal (6 meses)";
@@ -1571,7 +1574,7 @@ function listaProjetos() {
   $("#pList").innerHTML = d.length ? d.map(p => { const sit = situacao(p, p.pct), pe = periodo(p);
     const pct = Math.max(0, Math.min(100, Number(p.pct) || 0)), I = d => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
     const lg = logoHtml(p) || `<span class="plg" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M5 4v6M19 4v6M12 7v8"/><path d="M9 15h6l-1 5h-4z"/></svg></span>`;
-    return `<article class="card pc" tabindex="0" role="link" data-id="${p.id}" aria-label="Abrir ${esc(p.nome)}">
+    return `<article class="card pc">
       <div class="pc-lg">${lg}</div>
       <div class="pc-in">
        <div class="pt"><h3>${esc(p.nome)}</h3><span class="tag" style="--c:${sit.c}">${sit.t}</span>${canProj || gerencia(p) ? menuHtml(p) : ""}</div>
@@ -1581,16 +1584,13 @@ function listaProjetos() {
       <div class="pc-bt">
        <div class="ring" role="img" aria-label="${pct}% de andamento"><svg viewBox="0 0 64 64"><circle class="rt" cx="32" cy="32" r="27"/>${pct ? `<circle class="rv" cx="32" cy="32" r="27" pathLength="100" stroke-dasharray="${pct} 100"/>` : ""}</svg><b>${pct}%</b></div>
        <div class="pc-pg"><span class="l">andamento total</span><div class="pbar"><u style="width:${pct}%"></u></div><div class="pc-dd">${I('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>')}<span>${diasTxt(p)}</span></div></div>
-       <span class="go" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span>
+       <button type="button" class="go" data-open="${p.id}" aria-label="Abrir ${esc(p.nome)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
       </div>
       ${solDe(p) ? `<div class="aviso">⏳ Exclusão solicitada por ${esc(solDe(p).solicitante_email || "um editor")}</div>` : ""}</article>`; }).join("")
     : `<div class="card"><b>${projs.length ? "Nenhum projeto encontrado." : "Nenhum projeto cadastrado."}</b>${!projs.length && canNew ? "<p>Toque em “+ Novo projeto” para começar.</p>" : ""}${projs.length ? `<p><button type="button" id="hQx">Limpar busca</button></p>` : ""}</div>`;
   const qx = $("#hQx"); if (qx) qx.onclick = () => { $("#hQ").value = ""; listaProjetos(); };
   try { homeResumo(); } catch (e) {}
-  document.querySelectorAll("#pList .pc").forEach(c => {
-    const abre = () => { location.hash = `#/projeto/${c.dataset.id}/dashboard`; };
-    c.onclick = abre; c.onkeydown = e => { if (e.target === c && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); abre(); } };
-  });
+  document.querySelectorAll("#pList .go").forEach(b => b.onclick = () => { location.hash = `#/projeto/${b.dataset.open}/dashboard`; });
   document.querySelectorAll("#pList .km").forEach(b => b.onclick = e => { e.stopPropagation(); const mn = b.nextElementSibling, abrir = mn.classList.contains("hide"); fecharMenus(); mn.classList.toggle("hide", !abrir); b.setAttribute("aria-expanded", String(abrir)); });
   document.querySelectorAll("#pList .mn").forEach(m => m.onclick = e => e.stopPropagation());
   document.querySelectorAll("#pList [data-pe]").forEach(b => b.onclick = () => { fecharMenus(); pessoasProjeto(projs.find(p => p.id == b.dataset.pe)); });
@@ -2479,7 +2479,6 @@ document.querySelectorAll("#login input").forEach(i=>i.addEventListener("keydown
 .gxd>summary::-webkit-details-marker{display:none}.gxd>summary small{font-weight:500;color:var(--mut);font-size:12px;text-align:right}
 .gxd[open]>summary{border-bottom:1px solid var(--line);margin-bottom:12px}.gxd .card{box-shadow:none}
 .gx-off-al .gx-al,.gx-off-k .gx-k,.gx-off-et .gx-et,.gx-off-ind #gxInd,.gx-off-graf #gxGraf,.gx-off-evo #gxEvo,.gx-off-doc .gx-doc,.gx-off-pend .gx-pend{display:none}
-#evD{display:none}#evD.on{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .stb{display:flex;background:#e3e8f1;border-radius:12px;padding:3px;margin-bottom:12px}.stb button{flex:1;border:0;background:transparent;border-radius:10px;font-weight:600;color:var(--mut)}.stb button.on{background:#fff;color:var(--navy)}
 .sp{display:none}.sp.on{display:block}#sV .kpi{cursor:pointer}
 .gx-an{margin-bottom:14px}.gx-an .r{display:grid;grid-template-columns:minmax(80px,1fr) 1.4fr auto;gap:8px;align-items:center;margin-top:6px;font-size:13px}.gx-an em{font-style:normal;color:var(--mut)}
@@ -2522,24 +2521,36 @@ if(nv){nv.querySelectorAll("button span").forEach(s=>{const t=s.textContent.trim
  const m=document.createElement("button");m.id="nvMais";m.innerHTML='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Mais</span>';
  m.onclick=e=>{e.stopPropagation();const b=$("#mBtn");b&&b.click()};nv.appendChild(m);}
 const TT={t1:"Painel",t2:"Pontos (cadastro)",t3:"Importar e exportar",t4:"Usuários e histórico",t5:"Relatórios",t7:"Suprimentos"};
-const mn=$("main"),h2=document.createElement("h2");h2.id="pgT";mn.prepend(h2);
-setInterval(()=>{const s=[...mn.children].find(e=>e.tagName==="SECTION"&&!e.classList.contains("hide"));h2.textContent=s&&TT[s.id]||(s&&s.id!=="home"?"Parâmetros":"")},500);
+/* personalização por página: blocos que podem ser ligados/desligados (a escolha fica salva neste aparelho) */
+const PAGES={
+ t1:{sec:"t1",key:"gs-painel",title:"Personalizar painel",intro:"Escolha os blocos que aparecem no Painel.",
+  blocks:[["al","Alerta de atraso"],["k","Indicadores-chave"],["et","Etapas e áreas"],["ind","Todos os indicadores"],["graf","Gráficos detalhados"],["evo","Evolução e andamento"],["doc","Desenhos no SAP"],["pend","Pendências"]]},
+ t7:{sec:"t7",key:"gs-suprimentos",title:"Personalizar suprimentos",intro:"Escolha os blocos que aparecem na aba Resumo de Suprimentos.",
+  blocks:[["orc","Orçamento e câmbio"],["kpi","Indicadores do orçamento"],["dst","Distribuição do orçamento"],["gas","Evolução dos gastos"],["out","Outros gastos"],["cus","Análise de custos"],["prz","Indicadores de prazo"],["fun","Funil RC → Pedido → Entrega"]]}};
+const GEAR='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+const mn=$("main"),pgH=document.createElement("div"),h2=document.createElement("h2"),pgCfg=document.createElement("button");
+pgH.id="pgH";h2.id="pgT";pgCfg.id="pgCfg";pgCfg.type="button";pgCfg.className="gx-mb";pgCfg.hidden=true;pgCfg.innerHTML=GEAR;
+pgCfg.setAttribute("aria-label","Personalizar esta página");pgCfg.setAttribute("aria-haspopup","dialog");
+pgH.append(h2,pgCfg);mn.prepend(pgH);
+let pageId="";
+const syncHeader=()=>{const s=[...mn.children].find(e=>e.tagName==="SECTION"&&!e.classList.contains("hide")),t=s&&TT[s.id]||(s&&s.id!=="home"?"Parâmetros":"");
+ pageId=s?s.id:"";if(h2.textContent!==t)h2.textContent=t;pgCfg.hidden=!PAGES[pageId]};
+new MutationObserver(syncHeader).observe(mn,{attributes:true,attributeFilter:["class"],subtree:true,childList:true});syncHeader();
+pgCfg.onclick=()=>PAGES[pageId]&&blocksDialog(PAGES[pageId]);
 /* cadastro mobile */
 const fb=$("#t2 .bar");if(fb&&$("#fA")){const b=document.createElement("button");b.type="button";b.id="gxFb";b.textContent="Filtros";b.onclick=()=>fb.classList.toggle("gx-f");$("#fA").before(b);
  const ga=()=>$("#t2").classList.toggle("gx-area",!!$("#fA").value);$("#fA").addEventListener("change",ga);ga();}
 /* painel */
-const BL=[["al","Alerta de atraso"],["k","Indicadores-chave"],["et","Etapas e áreas"],["ind","Todos os indicadores"],["graf","Gráficos detalhados"],["evo","Evolução e andamento"],["doc","Desenhos no SAP"],["pend","Pendências"]];
-const pref=()=>{try{return JSON.parse(localStorage.getItem("gs-painel")||"{}")}catch(e){return{}}};
-const apply=()=>{const o=pref();BL.forEach(([k])=>$("#t1").classList.toggle("gx-off-"+k,o[k]===false))};
+const prefOf=key=>{try{return JSON.parse(localStorage.getItem(key)||"{}")}catch(e){return{}}};
+const applyBlocks=pg=>{const sec=$("#"+pg.sec),o=prefOf(pg.key);if(!sec)return;pg.blocks.forEach(([k])=>sec.classList.toggle("gx-off-"+k,o[k]===false));rsz()};
 function gxInit(){const t1=$("#t1"),k=$("#kpis");if(!t1||!k)return;
  const top=document.createElement("div");top.id="gxTop";k.before(top);
  const dI=det("Todos os indicadores","linhas, levantamento, Sphera, SAP e desenhos");dI.id="gxInd";k.before(dI);dI.appendChild(k);
  const g=t1.querySelector(":scope>.grid");if(g){const d=det("Gráficos detalhados","por área, funil e por tipo de projeto");d.id="gxGraf";g.before(d);d.appendChild(g)}
  const c4=$("#c4");if(c4)c4.closest(".card").id="gxEvo";
  $("#dsapD")&&$("#dsapD").closest(".card").classList.add("gx-doc");$("#pdd")&&$("#pdd").closest(".card").classList.add("gx-pend");
- const ev=$("#evD");if(ev){const b=document.createElement("button");b.type="button";b.textContent="Período";b.onclick=()=>ev.classList.toggle("on");ev.before(b)}
- top.addEventListener("click",e=>{const b=e.target.closest("[data-gu]");if(b){const x=$('#kpis .seg button[data-u="'+b.dataset.gu+'"]');x&&x.click()}if(e.target.id==="gxPers")pers()});
- new MutationObserver(sch).observe(k,{childList:true});$("#evk")&&new MutationObserver(sch).observe($("#evk"),{childList:true});apply();sch()}
+  top.addEventListener("click",e=>{const b=e.target.closest("[data-gu]");if(b){const x=$('#kpis .seg button[data-u="'+b.dataset.gu+'"]');x&&x.click()}});
+ new MutationObserver(sch).observe(k,{childList:true});$("#evk")&&new MutationObserver(sch).observe($("#evk"),{childList:true});sch()}
 let tm=0;function sch(){cancelAnimationFrame(tm);tm=requestAnimationFrame(build)}
 function build(){const k=$("#kpis"),top=$("#gxTop");if(!k||!top||k.children.length<7)return;
  const C=[...k.children],ev=$("#evk")?[...$("#evk").children]:[],val=c=>c?((c.querySelector("b")||{}).textContent||"").trim():"",lab=c=>c?((c.querySelector("span")||{}).textContent||"").trim():"";
@@ -2550,15 +2561,18 @@ function build(){const k=$("#kpis"),top=$("#gxTop");if(!k||!top||k.children.leng
  const col=p=>p>=70?"#2e9e5b":p>=30?"#d9822b":"#d64545",bar=(n,p)=>`<div class="gx-b"><span>${esc(n)}</span><span class="gx-t"><i style="width:${Math.max(p,p>0?2:0)}%;background:${col(p)}"></i></span><span>${p}%</span></div>`;
  const ars=[...new Set(rows.map(r=>r.area).filter(Boolean))],pa=!ks.length?"":ars.map(a=>{let p=0;try{p=Number(andamento(rows.filter(r=>r.area===a)))||0}catch(e){}return bar(a,p)}).join("");
  const cards=(window.gxCards?window.gxCards(C,ev,te):[C[1],C[2],C[3],te].filter(Boolean)).map(c=>c.outerHTML).join("")||"<small>Nenhum indicador escolhido. Use o menu ☰.</small>";
- top.innerHTML=`<div class="gx-h"><span class="seg"><button data-gu="l" class="${unit==="l"?"on":""}">Linhas</button><button data-gu="p" class="${unit==="p"?"on":""}">Pontos</button></span><button id="gxPers" type="button">Personalizar painel</button></div>`
+ top.innerHTML=`<div class="gx-h"><span class="seg"><button data-gu="l" class="${unit==="l"?"on":""}">Linhas</button><button data-gu="p" class="${unit==="p"?"on":""}">Pontos</button></span></div>`
  +(late?`<div class="gx-al"><b>Projeto atrás da meta</b> · ${esc(val(at))} em relação à meta linear${te?` · término previsto ${esc(val(te))}${/após/.test(te.textContent.toLowerCase())?" (depois do prazo)":""}`:""}</div>`:"")
  +`<div class="gx-sh"><b>Indicadores principais</b>${window.gxMb?window.gxMb("k"):""}</div><div class="cards gx-k">${cards}</div><div class="gx-et"><div class="card"><b>Etapas</b>${E.length?E.map(([n,p])=>bar(n,p)).join(""):"<small>Nenhuma etapa cadastrada. Adicione em Parâmetros › Etapas do fluxo.</small>"}${gi>0?`<span class="gx-g">Gargalo: ${esc(E[gi][0])} · ${E[gi-1][1]}% ${esc(E[gi-1][0].toLowerCase())} contra ${E[gi][1]}%</span>`:""}</div><div class="card"><b>Andamento por área</b>${pa||"—"}</div></div>`;
  top.querySelectorAll(".gx-al").forEach(e=>e.classList.add("gx-al"));top.querySelector(".gx-k")&&0;
  const kk=top.querySelector(".gx-k");if(kk)kk.classList.add("gx-k");const et=top.querySelector(".gx-et");et&&et.classList.add("gx-et")}
-function pers(){let d=$("#gxDlg");if(!d){d=document.createElement("dialog");d.id="gxDlg";document.body.appendChild(d)}const o=pref();
- d.innerHTML=`<h3>Personalizar painel</h3><p class="l">Escolha os blocos que aparecem no Painel. A escolha fica salva neste aparelho.</p>${BL.map(([k,n])=>`<label><input type="checkbox" data-k="${k}" ${o[k]===false?"":"checked"}>${n}</label>`).join("")}<div class="bar" style="margin-top:12px"><button class="p" id="gxOk">Fechar</button><button id="gxRs" type="button">Restaurar padrão</button></div>`;
- d.querySelectorAll("input").forEach(i=>i.onchange=()=>{const p=pref();p[i.dataset.k]=i.checked;localStorage.setItem("gs-painel",JSON.stringify(p));apply()});
- $("#gxOk").onclick=()=>d.close();$("#gxRs").onclick=()=>{localStorage.removeItem("gs-painel");apply();d.querySelectorAll("input").forEach(i=>i.checked=true)};d.showModal()}
+function blocksDialog(pg){let d=$("#gxDlg");if(!d){d=document.createElement("dialog");d.id="gxDlg";document.body.appendChild(d);d.addEventListener("click",e=>{if(e.target===d)d.close()})}
+ const o=prefOf(pg.key);
+ d.innerHTML=`<h3>${pg.title}</h3><p class="l">${pg.intro} A escolha fica salva neste aparelho.</p>${pg.blocks.map(([k,n])=>`<label><input type="checkbox" data-k="${k}" ${o[k]===false?"":"checked"}>${n}</label>`).join("")}<div class="bar" style="margin-top:12px"><button class="p" id="gxOk">Fechar</button><button id="gxRs" type="button">Restaurar padrão</button></div>`;
+ d.querySelectorAll("input").forEach(i=>i.onchange=()=>{const p=prefOf(pg.key);p[i.dataset.k]=i.checked;try{localStorage.setItem(pg.key,JSON.stringify(p))}catch(e){}applyBlocks(pg)});
+ $("#gxOk").onclick=()=>d.close();
+ $("#gxRs").onclick=()=>{try{localStorage.removeItem(pg.key)}catch(e){}applyBlocks(pg);d.querySelectorAll("input").forEach(i=>i.checked=true)};
+ d.showModal()}
 /* suprimentos */
 let tab="r";
 const show=()=>{$$("#t7 .sp").forEach(p=>p.classList.toggle("on",p.dataset.p===tab));$$("#t7 .stb button").forEach(b=>b.classList.toggle("on",b.dataset.p===tab));rsz()};
@@ -2571,14 +2585,15 @@ function an(){const el=$("#gxAn"),D=window.supData&&window.supData();if(!el||!D)
 function sup(){const sec=$("#t7"),sB=$("#sB");if(!sec||!sB||sec.querySelector(".stb"))return;
  const fil=sec.children[0],kk=$("#sK"),gr=sec.querySelector(":scope>.grid"),tb=sec.querySelector(":scope>.card.tw"),cn=$("#sC");if(!fil||!kk||!gr||!tb)return;
  const c0=sB.children[1],c1=sB.children[2],ce=$("#sBe"),c6=sB.querySelector(".ch"),cf=det("Orçamento e câmbio","valor em US$, câmbio e atualização automática");[c0,c1,ce].forEach(e=>e&&cf.appendChild(e));
- const dg=det("Distribuição do orçamento","gráfico");dg.appendChild(c6);sB.insertBefore(cf,$("#sV"));sB.appendChild(dg);
- const mk=p=>{const d=document.createElement("div");d.className="sp";d.dataset.p=p;return d},pr=mk("r"),pi=mk("i"),pa=mk("a"),kd=det("Todos os indicadores de prazo","itens, RC, pedidos, entregas e atrasos");kd.appendChild(kk);
- const fd=det("Funil RC → Pedido → Entrega","");fd.appendChild(gr.children[0]);pa.appendChild(gr.children[0]);gr.remove();
- const a=document.createElement("div");a.className="card";a.id="gxAn";pr.append(sB,a,kd,fd);pi.append(fil,tb,cn);
+ const dg=det("Distribuição do orçamento","gráfico");dg.appendChild(c6);cf.classList.add("gx-orc");dg.classList.add("gx-dst");
+ [["#sV","gx-kpi"],["#sVd","gx-kpi"],["#gxEv","gx-gas"],["#gxOut","gx-out"]].forEach(([q,c])=>{const e=$(q);e&&e.classList.add(c)});sB.insertBefore(cf,$("#sV"));sB.appendChild(dg);
+ const mk=p=>{const d=document.createElement("div");d.className="sp";d.dataset.p=p;return d},pr=mk("r"),pi=mk("i"),pa=mk("a"),kd=det("Todos os indicadores de prazo","itens, RC, pedidos, entregas e atrasos");kd.appendChild(kk);kd.classList.add("gx-prz");
+ const fd=det("Funil RC → Pedido → Entrega","");fd.classList.add("gx-fun");fd.appendChild(gr.children[0]);pa.appendChild(gr.children[0]);gr.remove();
+ const a=document.createElement("div");a.className="card gx-cus";a.id="gxAn";pr.append(sB,a,kd,fd);pi.append(fil,tb,cn);
  const tabs=document.createElement("div");tabs.className="stb";tabs.innerHTML='<button data-p="r">Resumo</button><button data-p="i">Itens</button><button data-p="a">Atenção</button>';
  tabs.onclick=e=>{const b=e.target.closest("button");if(b){tab=b.dataset.p;show()}};sec.append(tabs,pr,pi,pa);an();show()}
 document.addEventListener("click",e=>{const c=e.target.closest("#sV .kpi,#sV2 .kpi");if(!c)return;const s=c.querySelector("[data-sit]");if(!s)return;tab="i";show();const f=$("#sFs");if(f){f.value=s.dataset.sit;f.dispatchEvent(new Event("change"))}});
-const t7=$("#t7");t7&&new MutationObserver(sup).observe(t7,{childList:true});sup();gxInit();
+const t7=$("#t7");t7&&new MutationObserver(sup).observe(t7,{childList:true});sup();gxInit();Object.values(PAGES).forEach(applyBlocks);
 /* Evolução e andamento: cada opção das listas vira um botão */
 function btnGroup(sel){
  if(!sel||sel.dataset.bg)return;sel.dataset.bg="1";
@@ -2891,8 +2906,16 @@ function custom(){const w=curWin(),d=dlg(`<h3>Período personalizado</h3><small>
  <label>De<input type="date" id="gxCa" value="${isoD(w.a)}"></label><label>Até<input type="date" id="gxCb" value="${isoD(w.b)}"></label>${bar}`);
  d.onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;if(b.dataset.a!=="ok")return d.close();const a=$("#gxCa").value,z=$("#gxCb").value;
   if(!a||!z||z<a)return alert("Informe as duas datas, com o fim igual ou posterior ao início.");CF.cu={a,b:z};cfgSave();d.close();evoOpts();$("#evP").value="cu";dash()}}
+function etapaDlg(){const k=$("#evS").value,nome=($("#evS").selectedOptions[0]||{}).textContent||"Etapa",rg=evrRange(k,curWin()),
+ d=dlg(`<h3>Datas · ${E(nome)}</h3><small>Período mostrado no gráfico desta etapa. O fim padrão acompanha o fim do ano fiscal exibido.</small>
+ <label>Início<input type="date" id="gxEi" value="${isoD(new Date(rg.ini))}"></label><label>Fim<input type="date" id="gxEf" value="${isoD(new Date(rg.fim))}"></label>
+ <div class="bar" style="margin-top:12px"><button class="p" data-a="ok">Salvar</button><button type="button" data-a="rs">Restaurar padrão</button><button type="button" data-a="x">Cancelar</button></div>`);
+ d.onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a;
+  if(a==="x")return d.close();
+  if(a==="rs"){evrReset();return d.close()}
+  const err=evrApply($("#gxEi").value,$("#gxEf").value);if(err)return alert(err);d.close()}}
 function menu(sec){cfgLoad();const T={k:"Indicadores principais",ind:"Todos os indicadores",evo:"Evolução e andamento"}[sec],B=(a,t)=>`<button class="gx-mi" data-a="${a}">${t}</button>`;
- const it=sec==="k"?B("sk","Escolher indicadores"):sec==="ind"?B("vis",CF.vis==="l"?"Visualizar em cards":"Visualizar em lista")+B("st","Escolher indicadores"):B("se","Cards do gráfico")+B("fy","Anos fiscais exibidos")+B("per","Período do projeto e ano fiscal")+B("cu","Período personalizado do gráfico");
+ const it=sec==="k"?B("sk","Escolher indicadores"):sec==="ind"?B("vis",CF.vis==="l"?"Visualizar em cards":"Visualizar em lista")+B("st","Escolher indicadores"):B("dt","Datas da etapa")+B("se","Cards do gráfico")+B("fy","Anos fiscais exibidos")+B("per","Período do projeto e ano fiscal")+B("cu","Período personalizado do gráfico");
  const d=dlg(`<h3>${T}</h3>${it}${B("rs","Restaurar padrão")}<div class="bar" style="margin-top:12px"><button type="button" data-a="x">Fechar</button></div>`);
  d.onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a;
   if(a==="x")return d.close();
@@ -2900,6 +2923,7 @@ function menu(sec){cfgLoad();const T={k:"Indicadores principais",ind:"Todos os i
   if(a==="rs"){if(sec==="k")delete CF.k;else if(sec==="ind"){delete CF.t;delete CF.vis}else{delete CF.e;delete CF.cu;delete CF.fy;CU=null}cfgSave();d.close();if(sec==="evo")evoOpts();return dash()}
   if(a==="sk")return pick("Indicadores principais","k",()=>true,()=>["k:1","k:2","k:3"].concat(teKey()));
   if(a==="st")return pick("Todos os indicadores","t",()=>true,L=>L.map(x=>x.key));
+  if(a==="dt")return etapaDlg();
   if(a==="se")return pick("Cards do gráfico de evolução","e",x=>x.key[0]==="e",L=>L.map(x=>x.key));
   if(a==="fy")return fyDlg();if(a==="per")return periodo2();if(a==="cu")return custom()}}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-gm]");if(!b)return;e.preventDefault();e.stopPropagation();menu(b.dataset.gm)},true);
@@ -2908,6 +2932,7 @@ const _eo=evoOpts;evoOpts=function(){CFid=null;cfgLoad();CU=CF.cu?{a:evParse(CF.
   for(let y=CF.fy.a;y<=CF.fy.b;y++)if(!have.has("fy:"+y)){const o=document.createElement("option");o.value="fy:"+y;o.textContent=fyWin(y).label;s.insertBefore(o,all||null)}
   [...s.options].filter(o=>o.value.startsWith("fy:")).sort((a,b)=>+a.value.slice(3)-+b.value.slice(3)).forEach(o=>s.insertBefore(o,all||null));s.value=cur}
  if(CU){const s=$("#evP"),o=document.createElement("option");o.value="cu";o.textContent="Personalizado: "+dtBR(CU.a)+" a "+dtBR(CU.b);s.insertBefore(o,[...s.options].find(x=>x.value==="w")||null)}};
+$("#evCap").onclick=etapaDlg;
 const s1=$("#gxInd>summary");s1&&s1.insertAdjacentHTML("beforeend",gxMb("ind"));const h=$("#gxEvo .evh");h&&h.insertAdjacentHTML("beforeend",gxMb("evo"));
 })();
 </script>
@@ -3021,7 +3046,8 @@ html[data-theme] button{background:var(--s2);border:1px solid var(--bd);color:va
 html[data-theme] button:hover{background:var(--s)}
 html[data-theme] :is(.km,.eye,.lk,.gx-mb,.mn button,.seg button,.stb button,nav button){background:transparent;border:0}
 html[data-theme] #mMenu .mi{background:transparent;border:0}
-html[data-theme] :is(.km,.gx-mb,.mn button,nav button):hover,html[data-theme] #mMenu .mi:hover{background:var(--hov)}
+html[data-theme] #mMenu .mi.on{background:var(--yel);color:#0b1733}
+html[data-theme] :is(.km,.gx-mb,.mn button,nav button):hover,html[data-theme] #mMenu .mi:not(.on):hover{background:var(--hov)}
 html[data-theme] header button{background:#ffffff14;border:1px solid #ffffff40;color:#fff}
 html[data-theme] button.p{background:linear-gradient(180deg,var(--yel2),var(--yel));color:#0b1733;border:0;font-weight:800;box-shadow:0 6px 16px #f7b92836}
 html[data-theme] button.p:hover{background:linear-gradient(180deg,#ffe08a,#f9c23c)}
@@ -3139,10 +3165,8 @@ html[data-theme] #hQ{min-height:52px;padding-left:48px;border-radius:16px;font-s
 html[data-theme] #pNovo{min-height:54px;border-radius:16px;font-size:17px;font-weight:800}
 html[data-theme] .pgrid{grid-template-columns:repeat(auto-fill,minmax(min(360px,100%),1fr));gap:14px}
 
-html[data-theme] .pc{position:relative;overflow:hidden;display:grid;grid-template-columns:72px 1fr;gap:14px;padding:16px 16px 16px 20px;margin:0;border-radius:22px;cursor:pointer;transition:border-color .15s,transform .15s}
+html[data-theme] .pc{position:relative;overflow:hidden;display:grid;grid-template-columns:72px 1fr;gap:14px;padding:16px 16px 16px 20px;margin:0;border-radius:22px}
 html[data-theme] .pc::before{content:"";position:absolute;left:0;top:16px;bottom:16px;width:4px;border-radius:0 4px 4px 0;background:linear-gradient(var(--yel2),var(--yel))}
-html[data-theme] .pc:hover{border-color:var(--yel);box-shadow:var(--shadow)}
-html[data-theme] .pc:active{transform:scale(.99)}
 .pc .pc-lg{width:72px;height:72px;border-radius:16px;background:#fff;display:grid;place-items:center;overflow:hidden;box-shadow:0 0 0 1px #ffffff22}
 html[data-theme] .pc .pc-lg .plogo{width:100%;height:100%;padding:8px;border:0;border-radius:0;object-fit:contain;background:#fff}
 html[data-theme] .pc .pc-lg .plg{width:100%;height:100%;border:0;border-radius:0;background:#fff;color:#14284b;font-size:30px}
@@ -3154,7 +3178,7 @@ html[data-theme] .pc .tag{flex:none;padding:5px 12px;border-radius:999px;font-si
 html[data-theme] .pc .tag::before{background:var(--c);margin-right:7px}
 html[data-theme] .pc .ps{display:flex;align-items:flex-start;gap:8px;font-size:13.5px;font-weight:600;color:var(--mut)}
 .pc svg.i{width:17px;height:17px;flex:none;margin-top:1px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
-.pc .pc-bt{grid-column:1/-1;display:grid;grid-template-columns:68px 1fr 42px;gap:14px;align-items:center}
+.pc .pc-bt{grid-column:1/-1;display:grid;grid-template-columns:68px 1fr 44px;gap:14px;align-items:center}
 .pc .ring{position:relative;width:68px;height:68px}
 .pc .ring svg{width:100%;height:100%;transform:rotate(-90deg);fill:none;stroke-width:6}
 .pc .ring .rt{stroke:#3b82f633}
@@ -3165,7 +3189,10 @@ html[data-theme] .pc .ps{display:flex;align-items:flex-start;gap:8px;font-size:1
 html[data-theme] .pc .pbar{height:8px;border-radius:4px;background:var(--in)}
 html[data-theme] .pc .pbar u{background:linear-gradient(90deg,#3b82f6,#60a5fa);border-radius:4px}
 .pc .pc-dd{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--mut)}
-.pc .go{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--hov);color:var(--ink)}
+.pc .go{width:44px;height:44px;min-height:0;padding:0;border:0;border-radius:50%;display:grid;place-items:center;background:var(--hov);color:var(--ink);cursor:pointer;transition:background .15s,transform .15s}
+html[data-theme] .pc .go:hover,html[data-theme] .pc .go:focus-visible{background:var(--yel);color:#0b1733}
+html[data-theme] .pc .go:active{transform:scale(.92)}
+.pc .go:focus-visible{outline:2px solid var(--yel);outline-offset:2px}
 .pc .go svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .pc .aviso{grid-column:1/-1}
 
@@ -3206,6 +3233,19 @@ html[data-theme] header #back .ic{width:22px;height:22px}
 html[data-theme] header #back .tx{color:#fff}
 html[data-theme] header #back:hover{background:#ffc21a38}
 html[data-theme] header #back:active{transform:scale(.94)}
+/* Cabeçalho da página com engrenagem de personalização (fica na extremidade direita; para colar na palavra, troque justify-content por flex-start) */
+#pgH{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 12px}
+#pgH #pgT{margin:0}
+#pgH:has(#pgT:empty){display:none}
+body:not(.v-proj) #pgH{display:none}
+#pgCfg{width:44px;height:44px;margin-right:-8px}
+#pgCfg[hidden]{display:none}
+/* Legenda das datas da etapa no card de evolução (substitui o antigo botão "Período") */
+html[data-theme] .evcap{display:flex;align-items:center;gap:6px;width:100%;min-height:0;margin:0 0 10px;padding:4px 0;border:0;background:transparent;color:var(--mut);font-size:12.5px;font-weight:600;text-align:left}
+html[data-theme] .evcap:hover{background:transparent;color:var(--ink)}
+.evcap svg{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* Suprimentos: blocos que podem ser ocultados pela engrenagem */
+:is(.gx-off-orc .gx-orc,.gx-off-kpi .gx-kpi,.gx-off-dst .gx-dst,.gx-off-gas .gx-gas,.gx-off-out .gx-out,.gx-off-cus .gx-cus,.gx-off-prz .gx-prz,.gx-off-fun .gx-fun){display:none}
 </style>
 </body>
 </html>
