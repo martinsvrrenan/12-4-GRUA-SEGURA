@@ -728,9 +728,9 @@ setInterval(() => { if (papel === "admin" && !$("#t4").classList.contains("hide"
 // ---------- Dados ----------
 async function load() {
   if (!proj) return;
-  const { data, error } = await sb.from("pontos").select("*").eq("projeto_id", proj.id).order("area").order("equipamento").limit(5000);
+  const id = proj.id, [{ data, error }, h] = await Promise.all([pfTake(id, "pontos", () => qPontos(id)), pfTake(id, "hist", () => fetchAll("historico", { projeto_id: id }))]);
   if (error) return alert("Erro ao carregar: " + error.message + (/projeto_id/.test(error.message) ? "\n\nExecute os scripts SQL da Fase 1 (fase1_01 a fase1_08) no Supabase." : ""));
-  rows = data; hasF = !rows.length || "folhas" in rows[0]; hasS = !rows.length || "codigo_sap" in rows[0]; hasD = !rows.length || "desenho_sap" in rows[0]; hist = await fetchAll("historico", { projeto_id: proj.id });
+  rows = data; hasF = !rows.length || "folhas" in rows[0]; hasS = !rows.length || "codigo_sap" in rows[0]; hasD = !rows.length || "desenho_sap" in rows[0]; hist = h;
   const tps = [...new Set([...TIPOS, ...rows.map(r => r.tipo_projeto)])];
   $("#tps").innerHTML = tps.map(t => `<option value="${esc(t)}">`).join("");
   dash(); table();
@@ -797,6 +797,19 @@ function dash() {
     `<tr><td data-l="Área"><div class="v">${esc(r.area)}</div></td><td class="h"><b>${esc(r.equipamento)}</b></td><td data-l="Tipo"><div class="v">${esc(r.tipo_projeto)}</div></td><td data-l="Pendência"><div class="v">${t}</div></td></tr>`).join("")}</tbody></table>` + (p.length > 80 ? `<small>+${p.length - 80} itens</small>` : "") : "Nenhuma pendência.";
 }
 let hist = [];
+// ---- Pré-carga: dispara em paralelo as consultas do projeto, antes de o código sequencial precisar delas ----
+// Cada resultado vale uma única leitura (e só por 15 s); depois disso as telas voltam a consultar o banco normalmente.
+const PF = {};
+const pfTake = (id, k, fn) => { const e = PF[id + ":" + k]; delete PF[id + ":" + k]; return e && Date.now() - e.t < 15000 ? e.p : fn(); };
+const qPontos = id => sb.from("pontos").select("*").eq("projeto_id", id).order("area").order("equipamento").limit(5000);
+const qSup = id => sb.from("suprimentos").select("*").eq("projeto_id", id).order("id").limit(5000);
+const qGas = id => sb.from("projeto_gastos").select("*").eq("projeto_id", id).order("data").order("id").limit(5000);
+const qPar = () => sb.from("projeto_parametros").select("*").order("ordem").order("id");
+function prefetchProjeto(id) {
+  if (PF[id + ":pontos"]) return;
+  const t = Date.now(), put = (k, q) => { const p = Promise.resolve(q); p.catch(() => {}); PF[id + ":" + k] = { t, p }; };
+  put("pontos", qPontos(id)); put("hist", fetchAll("historico", { projeto_id: id })); put("sup", qSup(id)); put("gas", qGas(id)); put("par", qPar());
+}
 async function fetchAll(t, eq) { // eq = filtros de igualdade opcionais, ex.: { projeto_id: 1 }
   let out = [], f = 0;
   for (;;) {
@@ -1453,7 +1466,7 @@ const periodo = p => ({ ini: parseD(p.data_inicio), fim: new Date(parseD(p.data_
 const SQLP = "Execute os scripts SQL da Fase 1 (fase1_01 a fase1_08) no SQL Editor do Supabase, nessa ordem, e recarregue o app.";
 const SEC = ["home", "t1", "t2", "t3", "t4", "t5"];
 function setView(v, sec) { // v: home | proj | users
-  document.body.classList.remove("v-home", "v-proj", "v-users"); document.body.classList.add("v-" + v);
+  document.body.classList.remove("v-home", "v-proj", "v-users", "carregando"); document.body.classList.add("v-" + v);
   SEC.forEach(x => $("#" + x).classList.toggle("hide", x !== sec));
   window.scrollTo(0, 0);
 }
@@ -1590,6 +1603,7 @@ function listaProjetos() {
     : `<div class="card"><b>${projs.length ? "Nenhum projeto encontrado." : "Nenhum projeto cadastrado."}</b>${!projs.length && canNew ? "<p>Toque em “+ Novo projeto” para começar.</p>" : ""}${projs.length ? `<p><button type="button" id="hQx">Limpar busca</button></p>` : ""}</div>`;
   const qx = $("#hQx"); if (qx) qx.onclick = () => { $("#hQ").value = ""; listaProjetos(); };
   try { homeResumo(); } catch (e) {}
+  document.querySelectorAll("#pList .go").forEach(b => b.addEventListener("pointerdown", () => prefetchProjeto(+b.dataset.open)));
   document.querySelectorAll("#pList .go").forEach(b => b.onclick = () => { location.hash = `#/projeto/${b.dataset.open}/dashboard`; });
   document.querySelectorAll("#pList .km").forEach(b => b.onclick = e => { e.stopPropagation(); const mn = b.nextElementSibling, abrir = mn.classList.contains("hide"); fecharMenus(); mn.classList.toggle("hide", !abrir); b.setAttribute("aria-expanded", String(abrir)); });
   document.querySelectorAll("#pList .mn").forEach(m => m.onclick = e => e.stopPropagation());
@@ -1600,18 +1614,23 @@ function listaProjetos() {
 $("#hQ").oninput = listaProjetos;
 
 async function abrirProjeto(id, tab, seq) {
+  const t = tab === "dados" && !canImport ? "dashboard" : (TABS[tab] ? tab : "dashboard"), canon = `#/projeto/${id}/${t}`;
+  const mostrar = () => {
+    if (location.hash !== canon) history.replaceState(null, "", location.pathname + location.search + canon);
+    lastProjId = proj.id; setView("proj", TABS[t]); setHeader(proj.nome, [proj.cliente, proj.localidade].filter(Boolean).join(" · ") || perLabel());
+    document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x.dataset.t === TABS[t]));
+  };
   if (!proj || proj.id !== id) {
     let p = projs.find(x => x.id === id);
     if (!p) { const { data, error } = await sb.from("projetos").select("*").eq("id", id).maybeSingle(); if (seq !== navSeq) return; if (error || !data) { alert(error ? "Erro ao abrir o projeto: " + error.message : "Projeto não encontrado ou sem acesso."); location.hash = "#/"; return; } p = data; }
     proj = p; const pe = periodo(p); PROJ = { ini: pe.ini, fim: pe.fim, fyM: fyMes(p) };
     rows = []; hist = []; unit = "l"; ["dA", "fA", "fS", "rA"].forEach(i => { $("#" + i).value = ""; }); $("#fQ").value = ""; $("#evS").value = "tot";
-    evoOpts(); // anos fiscais do projeto + duração total
-    await load(); if (seq !== navSeq) return;
+    prefetchProjeto(id);
+    mostrar(); document.body.classList.add("carregando"); // a tela do projeto aparece já; os dados entram em seguida
+    try { evoOpts(); await load(); } finally { if (seq === navSeq) document.body.classList.remove("carregando"); }
+    if (seq !== navSeq) return;
   }
-  const t = tab === "dados" && !canImport ? "dashboard" : (TABS[tab] ? tab : "dashboard"), canon = `#/projeto/${id}/${t}`;
-  if (location.hash !== canon) history.replaceState(null, "", location.pathname + location.search + canon);
-  lastProjId = proj.id; setView("proj", TABS[t]); setHeader(proj.nome, [proj.cliente, proj.localidade].filter(Boolean).join(" · ") || perLabel());
-  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x.dataset.t === TABS[t]));
+  mostrar();
 }
 function abrirUsuarios() { proj = null; setView("users", "t4"); document.body.classList.toggle("has-last", !!lastProjId); document.querySelectorAll("nav button").forEach(x => x.classList.remove("on")); setHeader("Usuários", "Acessos e log de ações"); users(); }
 
@@ -1770,7 +1789,7 @@ const keysFor = pid => { const k = par("etapa", pid).filter(p => p.ativo).map(p 
 const lib = u => new Promise((ok, no) => { if (document.querySelector(`script[src="${u}"]`)) return ok(); const s = document.createElement("script"); s.src = u; s.onload = ok; s.onerror = () => no(new Error("Falha ao carregar a biblioteca")); document.head.appendChild(s); });
 
 // ---- Carga dos parâmetros ----
-async function loadAll() { const { data, error } = await sb.from("projeto_parametros").select("*").order("ordem").order("id"); if (error) return; ALL = {}; data.forEach(p => (ALL[p.projeto_id] = ALL[p.projeto_id] || []).push(p)); }
+async function loadAll() { const { data, error } = await pfTake(proj ? proj.id : 0, "par", qPar); if (error) return; ALL = {}; data.forEach(p => (ALL[p.projeto_id] = ALL[p.projeto_id] || []).push(p)); }
 function keep(sel, items, first) { const el = $(sel), v = el.value; fillSelect(el, items, first); el.value = items.includes(v) ? v : ""; }
 async function loadCfg() {
   await loadAll(); const a = par("area").filter(p => p.ativo).map(p => p.nome), t = par("tipo").filter(p => p.ativo).map(p => p.nome);
@@ -2018,8 +2037,7 @@ const xCol = p => (ORD.some(k => ff(k)[1] === p.nome) || p.nome === "Situação"
 
 // ---- Carga e migração automática ponto -> suprimento ----
 async function loadSup() {
-  await probeNovos();
-  const { data, error } = await sb.from("suprimentos").select("*").eq("projeto_id", proj.id).order("id").limit(5000);
+  const id = proj.id, [, { data, error }] = await Promise.all([probeNovos(), pfTake(id, "sup", () => qSup(id))]);
   supOk = !error; SUP = error ? [] : data; if (supOk && canProj) await sync(false);
 }
 async function sync(ask) {
@@ -2040,7 +2058,7 @@ async function sync(ask) {
     if (!error) { ch = true; logP(rm ? "Removeu itens de suprimentos" : "Manteve itens de suprimentos como manuais", `${orf.length} item(ns)`); } }
   if (ch) { const { data } = await sb.from("suprimentos").select("*").eq("projeto_id", proj.id).order("id").limit(5000); if (data) SUP = data; if (ins.length) logP("Migrou pontos para suprimentos", `${ins.length} novo(s)`); }
 }
-const _load = load; load = async function () { await _load(); if (proj) { await loadSup(); await loadGas(); } };
+const _load = load; load = async function () { await _load(); if (proj) await Promise.all([loadSup(), loadGas()]); };
 
 // ---- Aba Suprimentos ----
 const sec = document.createElement("section"); sec.id = "t7"; sec.className = "hide"; $("main").appendChild(sec); SEC.push("t7"); TABS.suprimentos = "t7";
@@ -2125,7 +2143,7 @@ async function salvaOrc() {
 // ---- Outros gastos do orçamento (projeto, fiscal etc.) ----
 let GAS = [], GAS_PID = null; window.__gasErr = "";
 const gasOk = () => !!proj && GAS_PID === proj.id, gasLista = () => gasOk() ? GAS : [], gasTot = () => gasLista().reduce((t, g) => t + (Number(g.valor) || 0), 0);
-async function loadGas() { if (!proj) return; const id = proj.id, { data, error } = await sb.from("projeto_gastos").select("*").eq("projeto_id", id).order("data").order("id").limit(5000);
+async function loadGas() { if (!proj) return; const id = proj.id, { data, error } = await pfTake(id, "gas", () => qGas(id));
   if (!proj || proj.id !== id) return; GAS = error ? [] : data; GAS_PID = id; window.__gasErr = error ? error.message : ""; }
 function pintaOrc() {
   const u = proj.orcamento_usd != null ? Number(proj.orcamento_usd) : null, c = proj.cambio_usd_brl > 0 ? Number(proj.cambio_usd_brl) : null, orc = u != null && c ? u * c : null, v = supValores(SUP), og = gasTot(), comp = v.comp + og;
@@ -3246,6 +3264,15 @@ html[data-theme] .evcap:hover{background:transparent;color:var(--ink)}
 .evcap svg{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 /* Suprimentos: blocos que podem ser ocultados pela engrenagem */
 :is(.gx-off-orc .gx-orc,.gx-off-kpi .gx-kpi,.gx-off-dst .gx-dst,.gx-off-gas .gx-gas,.gx-off-out .gx-out,.gx-off-cus .gx-cus,.gx-off-prz .gx-prz,.gx-off-fun .gx-fun){display:none}
+/* Abertura do projeto: a tela troca na hora; enquanto os dados chegam, barra de progresso e bloco "esqueleto" */
+body.carregando main>section,body.carregando #pgH{display:none!important}
+body.carregando main::before{content:"";position:fixed;left:0;right:0;top:var(--top);height:3px;z-index:30;background:linear-gradient(90deg,transparent,var(--yel),transparent) 0 0/40% 100% no-repeat;animation:gxbar 1s linear infinite}
+body.carregando main::after{content:"";display:block;height:180px;margin:6px 0;border-radius:20px;background:linear-gradient(100deg,var(--s2) 30%,var(--s) 50%,var(--s2) 70%) 0 0/300% 100%;border:1px solid var(--bd);animation:gxsk 1.2s ease-in-out infinite}
+@keyframes gxbar{from{background-position:-40% 0}to{background-position:140% 0}}
+@keyframes gxsk{from{background-position:100% 0}to{background-position:0 0}}
+@keyframes gxin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+body.v-proj main>section:not(.hide){animation:gxin .18s ease-out}
+@media(prefers-reduced-motion:reduce){body.v-proj main>section:not(.hide),body.carregando main::before,body.carregando main::after{animation:none}}
 </style>
 </body>
 </html>
