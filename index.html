@@ -1561,11 +1561,14 @@ function homeResumo() {
   const hs = $("#hSum"), ho = $("#hOv"); if (!hs || !ho) return;
   if (!projs || !projs.length) { hs.classList.add("hide"); ho.classList.add("hide"); return; }
   hs.classList.remove("hide"); ho.classList.remove("hide");
-  const now = Date.now(), L = projs.map(p => ({ s: situacao(p, p.pct).t, fim: periodo(p).fim.getTime() })), n = k => L.filter(x => x.s === k).length;
-  const ativos = L.filter(x => x.s !== "Concluído"), dias = Math.max(0, ...ativos.map(x => Math.ceil((x.fim - now) / DAY)));
+  const now = Date.now(), L = projs.map(p => ({ s: situacao(p, p.pct).t, fim: periodo(p).fim.getTime(), nome: p.nome || "" })), n = k => L.filter(x => x.s === k).length;
+  const ativos = L.filter(x => x.s !== "Concluído");
+  const venc = ativos.filter(x => x.fim >= now).sort((x, y) => x.fim - y.fim)[0], atr = ativos.filter(x => x.fim < now).length;
+  const dias = venc ? Math.ceil((venc.fim - now) / DAY) : 0, esc = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const sub = venc ? esc(venc.nome) + (atr ? ` · ${atr} atrasado${atr > 1 ? "s" : ""}` : "") : (atr ? `${atr} atrasado${atr > 1 ? "s" : ""}` : "");
   const media = Math.round(projs.reduce((t, p) => t + (Number(p.pct) || 0), 0) / projs.length);
   hs.innerHTML = `<div class="sc"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 5 8 11v11c0 10 6.8 17.2 16 21 9.2-3.8 16-11 16-21V11z"/><path d="m16.5 24.5 5 5 10-10.5"/></svg><div><small>Projetos ativos</small><b>${ativos.length}</b></div></div><div class="sd"></div>
-    <div class="sc"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="9" width="36" height="33" rx="6"/><path d="M15 5v8M33 5v8M6 19h36M16 29h6M26 29h6M16 36h6"/></svg><div><small>Dias restantes</small><b>${dias}</b></div></div>`;
+    <div class="sc"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="9" width="36" height="33" rx="6"/><path d="M15 5v8M33 5v8M6 19h36M16 29h6M26 29h6M16 36h6"/></svg><div><small>Próximo prazo</small><b>${dias}<i> ${dias === 1 ? "dia" : "dias"}</i></b>${sub ? `<em>${sub}</em>` : ""}</div></div>`;
   const segs = [["Concluídos", "#22d3ee", n("Concluído")], ["Em andamento", "#3ddc84", n("Em andamento")], ["Atrasados", "#fb923c", n("Atrasado")], ["Não iniciados", "#8da2c8", n("Não iniciado")]].filter((s, i) => i < 3 || s[2]);
   const gap = segs.filter(s => s[2]).length > 1 ? .8 : 0; let off = 0;
   const arcs = segs.map(([, c, v]) => { const len = 100 * v / projs.length, w = Math.max(len - gap, 0), a = v ? `<circle cx="50" cy="50" r="40" pathLength="100" stroke="${c}" stroke-dasharray="${w} ${100 - w}" stroke-dashoffset="${-off}"/>` : ""; off += len; return a; }).join("");
@@ -3121,6 +3124,7 @@ html[data-theme] .pc .pbar u{background:linear-gradient(90deg,#3b82f6,#60a5fa);b
 .sum .sc{display:flex;align-items:center;gap:12px;min-width:0}
 .sum .sc>svg{width:46px;height:46px;flex:none;fill:none;stroke:var(--yel);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .sum small{display:block;color:var(--mut);font-size:12.5px;font-weight:600;line-height:1.3}
+.sum .sc b i{font-size:15px;font-style:normal;font-weight:600;letter-spacing:0;color:var(--mut,#8da2c8)}.sum .sc em{display:block;font-style:normal;font-size:12px;line-height:1.2;margin-top:2px;color:var(--mut,#8da2c8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px}
 .sum .sc b{display:block;font-size:36px;line-height:1.05;font-weight:800;letter-spacing:-1px;color:var(--ink)}
 .sum .sd{align-self:stretch;background:var(--bd)}
 .ov{margin-top:16px;padding:18px}
