@@ -3033,7 +3033,7 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
 <script id="gx-exiros">
 /* ===== Exiros: status das RCs (bot do Teams) na aba Suprimentos + botão do administrador ===== */
 (function () {
-  let EX = [], LOG = null, IDX = new Map(), OK = true, busy = false, poll = null, MSG = "";
+  let EX = [], LOG = null, LOK = null, IDX = new Map(), OK = true, busy = false, poll = null, MSG = "";
   const COLS = "id,rc_item,rc_numero,item,status,status_descricao,material_codigo,material_descricao,unidade,planta,data_necessidade,quantidade,rc_exiros,data_criacao_rc,data_liberacao_rc,comprador_codigo,comprador_nome,planejador,licitacao_numero,licitacao_status,licitacao_abertura,licitacao_encerramento,consultado_em";
   const norm = v => String(v == null ? "" : v).split("-")[0].replace(/\D/g, "").replace(/^0+/, "");
   const E = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -3061,37 +3061,54 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
       tr.insertAdjacentHTML("beforeend", `<td class="exx" data-l="Exiros"><div class="v">${cel(byId.get(tr.dataset.id))}</div></td>`);
     });
   }
-  function statusLog() {
-    if (!LOG) return "Ainda não houve atualização pelo Exiros.";
-    const t = { executando: "em andamento…", ok: "concluída", parcial: "concluída com falhas", erro: "falhou", sessao_expirada: "sessão do Teams expirada (é preciso refazer o login)" }[LOG.status] || LOG.status;
-    return `Última atualização: ${dhBR(LOG.finalizado_em || LOG.iniciado_em)} · ${t}${LOG.status === "ok" || LOG.status === "parcial" ? " · " + (LOG.itens || 0) + " itens" : ""}`;
+  const TZ = "America/Sao_Paulo";
+  const dataHora = v => { const d = v ? new Date(v) : null; if (!d || isNaN(d)) return ""; return `${d.toLocaleDateString("pt-BR", { timeZone: TZ })} às ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: TZ })}`; };
+  const rodando = () => !!(LOG && LOG.status === "executando" && Date.now() - new Date(LOG.iniciado_em).getTime() < 30 * 60000);
+  function statusLog() { // mensagem para todos: quando as RCs foram atualizadas pela última vez
+    if (rodando()) return "Atualização das RCs em andamento…";
+    if (!LOK) return "As RCs ainda não foram atualizadas pelo Exiros.";
+    return `RCs atualizadas pelo Exiros em ${dataHora(LOK.finalizado_em || LOK.iniciado_em)}`;
+  }
+  function falhaLog() { // aviso extra, só para o administrador
+    if (!LOG || !["erro", "sessao_expirada", "parcial"].includes(LOG.status)) return "";
+    if (LOK && LOK.id === LOG.id) return LOG.status === "parcial" ? "Última atualização terminou com falhas em alguns itens." : "";
+    return LOG.status === "sessao_expirada" ? "A última tentativa falhou: a sessão do Teams expirou (é preciso refazer o login)." : "A última tentativa de atualização falhou.";
   }
   function resumo() {
     const c = {}; EX.forEach(x => { const k = x.status || "—"; c[k] = (c[k] || 0) + 1; });
     return Object.entries(c).sort((a, b) => b[1] - a[1]).map(([k, n]) => tag(n + " · " + k, cor(k))).join(" ");
   }
+  function botao() { // botão só para admin, ao lado de "Copiar RCs"
+    let b = document.getElementById("exBtn");
+    if (papel !== "admin") { if (b) b.remove(); return; }
+    const ref = document.getElementById("sRcs"); if (!ref) return;
+    if (!b) { ref.insertAdjacentHTML("afterend", '<button class="p" id="exBtn" type="button"></button>'); b = document.getElementById("exBtn"); b.onclick = dispara; }
+    const ocupado = busy || rodando();
+    b.disabled = ocupado; b.textContent = ocupado ? "Atualizando…" : "Atualizar RCs (Exiros)";
+  }
   function card() {
-    // o card fica no topo da sub-aba "Resumo" da aba Suprimentos (montada pelo script gx-js)
-    const host = document.querySelector('#t7 .sp[data-p="r"]'); if (!host || !proj) return;
+    const sec = document.getElementById("t7"); if (!sec || !proj) return;
     const adm = papel === "admin";
     let el = document.getElementById("exCard");
-    if (!OK && !adm) { if (el) el.remove(); return; }
-    if (el && el.parentNode !== host) { el.remove(); el = null; }
-    if (!el) { host.insertAdjacentHTML("afterbegin", '<div class="card" id="exCard"></div>'); el = document.getElementById("exCard"); }
-    el.innerHTML = `<div class="evh"><b>Exiros · status das RCs</b>${adm ? `<div class="bar"><button class="p" id="exBtn" ${busy ? "disabled" : ""}>${busy ? "Atualizando…" : "Atualizar Dados do Exiros"}</button></div>` : ""}</div>`
+    if (!OK && !adm) { if (el) el.remove(); botao(); return; }
+    if (!el) { sec.insertAdjacentHTML("afterbegin", '<div class="card" id="exCard"></div>'); el = document.getElementById("exCard"); }
+    const aviso = adm ? [falhaLog(), MSG].filter(Boolean) : [];
+    el.innerHTML = `<div class="evh"><b>Exiros · status das RCs</b></div>`
       + `<small style="display:block">${OK ? E(statusLog()) : "Tabelas do Exiros não encontradas ou sem permissão no Supabase."}</small>`
       + (EX.length ? `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">${resumo()}</div>` : "")
-      + (MSG ? `<small style="display:block;margin-top:8px">${E(MSG)}</small>` : "");
-    const b = document.getElementById("exBtn"); if (b) b.onclick = dispara;
+      + aviso.map(t => `<small style="display:block;margin-top:8px">${E(t)}</small>`).join("");
+    botao();
   }
   async function carrega() {
     const id = proj && proj.id; if (!id) return;
     const rcs = [...new Set(SUP.map(i => norm(i.rc_numero)).filter(Boolean))];
-    const [a, b] = await Promise.all([
+    const SEL = "id,iniciado_em,finalizado_em,status,rcs,itens,mensagem";
+    const [a, b, c] = await Promise.all([
       rcs.length ? sb.from("exiros_rc").select(COLS).in("rc_numero", rcs).limit(5000) : Promise.resolve({ data: [] }),
-      sb.from("exiros_sync_log").select("id,iniciado_em,finalizado_em,status,rcs,itens,mensagem").order("id", { ascending: false }).limit(1)]);
+      sb.from("exiros_sync_log").select(SEL).order("id", { ascending: false }).limit(1),
+      sb.from("exiros_sync_log").select(SEL).in("status", ["ok", "parcial"]).order("id", { ascending: false }).limit(1)]);
     if (!proj || proj.id !== id) return;
-    OK = !(a.error || b.error); EX = a.error ? [] : (a.data || []); LOG = b.error ? null : ((b.data || [])[0] || null); IDX = porRc();
+    OK = !(a.error || b.error || c.error); EX = a.error ? [] : (a.data || []); LOG = b.error ? null : ((b.data || [])[0] || null); LOK = c.error ? null : ((c.data || [])[0] || null); IDX = porRc();
     card(); decora();
   }
   async function dispara() {
@@ -3125,8 +3142,7 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
       + l("Licitação", x.licitacao_numero ? x.licitacao_numero + (x.licitacao_status ? " (" + x.licitacao_status + ")" : "") + " · abertura " + dBR(x.licitacao_abertura) + " · encerramento " + dBR(x.licitacao_encerramento) : "") + "</div>";
   }
 
-  // setTimeout: espera o gx-js montar as sub-abas (Resumo/Itens/Atenção) antes de inserir o card
-  const _rs = renderSup; renderSup = function () { _rs(); setTimeout(() => { card(); decora(); carrega(); }, 0); };
+  const _rs = renderSup; renderSup = function () { _rs(); card(); decora(); carrega(); };
   const _pt = pinta; pinta = function () { _pt(); decora(); };
   const _ei = editaItem; editaItem = function (it) { _ei(it); const x = acha(it), e = document.getElementById("spE"); if (x && e) e.insertAdjacentHTML("beforebegin", bloco(x)); };
 })();
