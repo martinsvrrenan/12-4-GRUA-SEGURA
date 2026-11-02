@@ -3096,11 +3096,11 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
   }
   function card() {
     const sec = document.getElementById("t7"); if (!sec || !proj) return;
-    if (sec.querySelector("#sB") && !sec.querySelector(".stb")) return; // abas ainda não montadas: não inserir antes (senão o card de filtros sai do lugar)
+    const host = sec.querySelector('.sp[data-p="i"]'); if (!host) return; // painel da aba Itens (só existe depois que as abas são montadas)
     const adm = papel === "admin";
     let el = document.getElementById("exCard");
     if (!OK && !adm) { if (el) el.remove(); botao(); return; }
-    if (!el) { sec.insertAdjacentHTML("afterbegin", '<div class="card" id="exCard"></div>'); el = document.getElementById("exCard"); }
+    if (!el) { host.insertAdjacentHTML("afterbegin", '<div class="card" id="exCard"></div>'); el = document.getElementById("exCard"); }
     const aviso = adm ? [falhaLog(), MSG].filter(Boolean) : [];
     el.innerHTML = `<div class="evh"><b>Exiros · status das RCs</b></div>`
       + `<small style="display:block">${OK ? E(statusLog()) : "Tabelas do Exiros não encontradas ou sem permissão no Supabase."}</small>`
