@@ -1,0 +1,44 @@
+name: Exiros sync
+
+on:
+  schedule:
+    - cron: "0 9 * * *"        # 09:00 UTC = 06:00 em Brasília
+  workflow_dispatch:
+    inputs:
+      rc:
+        description: "RC específica (opcional; várias separadas por vírgula)"
+        required: false
+        default: ""
+
+concurrency:
+  group: exiros
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: exiros/requirements.txt
+      - run: pip install -r exiros/requirements.txt && playwright install --with-deps chromium
+      - name: Consultar Exiros bot
+        working-directory: exiros
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          TEAMS_CHAT_URL: ${{ secrets.TEAMS_CHAT_URL }}
+          RC_INPUT: ${{ inputs.rc }}
+        run: python exiros_sync.py
+      - name: Capturas de tela (só se algo falhou)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-exiros
+          path: exiros/debug/
+          retention-days: 3
+          if-no-files-found: ignore
