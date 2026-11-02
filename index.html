@@ -3071,11 +3071,13 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
     return Object.entries(c).sort((a, b) => b[1] - a[1]).map(([k, n]) => tag(n + " · " + k, cor(k))).join(" ");
   }
   function card() {
-    const sec = document.getElementById("t7"); if (!sec || !proj) return;
+    // o card fica no topo da sub-aba "Resumo" da aba Suprimentos (montada pelo script gx-js)
+    const host = document.querySelector('#t7 .sp[data-p="r"]'); if (!host || !proj) return;
     const adm = papel === "admin";
     let el = document.getElementById("exCard");
     if (!OK && !adm) { if (el) el.remove(); return; }
-    if (!el) { sec.insertAdjacentHTML("afterbegin", '<div class="card" id="exCard"></div>'); el = document.getElementById("exCard"); }
+    if (el && el.parentNode !== host) { el.remove(); el = null; }
+    if (!el) { host.insertAdjacentHTML("afterbegin", '<div class="card" id="exCard"></div>'); el = document.getElementById("exCard"); }
     el.innerHTML = `<div class="evh"><b>Exiros · status das RCs</b>${adm ? `<div class="bar"><button class="p" id="exBtn" ${busy ? "disabled" : ""}>${busy ? "Atualizando…" : "Atualizar Dados do Exiros"}</button></div>` : ""}</div>`
       + `<small style="display:block">${OK ? E(statusLog()) : "Tabelas do Exiros não encontradas ou sem permissão no Supabase."}</small>`
       + (EX.length ? `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">${resumo()}</div>` : "")
@@ -3123,7 +3125,8 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
       + l("Licitação", x.licitacao_numero ? x.licitacao_numero + (x.licitacao_status ? " (" + x.licitacao_status + ")" : "") + " · abertura " + dBR(x.licitacao_abertura) + " · encerramento " + dBR(x.licitacao_encerramento) : "") + "</div>";
   }
 
-  const _rs = renderSup; renderSup = function () { _rs(); card(); decora(); carrega(); };
+  // setTimeout: espera o gx-js montar as sub-abas (Resumo/Itens/Atenção) antes de inserir o card
+  const _rs = renderSup; renderSup = function () { _rs(); setTimeout(() => { card(); decora(); carrega(); }, 0); };
   const _pt = pinta; pinta = function () { _pt(); decora(); };
   const _ei = editaItem; editaItem = function (it) { _ei(it); const x = acha(it), e = document.getElementById("spE"); if (x && e) e.insertAdjacentHTML("beforebegin", bloco(x)); };
 })();
