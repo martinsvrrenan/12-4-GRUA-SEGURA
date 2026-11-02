@@ -2440,6 +2440,13 @@ window.supRel = (img) => { const s = supStats(SUP), d = x => x ? dtBR(parseD(x))
     att: SUP.filter(i => atras(i) || semPrazo(i)).map(i => [i.codigo_sap || i.codigo_sphera || "—", i.descricao || "—", sitTxt(i), d(i.prazo_entrega)]),
     all: SUP.map(i => [i.codigo_sap || i.codigo_sphera || "—", String(i.descricao || "—").slice(0, 110), [i.quantidade ?? "", okv("sup_unidade", i.unidade) ? i.unidade || "" : ""].join(" ").trim() || "—", okv("sup_fornecedor", i.fornecedor) && i.fornecedor ? i.fornecedor : "—", sitTxt(i), d(i.prazo_entrega)]),
     rows: SUP.map(i => ({ ...Object.fromEntries(ORD.map(k => [ff(k)[1], (k === "fornecedor" && !okv("sup_fornecedor", i[k])) || (k === "unidade" && !okv("sup_unidade", i[k])) ? "" : i[k] ?? ""])), ...Object.fromEntries(xCampos().map(p => [xCol(p), xVal(i, p)])), "Situação": sitTxt(i) })) }; };
+/* gancho para o bloco do Exiros (gx-exiros): expõe SUP e permite encaixar nas funções internas desta aba */
+window.gxSup = { get SUP() { return SUP; } };
+window.gxSupHook = h => {
+  const _rs = renderSup; renderSup = function () { _rs(); h.render(); };
+  const _pt = pinta; pinta = function () { _pt(); h.pinta(); };
+  const _ei = editaItem; editaItem = function (it) { _ei(it); h.edita(it); };
+};
 })();
 
 </script>
@@ -3035,6 +3042,7 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
 (function () {
   let EX = [], LOG = null, LOK = null, IDX = new Map(), OK = true, busy = false, poll = null, MSG = "";
   const COLS = "id,rc_item,rc_numero,item,status,status_descricao,material_codigo,material_descricao,unidade,planta,data_necessidade,quantidade,rc_exiros,data_criacao_rc,data_liberacao_rc,comprador_codigo,comprador_nome,planejador,licitacao_numero,licitacao_status,licitacao_abertura,licitacao_encerramento,consultado_em";
+  const supL = () => (window.gxSup ? window.gxSup.SUP : []);
   const norm = v => String(v == null ? "" : v).split("-")[0].replace(/\D/g, "").replace(/^0+/, "");
   const E = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const dBR = s => { const m = String(s || "").slice(0, 10).split("-"); return m.length === 3 && m[0] ? `${m[2]}/${m[1]}/${m[0]}` : "—"; };
@@ -3055,7 +3063,7 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
     const tb = document.getElementById("sT"); if (!tb) return;
     const hr = document.querySelector("#t7 table.st thead tr");
     if (hr && !hr.querySelector(".exx")) hr.insertAdjacentHTML("beforeend", '<th class="exx">Exiros</th>');
-    const byId = new Map((window.SUP || SUP).map(i => [String(i.id), i]));
+    const byId = new Map(supL().map(i => [String(i.id), i]));
     tb.querySelectorAll("tr").forEach(tr => {
       tr.querySelectorAll(".exx").forEach(n => n.remove());
       tr.insertAdjacentHTML("beforeend", `<td class="exx" data-l="Exiros"><div class="v">${cel(byId.get(tr.dataset.id))}</div></td>`);
@@ -3072,7 +3080,7 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
   function falhaLog() { // aviso extra, só para o administrador
     if (!LOG || !["erro", "sessao_expirada", "parcial"].includes(LOG.status)) return "";
     if (LOK && LOK.id === LOG.id) return LOG.status === "parcial" ? "Última atualização terminou com falhas em alguns itens." : "";
-    return LOG.status === "sessao_expirada" ? "A última tentativa falhou: a sessão do Teams expirou (é preciso refazer o login)." : "A última tentativa de atualização falhou.";
+    return LOG.status === "sessao_expirada" ? "A última tentativa falhou: a sessão do Teams expirou (é preciso refazer o login)." : "A última tentativa de atualização falhou" + (LOG.mensagem ? ": " + String(LOG.mensagem).slice(0, 200) : ".");
   }
   function resumo() {
     const c = {}; EX.forEach(x => { const k = x.status || "—"; c[k] = (c[k] || 0) + 1; });
@@ -3101,7 +3109,7 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
   }
   async function carrega() {
     const id = proj && proj.id; if (!id) return;
-    const rcs = [...new Set(SUP.map(i => norm(i.rc_numero)).filter(Boolean))];
+    const rcs = [...new Set(supL().map(i => norm(i.rc_numero)).filter(Boolean))];
     const SEL = "id,iniciado_em,finalizado_em,status,rcs,itens,mensagem";
     const [a, b, c] = await Promise.all([
       rcs.length ? sb.from("exiros_rc").select(COLS).in("rc_numero", rcs).limit(5000) : Promise.resolve({ data: [] }),
@@ -3142,9 +3150,12 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
       + l("Licitação", x.licitacao_numero ? x.licitacao_numero + (x.licitacao_status ? " (" + x.licitacao_status + ")" : "") + " · abertura " + dBR(x.licitacao_abertura) + " · encerramento " + dBR(x.licitacao_encerramento) : "") + "</div>";
   }
 
-  const _rs = renderSup; renderSup = function () { _rs(); card(); decora(); carrega(); };
-  const _pt = pinta; pinta = function () { _pt(); decora(); };
-  const _ei = editaItem; editaItem = function (it) { _ei(it); const x = acha(it), e = document.getElementById("spE"); if (x && e) e.insertAdjacentHTML("beforebegin", bloco(x)); };
+  if (window.gxSupHook) window.gxSupHook({
+    render() { card(); decora(); carrega(); },
+    pinta() { decora(); },
+    edita(it) { const x = acha(it), e = document.getElementById("spE"); if (x && e) e.insertAdjacentHTML("beforebegin", bloco(x)); }
+  });
+  else console.warn("Exiros: gancho da aba Suprimentos não encontrado.");
 })();
 </script>
 <style id="gx-exiros-css">@media(min-width:701px){#t7 th.exx,#t7 td.exx{min-width:200px;white-space:normal}}</style>
