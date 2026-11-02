@@ -3096,6 +3096,7 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
   }
   function card() {
     const sec = document.getElementById("t7"); if (!sec || !proj) return;
+    if (sec.querySelector("#sB") && !sec.querySelector(".stb")) return; // abas ainda não montadas: não inserir antes (senão o card de filtros sai do lugar)
     const adm = papel === "admin";
     let el = document.getElementById("exCard");
     if (!OK && !adm) { if (el) el.remove(); botao(); return; }
@@ -3151,7 +3152,7 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
   }
 
   if (window.gxSupHook) window.gxSupHook({
-    render() { card(); decora(); carrega(); },
+    render() { setTimeout(() => { card(); decora(); carrega(); }, 0); }, // depois da reorganização das abas (Resumo/Itens/Atenção)
     pinta() { decora(); },
     edita(it) { const x = acha(it), e = document.getElementById("spE"); if (x && e) e.insertAdjacentHTML("beforebegin", bloco(x)); }
   });
