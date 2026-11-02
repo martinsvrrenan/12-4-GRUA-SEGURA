@@ -3030,6 +3030,105 @@ const hb=$("header .hb");if(hb){const b=document.createElement("button");b.id="h
 const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.createElement("button");b.className="mi";b.id="mPf";b.setAttribute("role","menuitem");b.textContent="Meu perfil";b.onclick=abrir;mm.insertBefore(b,hr)}
 })();
 </script>
+<script id="gx-exiros">
+/* ===== Exiros: status das RCs (bot do Teams) na aba Suprimentos + botão do administrador ===== */
+(function () {
+  let EX = [], LOG = null, IDX = new Map(), OK = true, busy = false, poll = null, MSG = "";
+  const COLS = "id,rc_item,rc_numero,item,status,status_descricao,material_codigo,material_descricao,unidade,planta,data_necessidade,quantidade,rc_exiros,data_criacao_rc,data_liberacao_rc,comprador_codigo,comprador_nome,planejador,licitacao_numero,licitacao_status,licitacao_abertura,licitacao_encerramento,consultado_em";
+  const norm = v => String(v == null ? "" : v).split("-")[0].replace(/\D/g, "").replace(/^0+/, "");
+  const E = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const dBR = s => { const m = String(s || "").slice(0, 10).split("-"); return m.length === 3 && m[0] ? `${m[2]}/${m[1]}/${m[0]}` : "—"; };
+  const dhBR = s => { const d = s ? new Date(s) : null; return d && !isNaN(d) ? d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"; };
+  const cor = st => { const s = String(st || "").toLowerCase(); return /cancel|rejeit|elimin|bloque/.test(s) ? "#d64545" : /pedido|atendid|entreg|receb|conclu/.test(s) ? "#2e9e5b" : /licit|cota/.test(s) ? "#3b82c4" : "#d9822b"; };
+  const tag = (t, c) => `<span class="tag" style="background:${c}22;color:${c}">${E(t)}</span>`;
+  const porRc = () => { const m = new Map(); EX.forEach(x => { const k = norm(x.rc_numero); if (!m.has(k)) m.set(k, []); m.get(k).push(x); }); return m; };
+  const acha = it => { const l = it && IDX.get(norm(it.rc_numero)); if (!l) return null; const cod = String(it.codigo_sap || "").trim(); return cod ? l.find(x => String(x.material_codigo || "").trim() === cod) || null : null; };
+
+  function cel(it) {
+    if (!it || !norm(it.rc_numero)) return "<small>—</small>";
+    const x = acha(it);
+    if (!x) return IDX.has(norm(it.rc_numero)) ? "<small>RC consultada; item não localizado</small>" : "<small>Ainda não consultado</small>";
+    const lic = x.licitacao_numero ? `Licitação ${E(x.licitacao_numero)}${x.licitacao_status ? " (" + E(x.licitacao_status) + ")" : ""}${x.licitacao_encerramento ? " · encerra " + dBR(x.licitacao_encerramento) : ""}` : "";
+    return `<span title="${E(x.status_descricao || "")}">${tag(x.status || "—", cor(x.status))}</span>` + (lic ? `<small style="display:block">${lic}</small>` : "") + (x.comprador_nome ? `<small style="display:block">Comprador: ${E(x.comprador_nome)}</small>` : "");
+  }
+  function decora() { // coluna "Exiros" na tabela de itens (idempotente)
+    const tb = document.getElementById("sT"); if (!tb) return;
+    const hr = document.querySelector("#t7 table.st thead tr");
+    if (hr && !hr.querySelector(".exx")) hr.insertAdjacentHTML("beforeend", '<th class="exx">Exiros</th>');
+    const byId = new Map((window.SUP || SUP).map(i => [String(i.id), i]));
+    tb.querySelectorAll("tr").forEach(tr => {
+      tr.querySelectorAll(".exx").forEach(n => n.remove());
+      tr.insertAdjacentHTML("beforeend", `<td class="exx" data-l="Exiros"><div class="v">${cel(byId.get(tr.dataset.id))}</div></td>`);
+    });
+  }
+  function statusLog() {
+    if (!LOG) return "Ainda não houve atualização pelo Exiros.";
+    const t = { executando: "em andamento…", ok: "concluída", parcial: "concluída com falhas", erro: "falhou", sessao_expirada: "sessão do Teams expirada (é preciso refazer o login)" }[LOG.status] || LOG.status;
+    return `Última atualização: ${dhBR(LOG.finalizado_em || LOG.iniciado_em)} · ${t}${LOG.status === "ok" || LOG.status === "parcial" ? " · " + (LOG.itens || 0) + " itens" : ""}`;
+  }
+  function resumo() {
+    const c = {}; EX.forEach(x => { const k = x.status || "—"; c[k] = (c[k] || 0) + 1; });
+    return Object.entries(c).sort((a, b) => b[1] - a[1]).map(([k, n]) => tag(n + " · " + k, cor(k))).join(" ");
+  }
+  function card() {
+    const sec = document.getElementById("t7"); if (!sec || !proj) return;
+    const adm = papel === "admin";
+    let el = document.getElementById("exCard");
+    if (!OK && !adm) { if (el) el.remove(); return; }
+    if (!el) { sec.insertAdjacentHTML("afterbegin", '<div class="card" id="exCard"></div>'); el = document.getElementById("exCard"); }
+    el.innerHTML = `<div class="evh"><b>Exiros · status das RCs</b>${adm ? `<div class="bar"><button class="p" id="exBtn" ${busy ? "disabled" : ""}>${busy ? "Atualizando…" : "Atualizar Dados do Exiros"}</button></div>` : ""}</div>`
+      + `<small style="display:block">${OK ? E(statusLog()) : "Tabelas do Exiros não encontradas ou sem permissão no Supabase."}</small>`
+      + (EX.length ? `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">${resumo()}</div>` : "")
+      + (MSG ? `<small style="display:block;margin-top:8px">${E(MSG)}</small>` : "");
+    const b = document.getElementById("exBtn"); if (b) b.onclick = dispara;
+  }
+  async function carrega() {
+    const id = proj && proj.id; if (!id) return;
+    const rcs = [...new Set(SUP.map(i => norm(i.rc_numero)).filter(Boolean))];
+    const [a, b] = await Promise.all([
+      rcs.length ? sb.from("exiros_rc").select(COLS).in("rc_numero", rcs).limit(5000) : Promise.resolve({ data: [] }),
+      sb.from("exiros_sync_log").select("id,iniciado_em,finalizado_em,status,rcs,itens,mensagem").order("id", { ascending: false }).limit(1)]);
+    if (!proj || proj.id !== id) return;
+    OK = !(a.error || b.error); EX = a.error ? [] : (a.data || []); LOG = b.error ? null : ((b.data || [])[0] || null); IDX = porRc();
+    card(); decora();
+  }
+  async function dispara() {
+    if (papel !== "admin" || busy) return;
+    busy = true; MSG = "Disparando a consulta ao Exiros…"; card();
+    const antes = LOG ? LOG.id : 0;
+    try {
+      const { data, error } = await sb.functions.invoke("disparar-exiros", { body: {} });
+      let det = data && data.erro;
+      if (error && !det) { try { det = (await error.context.json()).erro; } catch (e) { det = error.message; } }
+      if (det) throw new Error(det);
+      MSG = "Atualização iniciada. Leva alguns minutos; esta tela atualiza sozinha quando terminar.";
+      card(); espera(antes);
+    } catch (e) { busy = false; MSG = "Não foi possível iniciar: " + (e.message || e); card(); }
+  }
+  function espera(antes) {
+    clearInterval(poll); const t0 = Date.now();
+    poll = setInterval(async () => {
+      if (!document.getElementById("exCard")) { clearInterval(poll); busy = false; return; }
+      if (Date.now() - t0 > 20 * 60 * 1000) { clearInterval(poll); busy = false; MSG = "A consulta está demorando; recarregue a página mais tarde."; card(); return; }
+      await carrega();
+      if (LOG && LOG.id > antes && LOG.status !== "executando") { clearInterval(poll); busy = false; MSG = ""; card(); }
+    }, 15000);
+  }
+  function bloco(x) {
+    const l = (k, v) => v ? `<span style="display:block"><small>${k}:</small> ${E(v)}</span>` : "";
+    return `<div id="exBloco" style="margin:12px 0 0;padding:10px 12px;border:1px solid var(--bd);border-radius:12px"><b>Exiros</b> <small>consultado em ${dhBR(x.consultado_em)}</small>`
+      + l("Status", x.status + (x.status_descricao ? " — " + x.status_descricao : "")) + l("RC Exiros", x.rc_exiros) + l("Quantidade requerida", x.quantidade != null ? x.quantidade + " " + (x.unidade || "") : "")
+      + l("Data de necessidade", x.data_necessidade ? dBR(x.data_necessidade) : "") + l("RC criada / liberada", x.data_criacao_rc ? dBR(x.data_criacao_rc) + " / " + dBR(x.data_liberacao_rc) : "")
+      + l("Comprador", x.comprador_nome ? (x.comprador_codigo ? x.comprador_codigo + " – " : "") + x.comprador_nome : "") + l("Planejador", x.planejador)
+      + l("Licitação", x.licitacao_numero ? x.licitacao_numero + (x.licitacao_status ? " (" + x.licitacao_status + ")" : "") + " · abertura " + dBR(x.licitacao_abertura) + " · encerramento " + dBR(x.licitacao_encerramento) : "") + "</div>";
+  }
+
+  const _rs = renderSup; renderSup = function () { _rs(); card(); decora(); carrega(); };
+  const _pt = pinta; pinta = function () { _pt(); decora(); };
+  const _ei = editaItem; editaItem = function (it) { _ei(it); const x = acha(it), e = document.getElementById("spE"); if (x && e) e.insertAdjacentHTML("beforebegin", bloco(x)); };
+})();
+</script>
+<style id="gx-exiros-css">@media(min-width:701px){#t7 th.exx,#t7 td.exx{min-width:200px;white-space:normal}}</style>
 <style id="gs-v2">
 /* ===== Grua Segura · visual v2 (azul-marinho + amarelo de segurança) ===== */
 html[data-theme]{--yel:#f7b928;--yel2:#ffd45a;--ink:#0f1b2d;--bg:#eef2f9;--tx:#1a2433;--txt:#1a2433;--mut:#5d6d8a;--line:#dbe3f1;--bd:#dbe3f1;--s:#fff;--s2:#f3f6fc;--in:#fff;--blue:#2456b8;--navy:#14284b;--navbg:rgba(255,255,255,.94);--onc:#14284b;--hov:#14284b0f;--shadow:0 6px 22px #0f1b2d14;--top:calc(68px + env(safe-area-inset-top,0px))}
