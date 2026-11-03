@@ -1,6 +1,16 @@
 """
 Sincronização Exiros/Teams -> Supabase.
 Mantém exiros_common.py inalterado.
+
+Uso:
+  python exiros_sync.py                 # todas as RCs de suprimentos.rc_numero
+  python exiros_sync.py --rc 33983723   # RC específica (pode repetir)
+  python exiros_sync.py --headed        # navegador visível
+  python exiros_sync.py --diag          # diagnóstico: botões, seletor e HTML do chat
+                                        # (sem terminal, ex. GitHub Actions, roda headless sozinho)
+
+Fluxo do bot (cards do Teams, só aceitam CLIQUE em botão):
+  Menu -> [Status de documentos] -> [RC] -> digitar nº da RC -> [Todos] -> resultado
 """
 import argparse
 import os
@@ -24,16 +34,27 @@ TEXTBOX = '[data-tid="ckeditor"], div[role="textbox"][contenteditable="true"]'
 DEBUG_DIR = Path(__file__).resolve().parent / "debug"
 FIM_ITEM = "Solicitar ação sobre este requerimento"
 
+# Um único seletor por vez (o primeiro que encontrar mensagens). Misturar vários
+# duplica textos e embaralha a ordem das mensagens.
 MESSAGE_SELECTORS = (
+    '[data-tid="chat-pane-message"]',
     '[data-tid="message"]',
     '[data-tid*="message-container"]',
     '[data-testid*="message"]',
     '[role="listitem"]',
-    '.message-group',
 )
+
+# Botões do fluxo (nome exato).
+BOTOES = {
+    "menu": r"^\s*Status de documentos\s*$",
+    "tipo": r"^\s*RC\s*$",
+    "itens": r"^\s*Todos\s*$",
+}
+
 POLL_SECONDS = 1.0
 RESPONSE_TIMEOUT = int(os.environ.get("EXIROS_RESPONSE_TIMEOUT", "45"))
-MAX_STEPS = 14
+LIMITE_RC = 240          # segundos máximos por RC
+SETTLE_SECONDS = 6       # tempo sem mensagens novas para considerar o resultado completo
 
 
 class SessaoExpirada(RuntimeError):
@@ -43,6 +64,8 @@ class SessaoExpirada(RuntimeError):
 class FluxoInesperado(RuntimeError):
     pass
 
+
+# --------------------------------------------------------------------------- utilidades
 
 def norm(value):
     value = unicodedata.normalize("NFD", value or "")
@@ -59,62 +82,38 @@ def _visible_text(locator):
     return ""
 
 
-def abrir_chat(page):
-    page.goto(CHAT_URL or TEAMS_URL, wait_until="domcontentloaded", timeout=60000)
-    deadline = time.time() + 90
-    clicked = bool(CHAT_URL)
-
-    while time.time() < deadline:
-        if re.search(r"login\.(microsoftonline|live)\.com", page.url, re.I):
-            raise SessaoExpirada("Teams solicitou novo login. Atualize a sessão pelo login_local.py.")
-        if page.locator(TEXTBOX).count():
-            try:
-                if page.locator(TEXTBOX).last.is_visible():
-                    return
-            except Exception:
-                pass
-        if not clicked:
-            for locator in (
-                page.get_by_role("treeitem", name=re.compile(BOT_NAME, re.I)),
-                page.get_by_text(re.compile(BOT_NAME, re.I)),
-            ):
-                try:
-                    if locator.count() and locator.first.is_visible():
-                        locator.first.click(timeout=2500)
-                        clicked = True
-                        break
-                except Exception:
-                    continue
-        time.sleep(1.5)
-
-    raise TimeoutError("Não foi possível abrir o chat/campo de mensagem do Exiros.")
-
-
-def _message_nodes(page):
-    found = []
-    seen = set()
-    for selector in MESSAGE_SELECTORS:
+def _msg_locator(page):
+    for sel in MESSAGE_SELECTORS:
         try:
-            nodes = page.locator(selector)
-            count = min(nodes.count(), 100)
-            for i in range(count):
-                node = nodes.nth(i)
-                txt = _visible_text(node)
-                if not txt or txt in seen:
-                    continue
-                if len(txt) > 12000:
-                    continue
-                seen.add(txt)
-                found.append(txt)
+            loc = page.locator(sel)
+            if loc.count():
+                return loc
         except Exception:
             continue
-    return found[-40:]
+    return None
 
 
-def _all_chat_text(page):
-    messages = _message_nodes(page)
-    if messages:
-        return "\n\n".join(messages)
+def _message_nodes(page, limite=40):
+    """Textos das últimas `limite` mensagens, na ordem do chat (sem deduplicar)."""
+    loc = _msg_locator(page)
+    if loc is None:
+        return []
+    out = []
+    try:
+        total = loc.count()
+        for i in range(max(0, total - limite), total):
+            txt = _visible_text(loc.nth(i))
+            if txt and len(txt) <= 20000:
+                out.append(txt)
+    except Exception:
+        pass
+    return out
+
+
+def _all_chat_text(page, limite=120):
+    msgs = _message_nodes(page, limite)
+    if msgs:
+        return "\n\n".join(msgs)
     for selector in ('[data-tid="message-pane-list-viewport"]',
                      '[data-tid="chat-pane-list"]', '[role="main"]'):
         try:
@@ -129,13 +128,19 @@ def _all_chat_text(page):
 
 
 def _latest_message(page):
-    messages = _message_nodes(page)
-    return messages[-1] if messages else ""
+    msgs = _message_nodes(page, 1)
+    return msgs[-1] if msgs else ""
 
 
 def _signature(page):
-    messages = _message_nodes(page)
-    return tuple(messages[-5:])
+    return tuple(_message_nodes(page, 5))
+
+
+def _eh_eco(ultima, enviado):
+    """True se a mensagem é só o eco do que NÓS enviamos (inclui autor/hora)."""
+    if not enviado:
+        return False
+    return norm(enviado) in norm(ultima) and len(ultima) < len(enviado) + 80
 
 
 def foto(page, nome, extra=""):
@@ -148,12 +153,91 @@ def foto(page, nome, extra=""):
     try:
         (DEBUG_DIR / f"{safe}.txt").write_text(
             f"URL: {page.url}\nData: {agora()}\n{extra}\n\n"
-            f"ULTIMAS MENSAGENS:\n" + "\n\n---\n\n".join(_message_nodes(page)[-20:]) +
+            f"BOTOES: {_botao_mais_baixo(page)}\n\n"
+            f"CORPO DA PAGINA (início):\n{_body_snippet(page)}\n\n"
+            f"ULTIMAS MENSAGENS:\n" + "\n\n---\n\n".join(_message_nodes(page, 20)) +
             "\n\nTEXTO CHAT:\n" + _all_chat_text(page)[-12000:],
             encoding="utf-8"
         )
     except Exception:
         pass
+
+
+# --------------------------------------------------------------------------- Teams
+
+RE_LOGIN = re.compile(r"login\.(microsoftonline|live|microsoft)\.com|/login|oauth2", re.I)
+RE_TELAS_INTERMEDIARIAS = re.compile(
+    r"Use the web app|Usar o aplicativo Web|Usar a vers[aã]o web|"
+    r"Continue on this browser|Continuar neste navegador|Continuar aqui", re.I)
+
+
+def _body_snippet(page, n=3000):
+    try:
+        return page.locator("body").inner_text(timeout=3000)[:n]
+    except Exception:
+        return ""
+
+
+def _titulo(page):
+    try:
+        return page.title()
+    except Exception:
+        return ""
+
+
+def abrir_chat(page):
+    destino = CHAT_URL or TEAMS_URL
+    print(f"[abrir_chat] abrindo {destino}")
+    page.goto(destino, wait_until="domcontentloaded", timeout=60000)
+    deadline = time.time() + 120
+    clicked = bool(CHAT_URL)
+    ultimo_log = 0
+
+    while time.time() < deadline:
+        if RE_LOGIN.search(page.url):
+            raise SessaoExpirada("Teams solicitou novo login. Atualize a sessão pelo login_local.py.")
+
+        if time.time() - ultimo_log > 15:
+            print(f"[abrir_chat] url={page.url} titulo={_titulo(page)!r}")
+            ultimo_log = time.time()
+
+        # Telas do tipo "Usar o aplicativo Web" / "Continuar neste navegador"
+        try:
+            alvo = (page.get_by_role("button", name=RE_TELAS_INTERMEDIARIAS)
+                    .or_(page.get_by_role("link", name=RE_TELAS_INTERMEDIARIAS)))
+            if alvo.count() and alvo.first.is_visible():
+                alvo.first.click(timeout=2500)
+                time.sleep(2)
+                continue
+        except Exception:
+            pass
+
+        if page.locator(TEXTBOX).count():
+            try:
+                if page.locator(TEXTBOX).last.is_visible():
+                    return
+            except Exception:
+                pass
+
+        if not clicked:
+            for locator in (
+                page.get_by_role("treeitem", name=re.compile(BOT_NAME, re.I)),
+                page.get_by_text(re.compile(BOT_NAME, re.I)),
+            ):
+                try:
+                    if locator.count() and locator.first.is_visible():
+                        locator.first.click(timeout=2500)
+                        clicked = True
+                        break
+                except Exception:
+                    continue
+        time.sleep(1.5)
+
+    raise TimeoutError(
+        "Não foi possível abrir o chat/campo de mensagem do Exiros. "
+        f"URL final: {page.url} | título: {_titulo(page)!r} | "
+        f"TEAMS_CHAT_URL definido: {bool(CHAT_URL)}"
+    )
 
 
 def enviar(page, texto):
@@ -165,166 +249,183 @@ def enviar(page, texto):
     page.keyboard.press("Enter")
 
 
-def clicar_opcao_na_ultima_mensagem(page, padrao):
+def _locator_botao(page, padrao):
     rx = re.compile(padrao, re.I)
-    messages = page.locator(
-        '[data-tid="message"], [data-tid*="message-container"], '
-        '[data-testid*="message"], [role="listitem"]'
+    return page.get_by_role("button", name=rx).or_(
+        page.locator('button, [role="button"], a').filter(has_text=rx)
     )
-    try:
-        for i in range(messages.count() - 1, max(-1, messages.count() - 6), -1):
-            msg = messages.nth(i)
-            try:
-                if not msg.is_visible():
+
+
+def _botao_mais_baixo(page):
+    """Chave do botão do fluxo mais baixo na tela = o do card mais recente."""
+    melhor, melhor_y = None, -1
+    for chave, padrao in BOTOES.items():
+        try:
+            loc = _locator_botao(page, padrao)
+            n = loc.count()
+            for i in range(max(0, n - 5), n):
+                el = loc.nth(i)
+                if not el.is_visible():
                     continue
-                buttons = msg.get_by_role("button", name=rx)
-                if buttons.count():
-                    btn = buttons.last
-                    if btn.is_visible() and btn.is_enabled():
-                        btn.click(timeout=5000)
-                        return True
+                box = el.bounding_box()
+                if box and box["y"] > melhor_y:
+                    melhor, melhor_y = chave, box["y"]
+        except Exception:
+            continue
+    return melhor
+
+
+def _clicar(page, padrao):
+    try:
+        loc = _locator_botao(page, padrao)
+        n = loc.count()
+        for i in range(n - 1, max(-1, n - 6), -1):
+            el = loc.nth(i)
+            try:
+                if el.is_visible() and el.is_enabled():
+                    el.scroll_into_view_if_needed(timeout=3000)
+                    el.click(timeout=5000)
+                    return True
             except Exception:
                 continue
-    except Exception:
-        pass
-    try:
-        btn = page.get_by_role("button", name=rx).last
-        if btn.count() and btn.is_visible() and btn.is_enabled():
-            btn.click(timeout=5000)
-            return True
     except Exception:
         pass
     return False
 
 
-def aguardar_resposta_nova(page, assinatura_anterior, texto_enviado=None, timeout=RESPONSE_TIMEOUT):
+def _clicar_ou_falhar(page, chave):
+    """Clica no botão; se não achar, NÃO digita nada (o bot rejeita texto)."""
+    if not _clicar(page, BOTOES[chave]):
+        foto(page, f"botao_{chave}", "Botão não encontrado")
+        raise FluxoInesperado(f"Botão '{chave}' não encontrado; não vou digitar texto.")
+
+
+def _esperar(condicao, timeout, descricao):
     deadline = time.time() + timeout
-    estavel = None
-    repeticoes = 0
-
     while time.time() < deadline:
-        atual = _signature(page)
-        if atual and atual != assinatura_anterior:
-            ultima = atual[-1]
-            if texto_enviado and norm(ultima) == norm(texto_enviado):
-                time.sleep(POLL_SECONDS)
-                continue
-            if atual == estavel:
-                repeticoes += 1
-            else:
-                estavel, repeticoes = atual, 0
-            if repeticoes >= 2:
-                return ultima
+        try:
+            if condicao():
+                return
+        except Exception:
+            pass
         time.sleep(POLL_SECONDS)
-
-    raise PlaywrightTimeoutError(
-        f"Não apareceu resposta nova do Exiros em {timeout}s após a ação."
-    )
+    raise PlaywrightTimeoutError(f"Tempo esgotado ({timeout}s) esperando: {descricao}")
 
 
-def _estado_da_mensagem(texto):
-    t = norm(texto)
-    if any(x in t for x in ("qual tipo de documento", "tipo de documento deseja", "document type")):
-        return "TIPO_DOCUMENTO"
-    if any(x in t for x in ("digite o numero da sua rc", "informe o numero da rc",
-                            "numero da rc", "enter your rc", "rc number")):
-        return "NUMERO_RC"
-    if any(x in t for x in ("digite o numero do item", "numero do item", "item number",
-                            "selecione os itens", "deseja consultar todos")):
-        return "ITENS"
-    if FIM_ITEM.lower() in t:
-        return "RESULTADO"
-    if any(x in t for x in ("como posso te ajudar", "como posso ajudar",
-                            "select one of the options", "bem-vindo novamente")):
-        return "MENU"
-    if any(x in t for x in ("desculpe", "nao entendi", "não entendi")):
-        return "ERRO_BOT"
-    return "OUTRO"
+# --------------------------------------------------------------------------- fluxo do bot
+
+def voltar_ao_menu(page):
+    """Sempre começa do zero: envia 'Menu' e espera o card do menu novo."""
+    antes = _signature(page)
+    enviar(page, "Menu")
+
+    def menu_novo():
+        return (_signature(page) != antes
+                and not _eh_eco(_latest_message(page), "Menu")
+                and _botao_mais_baixo(page) == "menu")
+
+    try:
+        _esperar(menu_novo, 25, "menu do bot")
+    except PlaywrightTimeoutError:
+        foto(page, "menu_nao_apareceu")
+        raise FluxoInesperado("O menu do bot não apareceu após enviar 'Menu'.")
+    time.sleep(1.0)
 
 
-def _acao_menu(page):
-    if not clicar_opcao_na_ultima_mensagem(page, r"^\s*Status de documentos\s*$"):
-        enviar(page, "Status de documentos")
-
-
-def _acao_tipo_documento(page):
-    if not clicar_opcao_na_ultima_mensagem(page, r"^\s*RC\s*$"):
-        enviar(page, "RC")
+def _resultado_pronto(page, rc_int):
+    """Resultado novo: as últimas mensagens trazem 'RC: <rc>-N' e o fim do item."""
+    recente = "\n".join(_message_nodes(page, 3))
+    return (re.search(rf"RC:\s*0*{rc_int}-\d+", recente, re.I) is not None
+            and norm(FIM_ITEM) in norm(recente))
 
 
 def consultar_rc(page, rc):
     inicio = time.time()
-    passos = 0
-    ultima_acao = None
-    mensagem = _latest_message(page)
+    rc_int = int(rc)
 
-    if not mensagem:
-        antes = _signature(page)
-        enviar(page, "Olá")
-        mensagem = aguardar_resposta_nova(page, antes, "Olá")
+    def restante():
+        return max(5, LIMITE_RC - (time.time() - inicio))
 
-    while passos < MAX_STEPS and time.time() - inicio < 240:
-        passos += 1
-        estado = _estado_da_mensagem(mensagem)
+    # 1) Menu -> Status de documentos
+    voltar_ao_menu(page)
+    _clicar_ou_falhar(page, "menu")
+    try:
+        _esperar(lambda: _botao_mais_baixo(page) == "tipo", min(RESPONSE_TIMEOUT, restante()),
+                 "tela de tipo de documento (botão RC)")
+    except PlaywrightTimeoutError:
+        foto(page, f"rc_{rc}_tipo", "Tela de tipo de documento não apareceu")
+        raise FluxoInesperado("Tela de tipo de documento não apareceu após 'Status de documentos'.")
 
-        if estado == "RESULTADO":
-            texto = _all_chat_text(page)
-            return texto
+    # 2) Tipo = RC
+    antes = _signature(page)
+    _clicar_ou_falhar(page, "tipo")
 
-        if estado == "MENU":
-            acao = "Status de documentos"
-            if ultima_acao == acao:
-                raise FluxoInesperado("O Exiros repetiu o menu após selecionar Status de documentos.")
-            antes = _signature(page)
-            _acao_menu(page)
-            ultima_acao = acao
-            mensagem = aguardar_resposta_nova(page, antes, None)
-            continue
+    # 3) Esperar o bot pedir o número da RC (mensagem nova, que não seja eco do clique)
+    try:
+        _esperar(lambda: _signature(page) != antes
+                 and not _eh_eco(_latest_message(page), "RC"),
+                 min(RESPONSE_TIMEOUT, restante()), "pedido do número da RC")
+    except PlaywrightTimeoutError:
+        foto(page, f"rc_{rc}_pedido_numero")
+        raise FluxoInesperado("O bot não pediu o número da RC após selecionar 'RC'.")
+    time.sleep(1.0)
 
-        if estado == "TIPO_DOCUMENTO":
-            acao = "RC"
-            if ultima_acao == acao:
-                raise FluxoInesperado("O Exiros repetiu a pergunta de tipo de documento após selecionar RC.")
-            antes = _signature(page)
-            _acao_tipo_documento(page)
-            ultima_acao = acao
-            mensagem = aguardar_resposta_nova(page, antes, acao)
-            continue
+    # 4) Digitar o número da RC (único ponto em que se digita)
+    antes = _signature(page)
+    enviar(page, rc)
 
-        if estado == "NUMERO_RC":
-            antes = _signature(page)
-            enviar(page, rc)
-            ultima_acao = rc
-            mensagem = aguardar_resposta_nova(page, antes, rc)
-            continue
+    # 5) Esperar o card de itens ([Todos]) ou, em RC de item único, o resultado direto
+    def itens_ou_resultado():
+        return _botao_mais_baixo(page) == "itens" or _resultado_pronto(page, rc_int)
 
-        if estado == "ITENS":
-            antes = _signature(page)
-            if not clicar_opcao_na_ultima_mensagem(page, r"^\s*Todos\s*$"):
-                enviar(page, "Todos")
-            ultima_acao = "Todos"
-            mensagem = aguardar_resposta_nova(page, antes, "Todos")
-            continue
+    try:
+        _esperar(lambda: _signature(page) != antes and itens_ou_resultado(),
+                 min(RESPONSE_TIMEOUT, restante()), "opção 'Todos' ou resultado")
+    except PlaywrightTimeoutError:
+        foto(page, f"rc_{rc}_itens")
+        raise FluxoInesperado("O bot não apresentou a opção 'Todos' nem o resultado.")
 
-        if estado == "ERRO_BOT":
-            raise FluxoInesperado(f"Exiros informou que não entendeu a solicitação: {mensagem[:500]}")
-
-        antes = _signature(page)
+    if not _resultado_pronto(page, rc_int):
+        _clicar_ou_falhar(page, "itens")
         try:
-            mensagem = aguardar_resposta_nova(page, antes, timeout=12)
+            _esperar(lambda: _resultado_pronto(page, rc_int),
+                     min(RESPONSE_TIMEOUT, restante()), "resultado da RC")
         except PlaywrightTimeoutError:
-            raise FluxoInesperado(
-                "Estado do Exiros não reconhecido. "
-                f"Última mensagem: {mensagem[:500]}"
-            )
+            foto(page, f"rc_{rc}_resultado")
+            raise FluxoInesperado("O resultado da RC não apareceu após 'Todos'.")
 
-    raise FluxoInesperado("Limite de etapas/tempo excedido sem concluir a consulta.")
+    # 6) Esperar o bot terminar de enviar todos os itens
+    ref, desde = _signature(page), time.time()
+    while time.time() - desde < SETTLE_SECONDS and time.time() - inicio < LIMITE_RC:
+        time.sleep(1)
+        atual = _signature(page)
+        if atual != ref:
+            ref, desde = atual, time.time()
 
+    return _all_chat_text(page)
+
+
+# --------------------------------------------------------------------------- Supabase
 
 def listar_rcs():
-    rows = rest("GET", "suprimentos?select=rc_numero&rc_numero=not.is.null")
-    rcs = {re.sub(r"\D", "", row.get("rc_numero") or "") for row in rows}
-    return sorted(value for value in rcs if value)
+    rcs, offset, passo = set(), 0, 1000
+    while True:
+        rows = rest(
+            "GET",
+            f"suprimentos?select=rc_numero&rc_numero=not.is.null&order=rc_numero"
+            f"&limit={passo}&offset={offset}"
+        )
+        if not rows:
+            break
+        for row in rows:
+            # Primeira sequência de 5+ dígitos (evita juntar "123456-10" em 12345610)
+            m = re.search(r"\d{5,}", str(row.get("rc_numero") or ""))
+            if m:
+                rcs.add(m.group(0))
+        if len(rows) < passo:
+            break
+        offset += passo
+    return sorted(rcs)
 
 
 def gravar(rows):
@@ -340,11 +441,56 @@ def log_fim(log_id, status, rcs, itens, msg):
          prefer="return=minimal")
 
 
+# --------------------------------------------------------------------------- diagnóstico
+
+def diagnostico(page):
+    abrir_chat(page)
+    if sys.stdin.isatty():
+        input("Deixe o menu do bot visível no navegador e aperte Enter... ")
+    else:
+        # Sem terminal (ex.: GitHub Actions): pede o menu ao bot e espera.
+        try:
+            enviar(page, "Menu")
+        except Exception as exc:
+            print("Não consegui enviar 'Menu':", exc)
+        time.sleep(10)
+    print("Seletor de mensagens:", next(
+        (s for s in MESSAGE_SELECTORS if page.locator(s).count()), None))
+    print("Mensagens (últimas 5):")
+    for m in _message_nodes(page, 5):
+        print("  -", m[:120].replace("\n", " | "))
+    print("Botão mais baixo do fluxo:", _botao_mais_baixo(page))
+    print("Botões (role=button):", page.get_by_role("button").all_inner_texts()[-15:])
+    DEBUG_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        html = page.locator('[role="main"]').first.inner_html()
+        (DEBUG_DIR / "chat_dump.html").write_text(html, encoding="utf-8")
+        print(f"HTML salvo em {DEBUG_DIR / 'chat_dump.html'}")
+    except Exception as exc:
+        print("Falha ao salvar HTML:", exc)
+    foto(page, "diagnostico")
+
+
+# --------------------------------------------------------------------------- main
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rc", action="append", help="RC específica (pode repetir)")
-    ap.add_argument("--headed", action="store_true", help="Abre navegador visível para diagnóstico")
+    ap.add_argument("--headed", action="store_true", help="Abre navegador visível")
+    ap.add_argument("--diag", action="store_true", help="Modo diagnóstico (implica --headed)")
     args = ap.parse_args()
+
+    if args.diag:
+        state = load_state()
+        if not state:
+            print("Sem sessão salva. Execute login_local.py.", file=sys.stderr)
+            return 2
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=not sys.stdin.isatty())
+            ctx = browser.new_context(storage_state=state, **CONTEXT_OPTS)
+            diagnostico(ctx.new_page())
+            browser.close()
+        return 0
 
     rcs = [re.sub(r"\D", "", value) for value in (args.rc or [])]
     if not rcs and os.environ.get("RC_INPUT", "").strip():
@@ -370,54 +516,45 @@ def main():
             headless=not args.headed,
             args=["--disable-blink-features=AutomationControlled"]
         )
-        ctx = browser.new_context(storage_state=state, **CONTEXT_OPTS)
-        page = ctx.new_page()
         try:
-            abrir_chat(page)
-        except SessaoExpirada as exc:
-            foto(page, "sessao_expirada", str(exc))
-            log_fim(log_id, "sessao_expirada", len(rcs), 0, str(exc))
-            browser.close()
-            return 2
-        except Exception as exc:
-            foto(page, "erro_abrir_chat", str(exc))
-            log_fim(log_id, "erro", len(rcs), 0, f"Não foi possível abrir o chat: {exc}")
-            browser.close()
-            return 1
-
-        for rc in rcs:
+            ctx = browser.new_context(storage_state=state, **CONTEXT_OPTS)
+            page = ctx.new_page()
             try:
-                print(f"Consultando RC {rc}...")
-                texto = consultar_rc(page, rc)
-                rows = parse_blocks(texto, only_rc=rc)
-                problemas = validar_registros(rows, only_rc=rc)
-                if problemas:
-                    raise ValueError("Validação dos dados falhou: " + "; ".join(problemas[:8]))
-                if not rows:
-                    raise ValueError("Resposta recebida, mas nenhum item válido foi identificado.")
-                gravar(rows)
-                total += len(rows)
-                print(f"RC {rc}: {len(rows)} item(ns) gravado(s).")
-                
-                antes = _signature(page)
-                enviar(page, "Menu")
-                try:
-                    aguardar_resposta_nova(page, antes, "Menu", timeout=12)
-                except Exception:
-                    pass
+                abrir_chat(page)
+            except SessaoExpirada as exc:
+                foto(page, "sessao_expirada", str(exc))
+                log_fim(log_id, "sessao_expirada", len(rcs), 0, str(exc))
+                return 2
             except Exception as exc:
-                erro = f"{rc}: {type(exc).__name__}: {exc}"
-                print(erro, file=sys.stderr)
-                foto(page, f"rc_{rc}", erro + "\n" + traceback.format_exc())
-                erros.append(erro)
-                # Mantém o fluxo ativo para as próximas RCs mesmo se uma falhar
-                continue
+                foto(page, "erro_abrir_chat", str(exc))
+                log_fim(log_id, "erro", len(rcs), 0, f"Não foi possível abrir o chat: {exc}")
+                return 1
 
-        try:
-            save_state(ctx.storage_state())
-        except Exception as exc:
-            erros.append(f"Falha ao salvar sessão: {exc}")
-        browser.close()
+            for rc in rcs:
+                try:
+                    print(f"Consultando RC {rc}...")
+                    texto = consultar_rc(page, rc)
+                    rows = parse_blocks(texto, only_rc=rc)
+                    problemas = validar_registros(rows, only_rc=rc)
+                    if problemas:
+                        raise ValueError("Validação dos dados falhou: " + "; ".join(problemas[:8]))
+                    gravar(rows)
+                    total += len(rows)
+                    print(f"RC {rc}: {len(rows)} item(ns) gravado(s).")
+                except Exception as exc:
+                    erro = f"{rc}: {type(exc).__name__}: {exc}"
+                    print(erro, file=sys.stderr)
+                    foto(page, f"rc_{rc}", erro + "\n" + traceback.format_exc())
+                    erros.append(erro)
+                    # A próxima RC recomeça pelo menu (voltar_ao_menu), então
+                    # não é preciso limpar nada aqui.
+
+            try:
+                save_state(ctx.storage_state())
+            except Exception as exc:
+                erros.append(f"Falha ao salvar sessão: {exc}")
+        finally:
+            browser.close()
 
     status = "ok" if not erros else ("parcial" if total else "erro")
     log_fim(log_id, status, len(rcs), total, "; ".join(erros))
