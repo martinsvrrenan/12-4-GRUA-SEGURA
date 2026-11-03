@@ -133,15 +133,23 @@ def passo(page, frase, acao, timeout=60, alternativa=None):
 
 
 def consultar_rc(page, rc):
+    # Passo 1: Envia "Olá" para iniciar[span_1](start_span)[span_1](end_span)
     passo(page, ("Como posso te ajudar", "Como posso ajudar"), lambda: enviar(page, "Olá"))
+    
+    # Passo 2: Clica ou envia "Status de documentos[span_2](start_span)"[span_2](end_span)
     passo(page, ("Qual tipo de documento", "Qual o tipo de documento"),
-          lambda: clicar(page, r"status de documentos"),
-          alternativa=lambda: enviar(page, "status de documentos"))
+          lambda: clicar(page, r"Status de documentos"),
+          alternativa=lambda: enviar(page, "Status de documentos"))
+          
+    # Passo 3: Clica ou envia "RC" para selecionar o tipo correto de documento[span_3](start_span)[span_3](end_span)
     passo(page, ("Digite o número da sua RC", "número da sua RC", "número da RC", "Informe o número"),
           lambda: clicar(page, r"^\s*RC\s*$"),
-          alternativa=lambda: enviar(page, "rc"))
+          alternativa=lambda: enviar(page, "RC"))
+          
+    # Passo 4: Envia o número da RC específica[span_4](start_span)[span_4](end_span)
     passo(page, ("Digite o número do item", "número do item"), lambda: enviar(page, rc))
 
+    # Passo 5: Pede "Todos" os itens do requerimento
     antes_ok = _conta(page, "Perfeito, aguarde")
     antes_fim = chat_text(page).count(FIM_ITEM)
     enviar(page, "Todos")
