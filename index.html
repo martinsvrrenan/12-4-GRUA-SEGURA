@@ -2290,9 +2290,22 @@ function editaItem(it) {
   if ($("#spDel")) $("#spDel").onclick = async () => { if (!confirm("Excluir este item de suprimentos?")) return; const { error } = await sb.from("suprimentos").delete().eq("id", it.id); if (error) return alert(error.message); logP("Excluiu item de suprimentos", it.codigo_sap || it.codigo_sphera || it.descricao || ""); dl.close(); await loadSup(); renderSup(); };
   $("#spF").onsubmit = async e => { e.preventDefault(); const o = {}, ex = Object.assign({}, it && it.extras); new FormData(e.target).forEach((v, k) => { if (k.startsWith("x_")) { const id = k.slice(2), p = xCampos().find(q => String(q.id) === id); let z = cl(v); if (z != null && p && xTipo(p) === "número") z = brNum(z); if (z == null) delete ex[id]; else ex[id] = z; } else o[k] = cl(v); }); o.extras = ex; ["quantidade", "valor_unitario", "valor_total", "valor_cotado", "valor_estimado", "valor_pago", "qtd_recebida"].forEach(k => { if (o[k] != null) o[k] = brNum(o[k]); });
     if (!o.codigo_sap && !o.codigo_sphera) return $("#spE").textContent = "Informe o código SAP ou o código Sphera.";
-    const { error } = await (it ? sb.from("suprimentos").update(o).eq("id", it.id) : sb.from("suprimentos").insert({ ...o, projeto_id: proj.id, origem: "manual" }));
+    // Item vinculado ao Cadastro: o código vem do ponto e a sincronização (sync) devolvia o código antigo ao recarregar.
+    // Por isso, se o código mudou aqui, grava também no ponto de origem (com o mesmo status automático do Cadastro).
+    const lig = it && it.ponto_id != null ? rows.find(r => String(r.id) === String(it.ponto_id)) : null;
+    if (lig && (o.codigo_sap !== cl(lig.codigo_sap) || o.codigo_sphera !== cl(lig.sphera))) {
+      const pp = { sphera: o.codigo_sphera }; if (hasS) pp.codigo_sap = o.codigo_sap;
+      const i = ST.indexOf(lig.status_projeto); let t = lig.status_projeto;
+      if (o.codigo_sap) { if (i < 4) t = ST[4]; } else if (o.codigo_sphera) { if (i < 3 || i >= 4) t = ST[3]; } else if (i >= 3) t = lig.file_name ? ST[2] : ST[1];
+      if (t !== lig.status_projeto) pp.status_projeto = t;
+      const r1 = await sb.from("pontos").update(pp).eq("id", lig.id).select("id");
+      if (r1.error || !(r1.data && r1.data.length)) return $("#spE").textContent = "Não foi possível atualizar o código no Cadastro" + (r1.error ? ": " + r1.error.message : " (sem permissão ou ponto não encontrado).");
+      Object.assign(lig, pp);
+    }
+    const { data: sv, error } = await (it ? sb.from("suprimentos").update(o).eq("id", it.id).select("id") : sb.from("suprimentos").insert({ ...o, projeto_id: proj.id, origem: "manual" }).select("id"));
     if (error) return $("#spE").textContent = /duplicate|unique/i.test(error.message) ? "Já existe um item com esse código neste projeto." : error.message + (/suprimentos/.test(error.message) ? " — " + "execute fase3_01 e fase3_02." : "");
-    logP(it ? "Editou item de suprimentos" : "Criou item de suprimentos", o.codigo_sap || o.codigo_sphera); dl.close(); await loadSup(); renderSup(); };
+    if (!(sv && sv.length)) return $("#spE").textContent = "Não foi possível salvar: o banco não aplicou a alteração (sem permissão ou item não encontrado). Recarregue a página e tente de novo.";
+    logP(it ? "Editou item de suprimentos" : "Criou item de suprimentos", o.codigo_sap || o.codigo_sphera); dl.close(); if (lig) await load(); else await loadSup(); renderSup(); };
   dl.showModal();
 }
 
