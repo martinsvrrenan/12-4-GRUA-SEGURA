@@ -760,7 +760,7 @@ async function load() {
   const id = proj.id, [{ data, error }, h] = await Promise.all([pfTake(id, "pontos", () => qPontos(id)), pfTake(id, "hist", () => fetchAll("historico", { projeto_id: id }))]);
   if (error) return alert("Erro ao carregar: " + error.message + (/projeto_id/.test(error.message) ? "\n\nExecute os scripts SQL da Fase 1 (fase1_01 a fase1_08) no Supabase." : ""));
   rows = data; hasF = !rows.length || "folhas" in rows[0]; hasS = !rows.length || "codigo_sap" in rows[0]; hasD = !rows.length || "desenho_sap" in rows[0]; hist = h;
-  const tps = [...new Set([...TIPOS, ...rows.map(r => r.tipo_projeto)])];
+  const tps = [...TIPOS]; // sugestões = só os tipos cadastrados em Parâmetros
   $("#tps").innerHTML = tps.map(t => `<option value="${esc(t)}">`).join("");
   dash(); table();
 }
@@ -1028,31 +1028,27 @@ $("#evP").onchange = dash; $("#evS").onchange = dash;
 $("#dA").onchange = dash;
 
 // ---------- Cadastro ----------
-const COLS = [
-  ["Proteção NR12", /nr.?12/i, "Proteção NR12 (partes girantes)"],
-  ["Antiqueda", /antiqueda/i, "Sistema antiqueda"],
-  ["Portão", /port[ãa]o/i, "Portão para escada de acesso à viga de rolamento"],
-  ["Linha de vida", /linha de vida/i, "Linha de vida"],
-  ["Plataforma", /plataforma/i, "Plataforma de acesso"],
-  ["Grade de piso", /grade/i, "Grade de piso (garagem de manutenção)"],
-  ["Outros", null, ""]];
-const colOf = r => { const i = COLS.findIndex(c => c[1] && c[1].test(r.tipo_projeto || "")); return i < 0 ? COLS.length - 1 : i; };
+// Colunas da planilha = Tipos de intervenção ativos em Parâmetros do projeto (TIPOS é recarregado a cada projeto).
+// "Outros" só aparece se houver ponto cujo tipo não está (mais) nos parâmetros.
+const nzt = t => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+const colsT = () => [...TIPOS.map(t => [t, t]), ["Outros", null]];
+const colOf = (r, C) => { const k = nzt(r.tipo_projeto), i = C.findIndex(c => c[1] !== null && nzt(c[1]) === k); return i < 0 ? C.length - 1 : i; };
 const cell = r => `<div class="ce" data-id="${r.id}" title="${esc(r.tipo_projeto)}"><b>${r.qtd ?? "•"}</b> <span class="tag" style="--c:${COL[si(r)]}">${esc(r.status_projeto)}</span>${r.status_levantamento === "Levantado" ? " ✓" : ""}${r.desenho_sap ? ' <span class="tag" style="--c:#0e9aa7">Desenho no SAP</span>' : ""}${fnHtml(r)}</div>`;
 function table() {
-  const a = $("#fA").value, s = $("#fS").value, q = $("#fQ").value.toLowerCase();
+  const C = colsT(), a = $("#fA").value, s = $("#fS").value, q = $("#fQ").value.toLowerCase();
   const d = rows.filter(r => (!a || r.area === a) && (!s || ST[si(r)] === s) &&
     (!q || [r.equipamento, r.tipo_projeto, r.file_name, sheetNames(r.file_name, r.folhas).join(" "), r.sphera, r.codigo_sap, r.responsavel].join(" ").toLowerCase().includes(q)));
   const g = {};
   d.forEach(r => { const k = r.area + "|" + r.equipamento;
-    (g[k] = g[k] || { area: r.area, eq: r.equipamento, te: r.tipo_equipamento, c: COLS.map(() => []) }).c[colOf(r)].push(r); });
+    (g[k] = g[k] || { area: r.area, eq: r.equipamento, te: r.tipo_equipamento, c: C.map(() => []) }).c[colOf(r, C)].push(r); });
   const list = Object.values(g);
-  const used = COLS.map((c, i) => c[1] || list.some(x => x.c[i].length));
-  $("#th").innerHTML = "<tr><th>Área</th><th>Equipamento</th>" + COLS.map((c, i) => used[i] ? `<th>${c[0]}</th>` : "").join("") + "</tr>";
+  const used = C.map((c, i) => c[1] !== null || list.some(x => x.c[i].length));
+  $("#th").innerHTML = "<tr><th>Área</th><th>Equipamento</th>" + C.map((c, i) => used[i] ? `<th>${esc(c[0])}</th>` : "").join("") + "</tr>";
   $("#tb").innerHTML = list.map(x => `<tr><td data-l="Área"><div class="v">${esc(x.area)}</div></td><td class="h"><b>${esc(x.eq)}</b></td>` +
-    x.c.map((l, i) => !used[i] ? "" : `<td data-l="${COLS[i][0]}"${l.length || canEdit ? "" : ' class="em"'}><div class="v">${l.length ? l.map(cell).join("") : (canEdit ? `<a class="add" data-a="${esc(x.area)}" data-e="${esc(x.eq)}" data-t="${esc(x.te || "")}" data-c="${i}">+</a>` : "–")}</div></td>`).join("") + "</tr>").join("");
+    x.c.map((l, i) => !used[i] ? "" : `<td data-l="${esc(C[i][0])}"${l.length || canEdit ? "" : ' class="em"'}><div class="v">${l.length ? l.map(cell).join("") : (canEdit ? `<a class="add" data-a="${esc(x.area)}" data-e="${esc(x.eq)}" data-t="${esc(x.te || "")}" data-c="${i}">+</a>` : "–")}</div></td>`).join("") + "</tr>").join("");
   $("#cnt").textContent = `${d.length} de ${rows.length} registros em ${list.length} equipamentos · ✓ levantado`;
   document.querySelectorAll(".ce").forEach(el => el.onclick = () => edit(rows.find(r => r.id == el.dataset.id)));
-  document.querySelectorAll(".add").forEach(el => el.onclick = () => edit(null, { area: el.dataset.a, equipamento: el.dataset.e, tipo_equipamento: el.dataset.t, tipo_projeto: COLS[el.dataset.c][2] }));
+  document.querySelectorAll(".add").forEach(el => el.onclick = () => edit(null, { area: el.dataset.a, equipamento: el.dataset.e, tipo_equipamento: el.dataset.t, tipo_projeto: C[el.dataset.c][1] || "" }));
 }
 ["fA", "fS"].forEach(i => $("#" + i).onchange = table); $("#fQ").oninput = table;
 function edit(r, p) {
@@ -1089,7 +1085,6 @@ $("#f").onsubmit = async e => {
   const o = Object.fromEntries(new FormData(e.target));
   o.qtd = o.qtd === "" ? null : Number(o.qtd);
   for (const k in o) if (o[k] === "") o[k] = null;
-  if (ST.indexOf(o.status_projeto) >= 2 && !o.file_name) return alert("Informe o file_name do desenho para este status.");
   o.folhas = o.file_name ? Math.max(1, parseInt(o.folhas) || 1) : null;
   o.desenho_sap = e.target.elements.desenho_sap.checked;
   if (o.desenho_sap && !o.file_name) return alert("Informe o file_name do desenho para marcar \"Desenho no SAP\".");
