@@ -2626,7 +2626,7 @@ function an(){const el=$("#gxAn"),D=window.supData&&window.supData();if(!el||!D)
  const blk=(t,l,n)=>{if(!l.length)return"";const mx=Math.max(...l.map(x=>x[1]))||1;return`<div class="gx-an"><b>${t}</b>${l.slice(0,n||6).map(([k,v])=>`<div class="r"><span>${esc(k)}</span><span class="gx-t"><i style="width:${Math.round(100*v/mx)}%;background:#2456b8"></i></span><em>${fR(v)}</em></div>`).join("")}</div>`};
  const srt=l=>l.sort((a,b)=>b[1]-a[1]),cat=(window.parSup?window.parSup("sup_campo"):[]).find(p=>/categoria/i.test(p.nome));
  const mes=grp(i=>{const d=i.rc_data||i.pedido_data;return d?String(d).slice(0,7):""}).sort((a,b)=>a[0].localeCompare(b[0])).map(([k,v])=>[k.split("-").reverse().join("/"),v]);
- el.innerHTML=`<div class="evh"><b>Análise de custos</b><small>valor total dos itens, em todas as situações</small></div>`+blk("Por fornecedor",srt(grp(i=>i.fornecedor)))+blk("Por área",srt(grp(i=>{const p=pontoDe(i);return p?p.area:"Sem vínculo com ponto"})))+blk("Por tipo de adequação",srt(grp(i=>{const p=pontoDe(i);return p?p.tipo_projeto:""})))+(cat?blk("Por categoria",srt(grp(i=>(i.extras||{})[String(cat.id)]))):"")+blk("Por mês (data da RC ou do pedido)",mes,12)}
+ const bd=el.querySelector(".gx-cb");if(!bd)return;bd.innerHTML=blk("Por fornecedor",srt(grp(i=>i.fornecedor)))+blk("Por área",srt(grp(i=>{const p=pontoDe(i);return p?p.area:"Sem vínculo com ponto"})))+blk("Por tipo de adequação",srt(grp(i=>{const p=pontoDe(i);return p?p.tipo_projeto:""})))+(cat?blk("Por categoria",srt(grp(i=>(i.extras||{})[String(cat.id)]))):"")+blk("Por mês (data da RC ou do pedido)",mes,12)}
 function sup(){const sec=$("#t7"),sB=$("#sB");if(!sec||!sB||sec.querySelector(".stb"))return;
  const fil=sec.children[0],kk=$("#sK"),gr=sec.querySelector(":scope>.grid"),tb=sec.querySelector(":scope>.card.tw"),cn=$("#sC");if(!fil||!kk||!gr||!tb)return;
  const c0=sB.children[1],c1=sB.children[2],ce=$("#sBe"),c6=sB.querySelector(".ch"),cf=det("Orçamento e câmbio","valor em US$, câmbio e atualização automática");[c0,c1,ce].forEach(e=>e&&cf.appendChild(e));
@@ -2634,7 +2634,7 @@ function sup(){const sec=$("#t7"),sB=$("#sB");if(!sec||!sB||sec.querySelector(".
  [["#sV","gx-kpi"],["#sVd","gx-kpi"],["#gxEv","gx-gas"],["#gxOut","gx-out"]].forEach(([q,c])=>{const e=$(q);e&&e.classList.add(c)});sB.insertBefore(cf,$("#sV"));sB.appendChild(dg);
  const mk=p=>{const d=document.createElement("div");d.className="sp";d.dataset.p=p;return d},pr=mk("r"),pi=mk("i"),pa=mk("a"),kd=det("Todos os indicadores de prazo","itens, RC, pedidos, entregas e atrasos");kd.appendChild(kk);kd.classList.add("gx-prz");
  const fd=det("Funil RC → Pedido → Entrega","");fd.classList.add("gx-fun");fd.appendChild(gr.children[0]);pa.appendChild(gr.children[0]);gr.remove();
- const a=document.createElement("div");a.className="card gx-cus";a.id="gxAn";pr.append(sB,a,kd,fd);pi.append(fil,tb,cn);
+ const a=det("Análise de custos","valor total dos itens, em todas as situações");a.className="gxd gx-cus";a.id="gxAn";a.insertAdjacentHTML("beforeend",'<div class="gx-cb"></div>');try{a.open=localStorage.getItem("gs-cus-open")!=="0"}catch(e){a.open=true}a.addEventListener("toggle",()=>{try{localStorage.setItem("gs-cus-open",a.open?"1":"0")}catch(e){}});pr.append(sB,a,kd,fd);pi.append(fil,tb,cn);
  const tabs=document.createElement("div");tabs.className="stb";tabs.innerHTML='<button data-p="r">Resumo</button><button data-p="i">Itens</button><button data-p="a">Atenção</button>';
  tabs.onclick=e=>{const b=e.target.closest("button");if(b){tab=b.dataset.p;show()}};sec.append(tabs,pr,pi,pa);an();show()}
 document.addEventListener("click",e=>{const c=e.target.closest("#sV .kpi,#sV2 .kpi");if(!c)return;const s=c.querySelector("[data-sit]");if(!s)return;tab="i";show();const f=$("#sFs");if(f){f.value=s.dataset.sit;f.dispatchEvent(new Event("change"))}});
@@ -2959,11 +2959,35 @@ function etapaDlg(){const k=$("#evS").value,nome=($("#evS").selectedOptions[0]||
   if(a==="x")return d.close();
   if(a==="rs"){evrReset();return d.close()}
   const err=evrApply($("#gxEi").value,$("#gxEf").value);if(err)return alert(err);d.close()}}
-function menu(sec){cfgLoad();const T={k:"Indicadores principais",ind:"Todos os indicadores",evo:"Evolução e andamento"}[sec],B=(a,t)=>`<button class="gx-mi" data-a="${a}">${t}</button>`;
- const it=sec==="k"?B("sk","Escolher indicadores"):sec==="ind"?B("vis",CF.vis==="l"?"Visualizar em cards":"Visualizar em lista")+B("st","Escolher indicadores"):B("dt","Datas da etapa")+B("se","Cards do gráfico")+B("fy","Anos fiscais exibidos")+B("per","Período do projeto e ano fiscal")+B("cu","Período personalizado do gráfico");
+/* ---- Suprimentos: cards do orçamento escolhíveis, lista nos indicadores ---- */
+let ORC=[];const ORC_DEF=["orçamento disponível","saldo livre","utilizado do orçamento"];
+const orcKey=c=>{const x=c.querySelector("span");let t=(x?x.textContent:"").toLowerCase().replace(/\([^)]*\)/g," ").replace(/\s+/g," ").trim();if(/^(estouro|saldo livre)/.test(t))t="saldo livre";return t};
+function captureOrc(){const v=$("#sV"),v2=$("#sV2");if(!v||!v2)return;const seen=new Set();ORC=[];
+ [...v.children,...v2.children].forEach(c=>{const k=orcKey(c);if(!k||seen.has(k))return;seen.add(k);ORC.push({k,el:c.cloneNode(true)})})}
+function obsOrc(mo){const v=$("#sV"),v2=$("#sV2");v&&mo.observe(v,{childList:true});v2&&mo.observe(v2,{childList:true})}
+function renderOrc(){const v=$("#sV");if(!v||!ORC.length)return;cfgLoad();const sel=CF.o||ORC_DEF,L=ORC.filter(x=>sel.includes(x.k)),mo=v.__mo;
+ mo&&mo.disconnect();
+ v.innerHTML=L.length?L.map(x=>x.el.outerHTML).join(""):"<small>Nenhum card escolhido. Use o menu ☰ deste quadro.</small>";
+ mo&&obsOrc(mo)}
+function pickOrc(){cfgLoad();if(!ORC.length)return alert("Os cards do orçamento ainda estão carregando. Tente de novo em instantes.");
+ const cur=CF.o||ORC_DEF,lb=x=>{const s=x.el.querySelector("span"),b=x.el.querySelector("b");return[s?s.textContent.trim():x.k,b?b.textContent.trim():""]};
+ const d=dlg(`<h3>Cards do orçamento</h3><small>Marque o que deve aparecer abaixo de Orçamento e câmbio neste projeto.</small>${ORC.map(x=>{const[l,v]=lb(x);return`<label class="gx-ck"><input type="checkbox" value="${E(x.k)}" ${cur.includes(x.k)?"checked":""}>${E(l)} <small>${E(v)}</small></label>`}).join("")}${bar}`);
+ d.onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;if(b.dataset.a==="ok"){CF.o=[...d.querySelectorAll("input:checked")].map(i=>i.value);cfgSave();d.close();renderOrc()}else d.close()}}
+function applySup(){cfgLoad();renderOrc();const a=$("#sV2"),b=$("#sK");a&&a.classList.toggle("gx-aslist",CF.dv==="l");b&&b.classList.toggle("gx-aslist",CF.pv==="l")}
+function hookSup(){const t=$("#t7");if(!t||!t.querySelector(".stb"))return;const sv=$("#sV"),sv2=$("#sV2");if(!sv||!sv2)return;
+ const hd=$("#sB>.evh");if(hd&&!hd.querySelector('[data-gm="orc"]'))hd.insertAdjacentHTML("beforeend",gxMb("orc"));
+ const sd=$("#sVd>summary");if(sd&&!sd.querySelector('[data-gm="det"]'))sd.insertAdjacentHTML("beforeend",gxMb("det"));
+ const sp=$("#t7 .gx-prz>summary");if(sp&&!sp.querySelector('[data-gm="prz"]'))sp.insertAdjacentHTML("beforeend",gxMb("prz"));
+ if(!sv.__mo){const mo=new MutationObserver(()=>{captureOrc();renderOrc()});sv.__mo=mo;captureOrc();obsOrc(mo)}
+ applySup()}
+function menu(sec){cfgLoad();const T={k:"Indicadores principais",ind:"Todos os indicadores",evo:"Evolução e andamento",orc:"Orçamento e gasto do projeto",det:"Detalhamento do orçamento",prz:"Todos os indicadores de prazo"}[sec],B=(a,t)=>`<button class="gx-mi" data-a="${a}">${t}</button>`;
+ const it=sec==="orc"?B("so","Escolher cards"):sec==="det"?B("vdt",CF.dv==="l"?"Visualizar em cards":"Visualizar em lista"):sec==="prz"?B("vpz",CF.pv==="l"?"Visualizar em cards":"Visualizar em lista"):sec==="k"?B("sk","Escolher indicadores"):sec==="ind"?B("vis",CF.vis==="l"?"Visualizar em cards":"Visualizar em lista")+B("st","Escolher indicadores"):B("dt","Datas da etapa")+B("se","Cards do gráfico")+B("fy","Anos fiscais exibidos")+B("per","Período do projeto e ano fiscal")+B("cu","Período personalizado do gráfico");
  const d=dlg(`<h3>${T}</h3>${it}${B("rs","Restaurar padrão")}<div class="bar" style="margin-top:12px"><button type="button" data-a="x">Fechar</button></div>`);
  d.onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a;
   if(a==="x")return d.close();
+  if(a==="vdt"||a==="vpz"){const q=a==="vdt"?"dv":"pv";CF[q]=CF[q]==="l"?"g":"l";cfgSave();d.close();return applySup()}
+  if(a==="so")return pickOrc();
+  if(a==="rs"&&(sec==="orc"||sec==="det"||sec==="prz")){delete CF[{orc:"o",det:"dv",prz:"pv"}[sec]];cfgSave();d.close();return applySup()}
   if(a==="vis"){CF.vis=CF.vis==="l"?"g":"l";cfgSave();d.close();return renderAll()}
   if(a==="rs"){if(sec==="k")delete CF.k;else if(sec==="ind"){delete CF.t;delete CF.vis}else{delete CF.e;delete CF.cu;delete CF.fy;CU=null}cfgSave();d.close();if(sec==="evo")evoOpts();return dash()}
   if(a==="sk")return pick("Indicadores principais","k",()=>true,()=>["k:1","k:2","k:3"].concat(teKey()));
@@ -2979,6 +3003,7 @@ const _eo=evoOpts;evoOpts=function(){CFid=null;cfgLoad();CU=CF.cu?{a:evParse(CF.
  if(CU){const s=$("#evP"),o=document.createElement("option");o.value="cu";o.textContent="Personalizado: "+dtBR(CU.a)+" a "+dtBR(CU.b);s.insertBefore(o,[...s.options].find(x=>x.value==="w")||null)}};
 $("#evCap").onclick=etapaDlg;
 const s1=$("#gxInd>summary");s1&&s1.insertAdjacentHTML("beforeend",gxMb("ind"));const h=$("#gxEvo .evh");h&&h.insertAdjacentHTML("beforeend",gxMb("evo"));
+const t7=$("#t7");t7&&new MutationObserver(hookSup).observe(t7,{childList:true});hookSup();
 })();
 </script>
 <script id="gx-perfil">
@@ -3414,6 +3439,18 @@ html[data-theme] .evcap:hover{background:transparent;color:var(--ink)}
 .evcap svg{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 /* Suprimentos: blocos que podem ser ocultados pela engrenagem */
 :is(.gx-off-orc .gx-orc,.gx-off-kpi .gx-kpi,.gx-off-dst .gx-dst,.gx-off-gas .gx-gas,.gx-off-out .gx-out,.gx-off-cus .gx-cus,.gx-off-prz .gx-prz,.gx-off-fun .gx-fun){display:none}
+/* Suprimentos: ☰ no quadro do orçamento e indicadores em lista */
+#sB>.evh{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center}
+#sB>.evh>b,#sB>.evh>small{grid-column:1}#sB>.evh>.gx-mb{grid-column:2;grid-row:1/span 2}
+html[data-theme] .gx-aslist{display:flex!important;flex-direction:column;gap:0!important}
+html[data-theme] .gx-aslist .kpi{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:baseline;margin:0;padding:10px 0!important;border:0;border-bottom:1px solid var(--line);border-radius:0;background:none;box-shadow:none;overflow:visible;cursor:default}
+html[data-theme] .gx-aslist .kpi:last-child{border-bottom:0}
+html[data-theme] .gx-aslist .kpi::before{display:none}
+html[data-theme] .gx-aslist .kpi>span{grid-column:1;grid-row:1;font-size:14px;font-weight:600;color:inherit}
+html[data-theme] .gx-aslist .kpi b,html[data-theme] .gx-aslist .kpi b.sm{grid-column:2;grid-row:1;font-size:18px!important;letter-spacing:0;padding:0;text-align:right;white-space:nowrap}
+html[data-theme] .gx-aslist .kpi small,html[data-theme] .gx-aslist .kpi .pb{grid-column:1/-1;margin-top:0}
+#sV2.gx-aslist .kpi,#sV .kpi{cursor:pointer}
+
 /* Abertura do projeto: a tela troca na hora; enquanto os dados chegam, barra de progresso e bloco "esqueleto" */
 body.carregando main>section,body.carregando #pgH{display:none!important}
 body.carregando main::before{content:"";position:fixed;left:0;right:0;top:var(--top);height:3px;z-index:30;background:linear-gradient(90deg,transparent,var(--yel),transparent) 0 0/40% 100% no-repeat;animation:gxbar 1s linear infinite}
