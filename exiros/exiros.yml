@@ -9,6 +9,10 @@ on:
         description: "RC específica (opcional; várias separadas por vírgula)"
         required: false
         default: ""
+      projeto_id:
+        description: "ID do projeto (opcional; vazio = RCs de todos os projetos)"
+        required: false
+        default: ""
 
 concurrency:
   group: exiros
@@ -33,6 +37,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           TEAMS_CHAT_URL: ${{ secrets.TEAMS_CHAT_URL }}
           RC_INPUT: ${{ inputs.rc }}
+          PROJETO_ID: ${{ inputs.projeto_id }}
         run: python exiros_sync.py
       - name: Capturas de tela (só se algo falhou)
         if: failure()

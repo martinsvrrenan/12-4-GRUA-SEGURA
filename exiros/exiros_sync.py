@@ -1,8 +1,9 @@
 """Consulta o Exiros bot no Teams para cada RC de forma interpretativa e resiliente,
 gravando o resultado em public.exiros_rc.
 
-Uso:  python exiros_sync.py                -> RCs vindas de suprimentos.rc_numero
-      python exiros_sync.py --rc 33983723  -> só essa RC
+Uso:  python exiros_sync.py                   -> RCs de TODOS os projetos (suprimentos.rc_numero)
+      python exiros_sync.py --projeto 4       -> só as RCs do projeto 4 (ou PROJETO_ID=4 no ambiente)
+      python exiros_sync.py --rc 33983723     -> só essa RC
 """
 import argparse
 import os
@@ -201,8 +202,9 @@ def consultar_rc_inteligente(page, rc):
 
 
 # ---------- Supabase ----------
-def listar_rcs():
-    rows = rest("GET", "suprimentos?select=rc_numero&rc_numero=not.is.null")
+def listar_rcs(projeto_id=None):
+    filtro = f"&projeto_id=eq.{projeto_id}" if projeto_id else ""
+    rows = rest("GET", f"suprimentos?select=rc_numero&rc_numero=not.is.null{filtro}")
     rcs = {re.sub(r"\D", "", r["rc_numero"] or "") for r in rows}
     return sorted(r for r in rcs if r)
 
@@ -223,17 +225,30 @@ def log_fim(log_id, status, rcs, itens, msg):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rc", action="append", help="RC específica (pode repetir)")
+    ap.add_argument("--projeto", help="id do projeto: atualiza só as RCs dele (vazio = todos)")
     args = ap.parse_args()
+
+    # Projeto (opcional): vem de --projeto ou da variável PROJETO_ID (entrada projeto_id do workflow)
+    pid_txt = (args.projeto or os.environ.get("PROJETO_ID", "")).strip()
+    projeto_id = None
+    if pid_txt:
+        if not re.fullmatch(r"\d+", pid_txt):
+            print(f"PROJETO_ID inválido: {pid_txt!r}", file=sys.stderr)
+            return 1
+        projeto_id = int(pid_txt)
 
     rcs = [re.sub(r"\D", "", r) for r in (args.rc or [])]
     if not rcs and os.environ.get("RC_INPUT", "").strip():
         rcs = [re.sub(r"\D", "", r) for r in re.split(r"[,; ]+", os.environ["RC_INPUT"]) if r.strip()]
-    rcs = [r for r in rcs if r] or listar_rcs()
+    rcs = [r for r in rcs if r] or listar_rcs(projeto_id)
 
-    log_id = rest("POST", "exiros_sync_log", {"status": "executando"},
-                  prefer="return=representation")[0]["id"]
+    # projeto_id no log = esta execução cobre só esse projeto (nulo = todos); o app usa isso para mostrar o status de cada projeto
+    log = {"status": "executando"}
+    if projeto_id:
+        log["projeto_id"] = projeto_id
+    log_id = rest("POST", "exiros_sync_log", log, prefer="return=representation")[0]["id"]
     if not rcs:
-        log_fim(log_id, "erro", 0, 0, "Nenhuma RC encontrada em suprimentos.rc_numero")
+        log_fim(log_id, "erro", 0, 0, "Nenhuma RC encontrada em suprimentos.rc_numero" + (f" para o projeto {projeto_id}" if projeto_id else ""))
         return 1
 
     state = load_state()
