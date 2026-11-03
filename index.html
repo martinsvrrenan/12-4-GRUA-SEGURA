@@ -3193,7 +3193,7 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
   function falhaLog() { // aviso extra, só para o administrador
     if (!LOG || !dele(LOG) || !["erro", "sessao_expirada", "parcial"].includes(LOG.status)) return "";
     if (LOK && LOK.id === LOG.id) return LOG.status === "parcial" ? "Última atualização terminou com falhas em alguns itens." : "";
-    return LOG.status === "sessao_expirada" ? "A última tentativa falhou: a sessão do Teams expirou (é preciso refazer o login)." : "A última tentativa de atualização falhou" + (LOG.mensagem ? ": " + String(LOG.mensagem).slice(0, 200) : ".");
+    return LOG.status === "sessao_expirada" ? "A última tentativa falhou: a sessão do Teams expirou (é preciso refazer o login)." : "A última tentativa de atualização falhou" + (LOG.mensagem ? ": " + String(LOG.mensagem).slice(0, 700) : ".");
   }
   function resumo() {
     const c = {}; EX.forEach(x => { const k = x.status || "—"; c[k] = (c[k] || 0) + 1; });
