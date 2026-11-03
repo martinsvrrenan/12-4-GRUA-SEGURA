@@ -3184,13 +3184,14 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
   const TZ = "America/Sao_Paulo";
   const dataHora = v => { const d = v ? new Date(v) : null; if (!d || isNaN(d)) return ""; return `${d.toLocaleDateString("pt-BR", { timeZone: TZ })} às ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: TZ })}`; };
   const rodando = () => !!(LOG && LOG.status === "executando" && Date.now() - new Date(LOG.iniciado_em).getTime() < 30 * 60000);
+  const dele = l => !l || l.projeto_id == null || (!!proj && String(l.projeto_id) === String(proj.id)); // a execução do log vale para o projeto aberto? (projeto_id nulo = rodou todos)
   function statusLog() { // mensagem para todos: quando as RCs foram atualizadas pela última vez
-    if (rodando()) return "Atualização das RCs em andamento…";
-    if (!LOK) return "As RCs ainda não foram atualizadas pelo Exiros.";
+    if (rodando()) return dele(LOG) ? "Atualização das RCs em andamento…" : "Há uma atualização de RCs em andamento em outro projeto. Quando terminar, você pode atualizar as deste.";
+    if (!LOK) return "As RCs deste projeto ainda não foram atualizadas pelo Exiros.";
     return `RCs atualizadas pelo Exiros em ${dataHora(LOK.finalizado_em || LOK.iniciado_em)}`;
   }
   function falhaLog() { // aviso extra, só para o administrador
-    if (!LOG || !["erro", "sessao_expirada", "parcial"].includes(LOG.status)) return "";
+    if (!LOG || !dele(LOG) || !["erro", "sessao_expirada", "parcial"].includes(LOG.status)) return "";
     if (LOK && LOK.id === LOG.id) return LOG.status === "parcial" ? "Última atualização terminou com falhas em alguns itens." : "";
     return LOG.status === "sessao_expirada" ? "A última tentativa falhou: a sessão do Teams expirou (é preciso refazer o login)." : "A última tentativa de atualização falhou" + (LOG.mensagem ? ": " + String(LOG.mensagem).slice(0, 200) : ".");
   }
@@ -3204,7 +3205,7 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
     const ref = document.getElementById("sRcs"); if (!ref) return;
     if (!b) { ref.insertAdjacentHTML("afterend", '<button class="p" id="exBtn" type="button"></button>'); b = document.getElementById("exBtn"); b.onclick = dispara; }
     const ocupado = busy || rodando();
-    b.disabled = ocupado; b.textContent = ocupado ? "Atualizando…" : "Atualizar RCs (Exiros)";
+    b.disabled = ocupado; b.textContent = ocupado ? "Atualizando…" : "Atualizar RCs deste projeto"; b.title = ocupado && rodando() && !dele(LOG) ? "Há uma atualização em andamento em outro projeto" : "Consulta no Exiros só as RCs deste projeto";
   }
   function card() {
     const sec = document.getElementById("t7"); if (!sec || !proj) return;
@@ -3223,25 +3224,25 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
   async function carrega() {
     const id = proj && proj.id; if (!id) return;
     const rcs = [...new Set(supL().map(i => norm(i.rc_numero)).filter(Boolean))];
-    const SEL = "id,iniciado_em,finalizado_em,status,rcs,itens,mensagem";
+    const SEL = "id,iniciado_em,finalizado_em,status,rcs,itens,mensagem,projeto_id";
     const [a, b, c] = await Promise.all([
       rcs.length ? sb.from("exiros_rc").select(COLS).in("rc_numero", rcs).limit(5000) : Promise.resolve({ data: [] }),
       sb.from("exiros_sync_log").select(SEL).order("id", { ascending: false }).limit(1),
-      sb.from("exiros_sync_log").select(SEL).in("status", ["ok", "parcial"]).order("id", { ascending: false }).limit(1)]);
+      sb.from("exiros_sync_log").select(SEL).in("status", ["ok", "parcial"]).or(`projeto_id.is.null,projeto_id.eq.${id}`).order("id", { ascending: false }).limit(1)]); // última atualização que cobre ESTE projeto
     if (!proj || proj.id !== id) return;
     OK = !(a.error || b.error || c.error); EX = a.error ? [] : (a.data || []); LOG = b.error ? null : ((b.data || [])[0] || null); LOK = c.error ? null : ((c.data || [])[0] || null); IDX = porRc();
     card(); decora();
   }
   async function dispara() {
-    if (papel !== "admin" || busy) return;
-    busy = true; MSG = "Disparando a consulta ao Exiros…"; card();
+    if (papel !== "admin" || busy || !proj) return;
+    busy = true; MSG = "Disparando a consulta ao Exiros para as RCs deste projeto…"; card();
     const antes = LOG ? LOG.id : 0;
     try {
-      const { data, error } = await sb.functions.invoke("disparar-exiros", { body: {} });
+      const { data, error } = await sb.functions.invoke("disparar-exiros", { body: { projeto_id: proj.id } });
       let det = data && data.erro;
       if (error && !det) { try { det = (await error.context.json()).erro; } catch (e) { det = error.message; } }
       if (det) throw new Error(det);
-      MSG = "Atualização iniciada. Leva alguns minutos; esta tela atualiza sozinha quando terminar.";
+      MSG = "Atualização das RCs deste projeto iniciada. Leva alguns minutos; esta tela atualiza sozinha quando terminar.";
       card(); espera(antes);
     } catch (e) { busy = false; MSG = "Não foi possível iniciar: " + (e.message || e); card(); }
   }
@@ -3700,5 +3701,158 @@ body:not(.v-proj):not(.v-users) header .brand>div{display:none}
  .lg-hero .lgrow .logo{width:46px;height:56px}
 }
 </style>
+<style id="gs-select-css">
+/* ===== Listas de seleção no padrão do app (substitui a lista nativa do navegador) ===== */
+html[data-theme] select:not([multiple]):not([size]){-webkit-appearance:none;appearance:none;cursor:pointer;padding-right:36px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238fa4cc' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:14px}
+html[data-theme] select:disabled{cursor:not-allowed}
+.cs-pop{position:fixed;z-index:100000;box-sizing:border-box;overflow:auto;overscroll-behavior:contain;padding:6px;background:var(--s,#fff);color:var(--tx,var(--txt,#1a2433));border:1px solid var(--bd,#d8e0ee);border-radius:14px;box-shadow:var(--shadow,0 12px 32px #0003);font-family:inherit;font-size:14px;max-width:min(520px,calc(100vw - 16px))}
+html[data-theme=dark] .cs-pop{box-shadow:0 14px 34px #000a}
+.cs-it{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;cursor:pointer;line-height:1.25;word-break:break-word;user-select:none;-webkit-user-select:none}
+.cs-it.on{background:var(--hov,#0000000d)}
+.cs-it.sel{font-weight:700}
+.cs-it.sel::after{content:"";margin-left:auto;flex:none;width:6px;height:11px;border:solid var(--yel,#f7b928);border-width:0 3px 3px 0;transform:rotate(45deg) translate(-2px,-2px)}
+.cs-it.ph{color:var(--mut,#66738a)}
+.cs-it.dis{opacity:.4;cursor:default}
+.cs-gp{padding:8px 12px 4px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--mut,#66738a)}
+.cs-sh{padding:4px 12px 8px;font-size:12px;font-weight:700;color:var(--mut,#66738a)}
+.cs-ov{position:fixed;inset:0;z-index:99999;background:#0006}
+.cs-pop.sheet{left:8px!important;right:8px;top:auto!important;bottom:calc(8px + env(safe-area-inset-bottom,0px))!important;max-width:none;max-height:64vh;border-radius:18px;padding:8px}
+.cs-pop.sheet .cs-it{min-height:46px;padding:12px 14px;font-size:16px}
+</style>
+<script id="gs-select">
+(function () {
+  "use strict";
+  if (window.__gsSel) return; window.__gsSel = 1;
+  const nz = s => String(s == null ? "" : s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const okSel = s => s && s.tagName === "SELECT" && !s.multiple && !(s.size > 1) && !s.disabled && !s.hasAttribute("data-native");
+  let cur = null, buf = "", bufT = 0, lastTouch = 0;
+
+  function close(refocus) {
+    if (!cur) return; const c = cur; cur = null;
+    c.pop.remove(); if (c.ov) c.ov.remove();
+    if (refocus && c.anchor.isConnected) { try { c.anchor.focus({ preventScroll: true }); } catch (e) {} }
+  }
+  function selItems(sel) {
+    const out = [];
+    (function walk(p) { for (const n of p.children) {
+      if (n.tagName === "OPTGROUP") { out.push({ g: n.label }); walk(n); }
+      else if (n.tagName === "OPTION" && !n.hidden) out.push({ t: n.textContent.trim(), v: n.value, dis: n.disabled || (n.parentNode.tagName === "OPTGROUP" && n.parentNode.disabled), sel: n.selected, idx: n.index, ph: n.value === "" });
+    } })(sel);
+    return out;
+  }
+  function listItems(inp) {
+    const dl = document.getElementById(inp.dataset.gsl); if (!dl) return [];
+    const q = nz(inp.value.trim()), out = [];
+    for (const o of dl.querySelectorAll("option")) { const v = o.value, t = o.label && o.label !== v ? o.label : "";
+      if (!v) continue; if (!q || nz(v + " " + t).includes(q)) out.push({ t: v + (t ? " — " + t : ""), v, sel: v === inp.value }); }
+    return out;
+  }
+  function render() {
+    const c = cur; if (!c) return; c.pop.querySelectorAll(".cs-it,.cs-gp,.cs-sh").forEach(x => x.remove());
+    if (c.title) { const h = document.createElement("div"); h.className = "cs-sh"; h.textContent = c.title; c.pop.appendChild(h); }
+    c.els = [];
+    c.items.forEach((it, i) => {
+      const d = document.createElement("div");
+      if (it.g !== undefined) { d.className = "cs-gp"; d.textContent = it.g; c.pop.appendChild(d); return; }
+      d.className = "cs-it" + (it.sel ? " sel" : "") + (it.ph ? " ph" : "") + (it.dis ? " dis" : "") + (i === c.act ? " on" : "");
+      d.setAttribute("role", "option"); d.setAttribute("aria-selected", it.sel ? "true" : "false"); d.textContent = it.t || "\u00a0"; d._i = i; c.els[i] = d; c.pop.appendChild(d);
+    });
+  }
+  function place() {
+    const c = cur; if (!c) return; const p = c.pop, r = c.anchor.getBoundingClientRect(), vw = innerWidth, vh = innerHeight;
+    if (p.classList.contains("sheet")) return;
+    p.style.minWidth = Math.max(r.width, 160) + "px"; p.style.maxHeight = ""; p.style.top = "0px"; p.style.left = "0px"; p.style.bottom = "";
+    const h = Math.min(p.scrollHeight, 320), below = vh - r.bottom - 10, above = r.top - 10, up = below < Math.min(h, 180) && above > below;
+    p.style.maxHeight = Math.max(120, Math.min(320, up ? above : below)) + "px";
+    const w = p.offsetWidth, ph = p.offsetHeight;
+    let left = Math.min(Math.max(8, r.left), Math.max(8, vw - w - 8)), top = up ? Math.max(8, r.top - ph - 4) : r.bottom + 4;
+    p.style.left = left + "px"; p.style.top = top + "px";
+    const a = p.getBoundingClientRect(); // se algum ancestral tiver transform, corrige o deslocamento
+    if (Math.abs(a.left - left) > 1 || Math.abs(a.top - top) > 1) { p.style.left = left + (left - a.left) + "px"; p.style.top = top + (top - a.top) + "px"; }
+  }
+  function open(anchor, kind, items) {
+    close(false);
+    const pop = document.createElement("div"); pop.className = "cs-pop"; pop.setAttribute("role", "listbox");
+    const sheet = kind === "sel" && innerWidth <= 700; let ov = null, title = "";
+    const host = anchor.closest("dialog[open]") || document.body;
+    if (sheet) { pop.classList.add("sheet"); ov = document.createElement("div"); ov.className = "cs-ov"; host.appendChild(ov);
+      const lb = anchor.closest("label"); if (lb) { const t = [...lb.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(" ").trim(); if (t.length < 60) title = t; } }
+    host.appendChild(pop);
+    cur = { anchor, kind, pop, ov, items, act: -1, title, els: [] };
+    const k = items.findIndex(x => x.sel); cur.act = k >= 0 ? k : items.findIndex(x => x.g === undefined && !x.dis);
+    render(); place();
+    const a = cur.els[cur.act]; if (a) a.scrollIntoView({ block: "nearest" });
+    pop.addEventListener("mousedown", e => e.preventDefault()); // não tira o foco do campo
+    pop.addEventListener("mouseover", e => { const d = e.target.closest(".cs-it"); if (d && cur && cur.act !== d._i && !cur.items[d._i].dis) { const o = cur.els[cur.act]; if (o) o.classList.remove("on"); cur.act = d._i; d.classList.add("on"); } });
+    pop.addEventListener("click", e => { const d = e.target.closest(".cs-it"); if (d) pick(d._i); });
+    if (ov) ov.addEventListener("click", () => close(true));
+  }
+  function pick(i) {
+    const c = cur; if (!c) return; const it = c.items[i]; if (!it || it.dis || it.g !== undefined) return; const a = c.anchor;
+    if (c.kind === "sel") { const was = a.selectedIndex; a.selectedIndex = it.idx; close(true);
+      if (a.selectedIndex !== was) { a.dispatchEvent(new Event("input", { bubbles: true })); a.dispatchEvent(new Event("change", { bubbles: true })); } }
+    else { const was = a.value; a.value = it.v; close(true); if (a.value !== was) { a.dispatchEvent(new Event("input", { bubbles: true })); a.dispatchEvent(new Event("change", { bubbles: true })); } }
+  }
+  function move(d) {
+    const c = cur; if (!c) return; const n = c.items.length; let i = c.act;
+    for (let s = 0; s < n; s++) { i = i < 0 ? (d > 0 ? 0 : n - 1) : i + d; if (i < 0 || i >= n) { i = Math.max(0, Math.min(n - 1, i)); break; } const x = c.items[i]; if (x.g === undefined && !x.dis) break; }
+    const x = c.items[i]; if (!x || x.g !== undefined || x.dis) return;
+    const o = c.els[c.act]; if (o) o.classList.remove("on"); c.act = i; const e = c.els[i]; if (e) { e.classList.add("on"); e.scrollIntoView({ block: "nearest" }); }
+  }
+  function toggleSel(s) { if (cur && cur.anchor === s) return close(true); open(s, "sel", selItems(s)); }
+  function prepIn(i) { if (i && i.tagName === "INPUT" && i.hasAttribute("list")) { i.dataset.gsl = i.getAttribute("list"); i.removeAttribute("list"); i.setAttribute("autocomplete", "off"); } return i && i.tagName === "INPUT" && i.dataset.gsl ? i : null; }
+  function showList(i) { const it = listItems(i); if (!it.length || (it.length === 1 && it[0].v === i.value)) return close(false); if (cur && cur.anchor === i) { cur.items = it; cur.act = -1; render(); place(); } else { open(i, "in", it); cur.act = -1; render(); } }
+
+  // ---- mouse / toque / teclado (delegados no documento) ----
+  document.addEventListener("mousedown", e => {
+    if (Date.now() - lastTouch < 600) { if (okSel(e.target.closest && e.target.closest("select"))) e.preventDefault(); return; }
+    const t = e.target, s = t.closest && t.closest("select");
+    if (cur && !cur.pop.contains(t) && t !== cur.anchor) close(false);
+    if (e.button === 0 && okSel(s)) { e.preventDefault(); try { s.focus({ preventScroll: true }); } catch (x) {} toggleSel(s); return; }
+    const i = prepIn(t); if (i && e.button === 0) { if (cur && cur.anchor === i) close(false); else showList(i); }
+  }, true);
+  let tx = 0, ty = 0;
+  document.addEventListener("touchstart", e => { const p = e.touches[0]; tx = p.clientX; ty = p.clientY; }, { capture: true, passive: true });
+  document.addEventListener("touchend", e => {
+    const t = e.target, s = t.closest && t.closest("select"), p = e.changedTouches[0];
+    if (!okSel(s) || !p || Math.abs(p.clientX - tx) > 10 || Math.abs(p.clientY - ty) > 10) return;
+    if (e.cancelable) e.preventDefault(); lastTouch = Date.now(); toggleSel(s);
+  }, { capture: true, passive: false });
+  document.addEventListener("click", e => { const s = e.target.closest && e.target.closest("select"); if (okSel(s)) e.preventDefault(); }, true);
+  document.addEventListener("focusin", e => { prepIn(e.target); }, true);
+  document.addEventListener("input", e => { const i = prepIn(e.target); if (i && document.activeElement === i) showList(i); }, true);
+  document.addEventListener("keydown", e => {
+    const t = e.target, c = cur;
+    if (c) {
+      const k = e.key;
+      if (k === "Escape") { e.preventDefault(); e.stopPropagation(); return close(true); }
+      if (k === "Tab") return close(false);
+      if (k === "ArrowDown") { e.preventDefault(); return move(1); }
+      if (k === "ArrowUp") { e.preventDefault(); return move(-1); }
+      if (c.kind === "sel") {
+        if (k === "Home") { e.preventDefault(); c.act = -1; return move(1); }
+        if (k === "End") { e.preventDefault(); c.act = -1; return move(-1); }
+        if (k === "Enter" || k === " ") { e.preventDefault(); return pick(c.act); }
+        if (k.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { // digitar para ir até a opção
+          const now = Date.now(); buf = (now - bufT > 700 ? "" : buf) + nz(k); bufT = now;
+          const n = c.items.length; let st = c.act < 0 ? 0 : c.act; if (buf.length === 1) st = (st + 1) % n;
+          for (let s = 0; s < n; s++) { const i = (st + s) % n, x = c.items[i]; if (x.g === undefined && !x.dis && nz(x.t).startsWith(buf)) { const o = c.els[c.act]; if (o) o.classList.remove("on"); c.act = i; c.els[i].classList.add("on"); c.els[i].scrollIntoView({ block: "nearest" }); break; } }
+          e.preventDefault(); }
+        return;
+      }
+      if (k === "Enter" && c.act >= 0) { e.preventDefault(); return pick(c.act); }
+      return;
+    }
+    if (okSel(t) && (e.key === "Enter" || e.key === " " || e.key === "F4" || (e.altKey && (e.key === "ArrowDown" || e.key === "ArrowUp")))) { e.preventDefault(); return toggleSel(t); }
+    const i = prepIn(t); if (i && e.key === "ArrowDown") { e.preventDefault(); showList(i); }
+  }, true);
+  window.addEventListener("scroll", e => { if (cur && !cur.pop.contains(e.target)) close(false); }, true);
+  window.addEventListener("resize", () => close(false));
+  document.addEventListener("close", () => close(false), true);
+  setInterval(() => { if (cur && !cur.anchor.isConnected) close(false); }, 400);
+  document.querySelectorAll("input[list]").forEach(prepIn);
+  new MutationObserver(ms => { for (const m of ms) m.addedNodes.forEach(n => { if (n.nodeType === 1) { if (n.matches && n.matches("input[list]")) prepIn(n); n.querySelectorAll && n.querySelectorAll("input[list]").forEach(prepIn); } }); }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script>
 </body>
 </html>
