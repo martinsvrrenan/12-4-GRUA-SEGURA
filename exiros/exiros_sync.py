@@ -36,7 +36,7 @@ def chat_text(page):
         loc = page.locator(sel)
         if loc.count():
             try:
-                return loc.first.inner_text(timeout=5000)
+                return loc.first.inner_text(timeout=4000)
             except Exception:
                 continue
     return ""
@@ -56,8 +56,8 @@ def abrir_chat(page):
     page.goto(CHAT_URL or TEAMS_URL, wait_until="domcontentloaded", timeout=60000)
     inicio = time.time()
     clicou = bool(CHAT_URL)
-    while time.time() - inicio < 120:
-        if re.search(r"login\.(microsoftonline|live)\.com", page.url) and time.time() - inicio > 30:
+    while time.time() - inicio < 90:
+        if re.search(r"login\.(microsoftonline|live)\.com", page.url) and time.time() - inicio > 25:
             raise SessaoExpirada("Teams pediu login novamente")
         if page.locator(TEXTBOX).count():
             return
@@ -78,152 +78,102 @@ def abrir_chat(page):
 def enviar(page, texto):
     box = page.locator(TEXTBOX).last
     box.click()
-    page.keyboard.type(texto, delay=25)
+    page.keyboard.type(texto, delay=30)
     page.keyboard.press("Enter")
 
 
-def clicar(page, padrao, timeout=40):
-    btn = page.get_by_role("button", name=re.compile(padrao, re.I)).last
-    btn.wait_for(state="visible", timeout=timeout * 1000)
-    btn.click()
+def clicar_botao_ou_enviar(page, nome_botao, texto_fallback, timeout=15):
+    """Tenta clicar no botão interativo; se falhar ou estourar o tempo, envia por texto."""
+    inicio = time.time()
+    while time.time() - inicio < timeout:
+        try:
+            btn = page.get_by_role("button", name=re.compile(nome_botao, re.I)).last
+            if btn.is_visible():
+                btn.click()
+                return
+        except Exception:
+            pass
+        time.sleep(1)
+    
+    # Plano B: se não achou o botão no tempo limite, envia o comando por texto
+    enviar(page, texto_fallback)
 
 
-# Comparação de textos do bot: sem acento, sem diferença de maiúsculas/minúsculas e com
-# variações aceitas (uma frase ou uma lista de frases alternativas).
 def _norm(t):
     t = unicodedata.normalize("NFD", t or "").encode("ascii", "ignore").decode()
     return re.sub(r"\s+", " ", t.lower())
 
 
-def _frases(frase):
-    return [frase] if isinstance(frase, str) else list(frase)
-
-
-def _conta(page, frase):
-    txt = _norm(chat_text(page))
-    return sum(txt.count(_norm(f)) for f in _frases(frase))
-
-
-def _cauda(page, n=500):
-    return re.sub(r"\s+", " ", chat_text(page)[-n:]).strip()
-
-
-def aguardar_aumento(page, frase, antes, timeout=60):
-    fim = time.time() + timeout
-    while time.time() < fim:
-        if _conta(page, frase) > antes:
-            return
-        time.sleep(1)
-    raise TimeoutError(f"O bot não respondeu '{_frases(frase)[0]}'. Últimas mensagens do chat: ...{_cauda(page)}")
-
-
-def passo(page, frase, acao, timeout=60, alternativa=None):
-    """Executa `acao` e espera o bot responder `frase`. Se falhar, tenta alternativa."""
-    for tentativa in range(2):
-        antes = _conta(page, frase)
-        try:
-            acao()
-            aguardar_aumento(page, frase, antes, min(timeout, 30))
-            return
-        except Exception:
-            if tentativa == 0:
-                try:
-                    enviar(page, "Olá")
-                    time.sleep(3)
-                except Exception:
-                    pass
-                if alternativa:
-                    try:
-                        alternativa()
-                        aguardar_aumento(page, frase, antes, timeout)
-                        return
-                    except Exception:
-                        pass
-                continue
-            if not alternativa:
-                raise
-            alternativa()
-            aguardar_aumento(page, frase, antes, timeout)
-            return
-
-
 def consultar_rc(page, rc):
-    # 1. Envia "Olá" para acordar o bot e garante que o menu principal apareceu antes de prosseguir
+    # 1. Acorda o bot e garante que o menu principal apareceu
     enviar(page, "Olá")
     
     inicio_menu = time.time()
     menu_ok = False
-    while time.time() - inicio_menu < 25:
+    while time.time() - inicio_menu < 20:
         txt = _norm(chat_text(page))
-        if "como posso te ajudar" in txt or "como posso ajudar" in txt or "how can i help" in txt:
+        if any(k in txt for k in ["como posso te ajudar", "como posso ajudar", "how can i help", "bem-vindo novamente"]):
             menu_ok = True
             break
-        time.sleep(1.5)
+        time.sleep(1)
         
     if not menu_ok:
-        # Se não estabilizou no menu principal, tenta mais uma vez forçando pelo método seguro
-        passo(page, ("Como posso te ajudar", "Como posso ajudar", "How can I help"), lambda: enviar(page, "Olá"))
-    
-    time.sleep(2) # Pausa de estabilização do render do Teams
-    
-    # 2. Clica em "Status de documentos" de forma segura
-    passo(page, ("Qual tipo de documento", "Qual o tipo de documento", "What type"),
-          lambda: clicar(page, r"Status de documentos"),
-          alternativa=lambda: enviar(page, "Status de documentos"))
-          
-    time.sleep(2) # Pausa para o bot carregar as opções de documentos (Reserva, RC, Pedido)
-          
-    # 3. Clica na opção "RC"
-    passo(page, ("Digite o número da sua RC", "número da sua RC", "número da RC", "Informe o número", "Enter your"),
-          lambda: clicar(page, r"^\s*RC\s*$"),
-          alternativa=lambda: enviar(page, "RC"))
+        enviar(page, "Menu")
+        time.sleep(2)
 
-    # Validação rigorosa garantindo que o bot realmente pediu o número da RC antes de digitar
+    time.sleep(1.5)
+
+    # 2. Clica em "Status de documentos" (com fallback seguro por texto)
+    clicar_botao_ou_enviar(page, r"Status de documentos", "Status de documentos")
+    time.sleep(2.5)
+
+    # 3. Clica na opção "RC"
+    clicar_botao_ou_enviar(page, r"^\s*RC\s*$", "RC")
+    
+    # Valida se o bot pediu o número da RC com timeout rígido de 15 segundos
     inicio_espera = time.time()
-    rc_solicitada = False
-    while time.time() - inicio_espera < 20:
+    rc_pedida = False
+    while time.time() - inicio_espera < 15:
         txt = _norm(chat_text(page))
         if any(k in txt for k in ["numero da sua rc", "informe o numero", "enter your", "rc"]):
-            rc_solicitada = True
+            rc_pedida = True
             break
         time.sleep(1)
 
-    if not rc_solicitada:
-        # Força o envio direto por texto caso o botão de clique estivesse indisponível na interface
+    if not rc_pedida:
         enviar(page, "RC")
         time.sleep(2)
 
-    # 4. Envia o número da RC específica com segurança
-    passo(page, ("Digite o número do item", "número do item", "item number"), lambda: enviar(page, rc))
-    time.sleep(2)
+    time.sleep(1.5)
 
-    # 5. Pede "Todos" os itens do requerimento
-    antes_ok = _conta(page, ("Perfeito, aguarde", "Perfeito", "Please wait"))
+    # 4. Envia o número da RC específica
+    enviar(page, rc)
+    time.sleep(2.5)
+
+    # 5. Envia "Todos" e monitora a chegada dos itens com limite estrito de tempo
     antes_fim = chat_text(page).count(FIM_ITEM)
     enviar(page, "Todos")
-    
-    try:
-        aguardar_aumento(page, ("Perfeito, aguarde", "Perfeito"), antes_ok, 30)
-    except Exception:
-        pass
 
-    # Espera os itens chegarem e o número parar de crescer por ~8 s
-    fim, ultimo, desde = time.time() + 180, -1, time.time()
+    # Aguarda os itens chegarem e o contador estabilizar (com timeout máximo de 90 segundos para evitar travamento eterno)
+    fim = time.time() + 90
+    ultimo, desde = -1, time.time()
+    
     while time.time() < fim:
         texto = chat_text(page)
         n = texto.count(FIM_ITEM)
         if n > antes_fim:
             if n != ultimo:
                 ultimo, desde = n, time.time()
-            elif time.time() - desde >= 8:
+            elif time.time() - desde >= 6:  # Se estabilizou por 6 segundos, conclui com sucesso
                 return texto
         time.sleep(1.5)
         
+    # Verificação de resgate final
     texto_final = chat_text(page)
     if rc in texto_final and len(texto_final) > 200:
         return texto_final
         
-    raise TimeoutError("O bot não devolveu os itens a tempo ou a sessão travou no meio.")
+    raise TimeoutError("Tempo limite esgotado: o bot travou ou não retornou os itens da RC a tempo.")
 
 
 # ---------- Supabase ----------
@@ -288,12 +238,11 @@ def main():
 
         for idx, rc in enumerate(rcs):
             sucesso_rc = False
-            # Tenta até 2 vezes por RC: se a primeira falhar, faz um refresh completo (do zero)
+            # Tenta até 2 vezes por RC: se a primeira falhar ou travar, faz um refresh completo (recarrega a página)
             for tentativa_rc in range(2):
                 try:
-                    # Se for a segunda tentativa (retry), recarrega a página para limpar o chat do zero
                     if tentativa_rc > 0:
-                        print(f"RC {rc}: Tentando novamente com recarregamento (refresh) do chat...")
+                        print(f"RC {rc}: Realizando refresh e tentando novamente...")
                         abrir_chat(page)
                         time.sleep(3)
 
@@ -316,7 +265,7 @@ def main():
 
             time.sleep(2)
 
-        save_state(ctx.storage_state())  # renova a sessão para a próxima execução
+        save_state(ctx.storage_state())
         browser.close()
 
     status = "ok" if not erros else ("parcial" if total else "erro")
