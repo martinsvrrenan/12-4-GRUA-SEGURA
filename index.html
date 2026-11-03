@@ -322,14 +322,22 @@ html[data-theme=dark] .bdg{background:#222d45;color:#c9d3e8;border-color:#34405c
  </section>
 
  <section id="t3" class="hide">
-  <div class="card" id="imp-card">
-   <b>Importar planilha (.xlsx)</b>
-   <p>Use o arquivo <i>pontos_grua_segura_importacao.xlsx</i> (aba “Pontos”). Os dados entram no projeto aberto.</p>
-   <input type="file" id="fi" accept=".xlsx,.xls,.csv">
-   <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="rep" style="width:auto"> Substituir todos os dados deste projeto</label>
-   <p id="pv"></p><button class="p hide" id="imp">Importar</button>
+  <div class="card" id="cad-card">
+   <div class="evh"><b>Cadastro</b><small>pontos e desenhos do projeto aberto</small></div>
+   <div id="imp-card">
+    <b>Importar planilha (.xlsx)</b>
+    <p>Use o arquivo <i>pontos_grua_segura_importacao.xlsx</i> (aba “Pontos”). Os dados entram no projeto aberto.</p>
+    <input type="file" id="fi" accept=".xlsx,.xls,.csv">
+    <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="rep" style="width:auto"> Substituir todos os dados deste projeto</label>
+    <p id="pv"></p><button class="p hide" id="imp">Importar</button>
+   </div>
+   <div class="dsec"><b>Exportar</b><p>Baixa todos os pontos cadastrados neste projeto em Excel.</p><button class="p" id="exp">Exportar para Excel</button></div>
   </div>
-  <div class="card"><b>Exportar</b><p>Baixa todos os pontos cadastrados neste projeto em Excel.</p><button class="p" id="exp">Exportar para Excel</button></div>
+  <div class="card" id="supd-card">
+   <div class="evh"><b>Suprimentos</b><small>itens, RC e pedidos do projeto aberto</small></div>
+   <p>Importe itens de um arquivo (Excel, Word, PDF ou imagem) ou baixe a lista de itens em Excel.</p>
+   <div class="bar"><button class="p hide" id="sImp">Importar (Excel, Word, PDF)</button><button id="sExp">Exportar Excel</button></div>
+  </div>
  </section>
 
  <section id="t5" class="hide">
@@ -2085,13 +2093,13 @@ const sec = document.createElement("section"); sec.id = "t7"; sec.className = "h
 const nb = document.createElement("button"); nb.dataset.t = "t7"; nb.dataset.r = "suprimentos"; nb.innerHTML = '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/></svg><span>Suprimentos</span>';
 nb.onclick = () => { const id = proj ? proj.id : lastProjId; if (id) location.hash = `#/projeto/${id}/suprimentos`; }; $("nav").appendChild(nb);
 const _ap = abrirProjeto;
-abrirProjeto = async function (id, tab, seq) { await _ap(id, tab, seq); if (proj && proj.id === id && tab === "suprimentos") { if (canProj) await sync(true); renderSup(); } };
+abrirProjeto = async function (id, tab, seq) { await _ap(id, tab, seq); { const bi = $("#sImp"); if (bi) bi.classList.toggle("hide", !canProj); } if (proj && proj.id === id && tab === "suprimentos") { if (canProj) await sync(true); renderSup(); } };
 const pontoDe = i => i.ponto_id != null ? rows.find(r => String(r.id) === String(i.ponto_id)) : null;
 const sitTxt = i => atras(i) ? "Atrasado" : semPrazo(i) ? "Sem prazo" : SIT[sitOf(i)];
 function renderSup() {
   const ar = [...new Set(rows.map(r => r.area).filter(Boolean))].sort(), tp = [...new Set(rows.map(r => r.tipo_projeto).filter(Boolean))].sort(), op = (a, f) => a.map(x => `<option ${x === f ? "selected" : ""}>${esc(x)}</option>`).join("");
-  sec.innerHTML = `<div class="card"><div class="bar"><select id="sFs"><option value="">Todas as situações</option>${op([...SIT, "Atrasado", "Sem prazo"], F.sit)}</select><select id="sFa"><option value="">Todas as áreas</option>${op(ar, F.area)}</select><select id="sFt"><option value="">Todos os tipos</option>${op(tp, F.tipo)}</select><input id="sFq" type="search" placeholder="Buscar código SAP, Sphera ou descrição…" value="${esc(F.q)}"></div>
-  <div class="bar">${canProj ? '<button class="p" id="sNew">+ Item</button><button class="p" id="sImp">Importar (Excel, Word, PDF)</button>' : ""}<button id="sExp">Exportar Excel</button>${canProj ? '<button id="sRcs">Copiar RCs</button>' : ""}</div></div>
+  sec.innerHTML = `<div class="card"><div class="bar"><select id="sFs"><option value="">Todas as situações</option>${op([...SIT, "Atrasado", "Sem prazo"], F.sit)}</select><select id="sFa"><option value="">Todas as áreas</option>${op(ar, F.area)}</select><input id="sFq" type="search" placeholder="Buscar código SAP, Sphera ou descrição…" value="${esc(F.q)}"></div>
+  <div class="bar">${canProj ? '<button class="p" id="sNew">+ Item</button><button id="sRcs">Copiar RCs</button>' : ""}</div></div>
   <div class="card" id="sB"><div class="evh"><b>Orçamento e gasto do projeto</b><small>Valores dos itens em R$ (SAP) · orçamento liberado em US$</small></div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0 12px"><label>Orçamento disponível (US$)<input id="sBu" type="number" min="0" step="any" value="${proj.orcamento_usd ?? ""}" ${canProj ? "" : "disabled"}></label>
   <label>Câmbio (R$ por US$)<input id="sBc" type="number" min="0" step="any" value="${proj.cambio_usd_brl ?? ""}" ${canProj ? "" : "disabled"}></label><label>Orçamento em R$<input id="sBr" disabled></label></div>
@@ -2104,10 +2112,11 @@ function renderSup() {
   <div class="cards" id="sK"></div><div class="grid"><div class="card"><b>Funil RC → Pedido → Entrega</b><div class="ch"><canvas id="c5"></canvas></div></div>
   <div class="card"><div class="evh"><b>Atenção</b><label style="margin:0">Sem RC há mais de <input id="sX" type="number" min="1" value="${X}" style="width:80px"> dias</label></div><div id="sA"></div></div></div>
   <div class="card tw"><table class="st"><thead><tr><th>Código SAP</th><th>Sphera</th><th>Descrição</th><th>Qtd</th><th>Valor unit.</th><th>Valor total</th><th>Situação</th><th>RC</th><th>Pedido</th><th>Prazo</th><th>Recebido</th>${xCampos().map(p => `<th>${esc(p.nome)}</th>`).join("")}</tr></thead><tbody id="sT"></tbody></table></div><small id="sC"></small>`;
-  ["sFs:sit", "sFa:area", "sFt:tipo"].forEach(x => { const [i, k] = x.split(":"); $("#" + i).onchange = e => { F[k] = e.target.value; pinta(); }; }); $("#sFq").oninput = e => { F.q = e.target.value; pinta(); };
-  $("#sX").onchange = e => { X = Math.max(1, +e.target.value || 15); pinta(); }; $("#sExp").onclick = exporta; if ($("#sRcs")) $("#sRcs").onclick = copiaRcs;
-  if (canProj) { $("#sNew").onclick = () => editaItem(null); $("#sImp").onclick = impOpen; $("#sBu").onchange = $("#sBc").onchange = salvaOrc; $("#sBauto").onchange = e => { if (!e.target.checked) { try { if (localStorage.getItem(cambManKey()) == null) localStorage.setItem(cambManKey(), $("#sBc").value); } catch (x) {} } cambSetAuto(e.target.checked); cambAplica().then(() => { if (canProj && !e.target.checked) salvaOrc(); }); }; } pinta(); pintaOrc(); cambAplica();
+  ["sFs:sit", "sFa:area"].forEach(x => { const [i, k] = x.split(":"); $("#" + i).onchange = e => { F[k] = e.target.value; pinta(); }; }); $("#sFq").oninput = e => { F.q = e.target.value; pinta(); };
+  $("#sX").onchange = e => { X = Math.max(1, +e.target.value || 15); pinta(); }; if ($("#sRcs")) $("#sRcs").onclick = copiaRcs;
+  if (canProj) { $("#sNew").onclick = () => editaItem(null); $("#sBu").onchange = $("#sBc").onchange = salvaOrc; $("#sBauto").onchange = e => { if (!e.target.checked) { try { if (localStorage.getItem(cambManKey()) == null) localStorage.setItem(cambManKey(), $("#sBc").value); } catch (x) {} } cambSetAuto(e.target.checked); cambAplica().then(() => { if (canProj && !e.target.checked) salvaOrc(); }); }; } pinta(); pintaOrc(); cambAplica();
 }
+$("#sExp").onclick = exporta; $("#sImp").onclick = impOpen;
 const _renderSup = renderSup;
 renderSup = function () { _renderSup(); if (canProj && $("#gNew")) $("#gNew").onclick = () => editaGasto(null); pintaGas();
   const id = proj && proj.id; loadGas().then(() => { if (proj && proj.id === id && $("#c7")) { pintaOrc(); pintaGas(); } }); };
@@ -2974,12 +2983,30 @@ function pickOrc(){cfgLoad();if(!ORC.length)return alert("Os cards do orçamento
  const d=dlg(`<h3>Cards do orçamento</h3><small>Marque o que deve aparecer abaixo de Orçamento e câmbio neste projeto.</small>${ORC.map(x=>{const[l,v]=lb(x);return`<label class="gx-ck"><input type="checkbox" value="${E(x.k)}" ${cur.includes(x.k)?"checked":""}>${E(l)} <small>${E(v)}</small></label>`}).join("")}${bar}`);
  d.onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;if(b.dataset.a==="ok"){CF.o=[...d.querySelectorAll("input:checked")].map(i=>i.value);cfgSave();d.close();renderOrc()}else d.close()}}
 function applySup(){cfgLoad();renderOrc();const a=$("#sV2"),b=$("#sK");a&&a.classList.toggle("gx-aslist",CF.dv==="l");b&&b.classList.toggle("gx-aslist",CF.pv==="l")}
+/* ---- Suprimentos › Itens: áreas em botões e lista de situações no visual do app ---- */
+const DOT={"Sem RC":"#b0b7c3","RC emitida":"#f2a93b","Pedido emitido":"#3b82c4","Entregue":"#2e9e5b","Atrasado":"#d64545","Sem prazo":"#d9822b"};
+function filtrosItens(){const sa=$("#sFa"),ss=$("#sFs");if(!sa||!ss)return;const card=sa.closest(".card");
+ if(card&&!card.querySelector(".gxar")){const g=document.createElement("div");g.className="seg gxsg gxar";g.setAttribute("role","group");g.setAttribute("aria-label","Área");
+  const draw=()=>{g.innerHTML=[...sa.options].map(o=>`<button type="button" data-v="${E(o.value)}" class="${o.value===sa.value?"on":""}" aria-pressed="${o.value===sa.value}">${E(o.value?o.textContent:"Todas")}</button>`).join("")};
+  g.onclick=e=>{const b=e.target.closest("button[data-v]");if(!b||b.dataset.v===sa.value)return;sa.value=b.dataset.v;sa.dispatchEvent(new Event("change",{bubbles:true}))};
+  sa.addEventListener("change",draw);draw();card.prepend(g)}
+ if(!ss.previousElementSibling||!ss.previousElementSibling.classList.contains("gx-dd")){const w=document.createElement("div");w.className="gx-dd";
+  const lab=()=>{const o=ss.selectedOptions[0];return o?o.textContent:""},dot=v=>DOT[v]?`<i style="background:${DOT[v]}"></i>`:"";
+  w.innerHTML=`<button type="button" class="gx-ddb" aria-haspopup="listbox" aria-expanded="false"></button><div class="gx-ddl" role="listbox"></div>`;
+  const bt=w.firstChild,ls=w.lastChild,paint=()=>{bt.innerHTML=`${dot(ss.value)}<span>${E(lab())}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`;
+   ls.innerHTML=[...ss.options].map(o=>`<button type="button" role="option" data-v="${E(o.value)}" class="${o.value===ss.value?"on":""}" aria-selected="${o.value===ss.value}">${dot(o.value)}<span>${E(o.textContent)}</span></button>`).join("")};
+  const fecha=()=>{w.classList.remove("open");bt.setAttribute("aria-expanded","false")};
+  bt.onclick=e=>{e.stopPropagation();const a=!w.classList.contains("open");document.querySelectorAll(".gx-dd.open").forEach(x=>x.classList.remove("open"));w.classList.toggle("open",a);bt.setAttribute("aria-expanded",String(a))};
+  ls.onclick=e=>{const o=e.target.closest("button[data-v]");if(!o)return;ss.value=o.dataset.v;ss.dispatchEvent(new Event("change",{bubbles:true}));fecha()};
+  w.addEventListener("keydown",e=>{if(e.key==="Escape"){fecha();bt.focus()}});
+  ss.addEventListener("change",paint);paint();ss.before(w)}}
+document.addEventListener("click",e=>{if(!e.target.closest(".gx-dd"))document.querySelectorAll(".gx-dd.open").forEach(x=>{x.classList.remove("open");const b=x.querySelector(".gx-ddb");b&&b.setAttribute("aria-expanded","false")})});
 function hookSup(){const t=$("#t7");if(!t||!t.querySelector(".stb"))return;const sv=$("#sV"),sv2=$("#sV2");if(!sv||!sv2)return;
  const hd=$("#sB>.evh");if(hd&&!hd.querySelector('[data-gm="orc"]'))hd.insertAdjacentHTML("beforeend",gxMb("orc"));
  const sd=$("#sVd>summary");if(sd&&!sd.querySelector('[data-gm="det"]'))sd.insertAdjacentHTML("beforeend",gxMb("det"));
  const sp=$("#t7 .gx-prz>summary");if(sp&&!sp.querySelector('[data-gm="prz"]'))sp.insertAdjacentHTML("beforeend",gxMb("prz"));
  if(!sv.__mo){const mo=new MutationObserver(()=>{captureOrc();renderOrc()});sv.__mo=mo;captureOrc();obsOrc(mo)}
- applySup()}
+ applySup();filtrosItens()}
 function menu(sec){cfgLoad();const T={k:"Indicadores principais",ind:"Todos os indicadores",evo:"Evolução e andamento",orc:"Orçamento e gasto do projeto",det:"Detalhamento do orçamento",prz:"Todos os indicadores de prazo"}[sec],B=(a,t)=>`<button class="gx-mi" data-a="${a}">${t}</button>`;
  const it=sec==="orc"?B("so","Escolher cards"):sec==="det"?B("vdt",CF.dv==="l"?"Visualizar em cards":"Visualizar em lista"):sec==="prz"?B("vpz",CF.pv==="l"?"Visualizar em cards":"Visualizar em lista"):sec==="k"?B("sk","Escolher indicadores"):sec==="ind"?B("vis",CF.vis==="l"?"Visualizar em cards":"Visualizar em lista")+B("st","Escolher indicadores"):B("dt","Datas da etapa")+B("se","Cards do gráfico")+B("fy","Anos fiscais exibidos")+B("per","Período do projeto e ano fiscal")+B("cu","Período personalizado do gráfico");
  const d=dlg(`<h3>${T}</h3>${it}${B("rs","Restaurar padrão")}<div class="bar" style="margin-top:12px"><button type="button" data-a="x">Fechar</button></div>`);
@@ -3450,6 +3477,24 @@ html[data-theme] .gx-aslist .kpi>span{grid-column:1;grid-row:1;font-size:14px;fo
 html[data-theme] .gx-aslist .kpi b,html[data-theme] .gx-aslist .kpi b.sm{grid-column:2;grid-row:1;font-size:18px!important;letter-spacing:0;padding:0;text-align:right;white-space:nowrap}
 html[data-theme] .gx-aslist .kpi small,html[data-theme] .gx-aslist .kpi .pb{grid-column:1/-1;margin-top:0}
 #sV2.gx-aslist .kpi,#sV .kpi{cursor:pointer}
+/* Dados: cartões Cadastro e Suprimentos */
+#cad-card .dsec{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+#supd-card p{margin:0 0 10px}
+/* Itens: áreas em botões e lista de situações no visual do app */
+#sFs,#sFa{display:none!important}
+html[data-theme] .gxar{display:flex;flex-wrap:wrap;margin:0 0 12px}
+.gx-dd{position:relative;flex:1 1 200px;max-width:420px;min-width:0}
+.gx-ddb{display:flex;align-items:center;gap:8px;width:100%;min-height:42px;padding:8px 12px;text-align:left;font:inherit;font-weight:600;color:var(--txt);background:var(--in,#fff);border:1px solid var(--bd,#cdd4e1);border-radius:12px;cursor:pointer}
+.gx-ddb>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gx-ddb svg{width:18px;height:18px;flex:none;color:var(--mut);transition:transform .15s}
+.gx-dd.open .gx-ddb{border-color:var(--yel,#f7b928);box-shadow:0 0 0 3px #f7b9283a}.gx-dd.open .gx-ddb svg{transform:rotate(180deg)}
+.gx-dd i{width:9px;height:9px;border-radius:50%;flex:none}
+.gx-ddl{display:none;position:absolute;z-index:40;left:0;right:0;top:calc(100% + 6px);max-height:min(320px,55vh);overflow:auto;padding:6px;background:var(--s,#fff);border:1px solid var(--bd,#d8e0ee);border-radius:14px;box-shadow:0 18px 44px #0006}
+.gx-dd.open .gx-ddl{display:block}
+html[data-theme] .gx-ddl button{display:flex;align-items:center;gap:8px;width:100%;min-height:40px;padding:9px 10px;text-align:left;font-weight:600;color:var(--txt);background:transparent;border:0;border-radius:10px}
+html[data-theme] .gx-ddl button:hover{background:var(--hov,#ffffff14)}
+html[data-theme] .gx-ddl button.on{background:#f7b92826;color:var(--yel2,#b8860b)}
+@media(max-width:700px){.gx-dd{flex:1 1 100%;max-width:100%}}
 
 /* Abertura do projeto: a tela troca na hora; enquanto os dados chegam, barra de progresso e bloco "esqueleto" */
 body.carregando main>section,body.carregando #pgH{display:none!important}
