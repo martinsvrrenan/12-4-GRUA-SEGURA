@@ -3152,7 +3152,7 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
 <script id="gx-exiros">
 /* ===== Exiros: status das RCs (bot do Teams) na aba Suprimentos + botão do administrador ===== */
 (function () {
-  let EX = [], LOG = null, LOK = null, IDX = new Map(), OK = true, busy = false, poll = null, MSG = "";
+  let EX = [], LOG = null, LOK = null, IDX = new Map(), OK = true, busy = false, parando = false, poll = null, MSG = "";
   const COLS = "id,rc_item,rc_numero,item,status,status_descricao,material_codigo,material_descricao,unidade,planta,data_necessidade,quantidade,rc_exiros,data_criacao_rc,data_liberacao_rc,comprador_codigo,comprador_nome,planejador,licitacao_numero,licitacao_status,licitacao_abertura,licitacao_encerramento,consultado_em";
   const supL = () => (window.gxSup ? window.gxSup.SUP : []);
   const norm = v => String(v == null ? "" : v).split("-")[0].replace(/\D/g, "").replace(/^0+/, "");
@@ -3203,9 +3203,11 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
     let b = document.getElementById("exBtn");
     if (papel !== "admin") { if (b) b.remove(); return; }
     const ref = document.getElementById("sRcs"); if (!ref) return;
-    if (!b) { ref.insertAdjacentHTML("afterend", '<button class="p" id="exBtn" type="button"></button>'); b = document.getElementById("exBtn"); b.onclick = dispara; }
-    const ocupado = busy || rodando();
-    b.disabled = ocupado; b.textContent = ocupado ? "Atualizando…" : "Atualizar RCs deste projeto"; b.title = ocupado && rodando() && !dele(LOG) ? "Há uma atualização em andamento em outro projeto" : "Consulta no Exiros só as RCs deste projeto";
+    if (!b) { ref.insertAdjacentHTML("afterend", '<button class="p" id="exBtn" type="button"></button>'); b = document.getElementById("exBtn"); b.onclick = clique; }
+    const ocupado = busy || rodando(), pode = ocupado && (busy || dele(LOG)); // pode parar: a atualização foi iniciada aqui ou é deste projeto (ou de todos)
+    b.disabled = parando || (ocupado && !pode); b.className = pode ? "d" : "p";
+    b.textContent = parando ? "Parando…" : pode ? "Parar atualização" : ocupado ? "Atualizando…" : "Atualizar RCs deste projeto";
+    b.title = pode ? "Interrompe a atualização em andamento (as RCs já consultadas ficam salvas)" : ocupado ? "Há uma atualização em andamento em outro projeto" : "Consulta no Exiros só as RCs deste projeto";
   }
   function card() {
     const sec = document.getElementById("t7"); if (!sec || !proj) return;
@@ -3232,6 +3234,21 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
     if (!proj || proj.id !== id) return;
     OK = !(a.error || b.error || c.error); EX = a.error ? [] : (a.data || []); LOG = b.error ? null : ((b.data || [])[0] || null); LOK = c.error ? null : ((c.data || [])[0] || null); IDX = porRc();
     card(); decora();
+  }
+  function clique() { if (busy || rodando()) parar(); else dispara(); } // botão alterna: atualizar / parar
+  async function parar() {
+    if (papel !== "admin" || parando) return;
+    parando = true; MSG = "Parando a atualização…"; card();
+    try {
+      const { data, error } = await sb.functions.invoke("disparar-exiros", { body: { acao: "parar" } });
+      let det = data && data.erro;
+      if (error && !det) { try { det = (await error.context.json()).erro; } catch (e) { det = error.message; } }
+      if (det) throw new Error(det);
+      clearInterval(poll); busy = false;
+      MSG = data && data.canceladas ? "Atualização interrompida. As RCs já consultadas ficaram salvas." : "Nenhuma atualização em andamento no GitHub.";
+      await carrega();
+    } catch (e) { MSG = "Não foi possível parar: " + (e.message || e); }
+    parando = false; card();
   }
   async function dispara() {
     if (papel !== "admin" || busy || !proj) return;
