@@ -415,6 +415,7 @@ html[data-theme=dark] .bdg{background:#222d45;color:#c9d3e8;border-color:#34405c
  <label>Quantidade de folhas<input name="folhas" type="number" min="1" step="1" value="1" inputmode="numeric"></label>
  <label>Desenho no SAP<span class="cbx"><input type="checkbox" name="desenho_sap"><em>Desenho cadastrado no SAP</em></span></label>
  <div class="w" id="fnPrev"></div>
+ <div class="w sec hide" id="fEtxT">Etapas personalizadas</div><div class="w hide" id="fEtx"></div>
  <div class="w sec">Suprimentos</div>
  <label>Nº mestre Sphera (SF)<input name="sphera" autocomplete="off"></label>
  <label>Código SAP<input name="codigo_sap" autocomplete="off"></label>
@@ -447,7 +448,7 @@ function sheetNames(fn, n) {
 }
 const fnHtml = r => { if (!r.file_name) return ""; const n = Math.max(1, parseInt(r.folhas) || 1), ns = sheetNames(r.file_name, n);
   return `<span class="fn"><span class="n">${esc(ns[0] || r.file_name)}</span><span class="c">${n} ${n > 1 ? "folhas" : "folha"}</span>${ns.slice(1).map(x => `<span class="n x">${esc(x)}</span>`).join("")}</span>`; };
-const expRow = r => { const o = {}; for (const k in MAP) o[k] = r[MAP[k]]; o["Desenho no SAP"] = r.desenho_sap ? "Sim" : "Não"; if (r.file_name) o["Nomes das folhas"] = sheetNames(r.file_name, r.folhas).join(", "); return o; };
+const expRow = r => { const o = {}; for (const k in MAP) o[k] = r[MAP[k]]; o["Desenho no SAP"] = r.desenho_sap ? "Sim" : "Não"; if (r.file_name) o["Nomes das folhas"] = sheetNames(r.file_name, r.folhas).join(", "); cusList().forEach(x => { o["Etapa: " + x.nome] = cusOk(r, x.k) ? "Sim" : "Não"; }); return o; };
 let hasF = true, hasS = true, hasD = true;
 const SQLS = "Para salvar o código SAP, crie a coluna no Supabase (SQL Editor):\nalter table pontos add column codigo_sap text;";
 const SQLD = "Para salvar \"Desenho no SAP\", crie a coluna no Supabase (SQL Editor):\nalter table pontos add column desenho_sap boolean not null default false;";
@@ -780,6 +781,8 @@ function stack(id, field, d, horiz) {
       scales: { x: { stacked: true, beginAtZero: true, ticks: horiz ? {} : tk }, y: { stacked: true, beginAtZero: true, ticks: horiz ? tk : {} } }, plugins: { legend: { position: "bottom" } } } });
 }
 const cfgK = () => window.etapasCfg ? window.etapasCfg() : ["lev", "des", "sph", "sap"]; // etapas cadastradas em Parâmetros (vazio = nenhuma)
+const cusList = () => window.etapasX ? window.etapasX() : []; // etapas PERSONALIZADAS ativas do projeto aberto: [{ k, nome, cor }]
+const cusOk = (r, k) => !!(r && r.etapas_extra && r.etapas_extra[k]); // ponto com a etapa personalizada k marcada como concluída
 let unit = "l"; // "l" = linhas de projeto | "p" = pontos de adequação (soma das quantidades)
 const wt = r => unit === "p" ? (Number(r.qtd) > 0 ? Number(r.qtd) : 1) : 1;
 const wsum = a => a.reduce((t, r) => t + wt(r), 0);
@@ -792,7 +795,7 @@ function dash() {
   const ks = cfgK(), on = k => ks.includes(k);
   const card = ([l, x], off) => `<div class="card kpi${off ? " hide" : ""}" style="margin:0"><b>${pct(x, n)}</b><span>${l}</span><small><em>${fmt(x)} ${u} realizados</em><br><i>${fmt(tot - x)} faltam</i> · de ${fmt(tot)}</small><div class="pb"><u style="width:${Math.round(100 * x / n)}%"></u></div></div>`;
   const first = `<div class="card kpi" style="margin:0"><b>${fmt(tot)}</b><span>${unit === "p" ? "Pontos de adequação" : "Linhas de projeto"}</span><div class="seg"><button data-u="l" class="${unit === "l" ? "on" : ""}">Linhas</button><button data-u="p" class="${unit === "p" ? "on" : ""}">Pontos</button></div></div>`;
-  const stv = { lev, proj: c(1), des: c(2), sph: c(3), sap: c(4) }, tp = ks.length ? Math.round(100 * ks.reduce((t, k) => t + stv[k], 0) / (ks.length * n)) : null;
+  const stv = { lev, proj: c(1), des: c(2), sph: c(3), sap: c(4), ...Object.fromEntries(cusList().map(x => [x.k, wsum(d.filter(r => cusOk(r, x.k)))])) }, tp = ks.length ? Math.round(100 * ks.reduce((t, k) => t + stv[k], 0) / (ks.length * n)) : null;
   const andam = tp === null ? `<div class="card kpi" style="margin:0"><b>—</b><span>Andamento total</span><small><em>nenhuma etapa cadastrada</em><br>Cadastre em Parâmetros › Etapas do fluxo</small><div class="pb"><u style="width:0%"></u></div></div>`
     : `<div class="card kpi" style="margin:0"><b>${tp}%</b><span>Andamento total</span><small><em>média das etapas ativas do projeto</em><br><i>faltam ${100 - tp}%</i></small><div class="pb"><u style="width:${tp}%"></u></div></div>`;
   // Equipamentos (pontes etc.): levantado = todas as linhas do equipamento levantadas
@@ -806,14 +809,14 @@ function dash() {
   const dCards = `<div class="card kpi" style="margin:0"><b>${dT}</b><span>Desenhos cadastrados (com nome)</span><small><em>${fol(dw)} folhas no total</em><br>${d.length - dT} linhas ainda sem desenho</small></div>`
     + `<div class="card kpi" style="margin:0"><b>${dS}</b><span>Desenhos cadastrados no SAP</span><small><em>${fol(dwS)} folhas · ${dT ? Math.round(100 * dS / dd) : 0}% dos ${dT} desenhos</em><br><i>${dN} faltam</i></small><div class="pb"><u style="width:${dT ? Math.round(100 * dS / dd) : 0}%"></u></div></div>`
     + `<div class="card kpi" style="margin:0"><b>${dN}</b><span>Desenhos não cadastrados no SAP</span><small><em>${fol(dwN)} folhas</em><br>${dT ? Math.round(100 * dN / dd) : 0}% dos desenhos</small><div class="pb"><u style="width:${dT ? Math.round(100 * dN / dd) : 0}%;background:#d9822b"></u></div></div>`;
-  $("#kpis").innerHTML = first + andam + card(["Levantamento", lev], !on("lev")) + equip + [["Com desenho", c(2), "des"], ["Cadastrados no Sphera", c(3), "sph"], ["Cadastrados no SAP", c(4), "sap"], ["Em projeto", c(1), "proj"]].map(([l, x, k]) => card([l, x], !on(k))).join("") + dCards;
+  $("#kpis").innerHTML = first + andam + card(["Levantamento", lev], !on("lev")) + equip + [["Com desenho", c(2), "des"], ["Cadastrados no Sphera", c(3), "sph"], ["Cadastrados no SAP", c(4), "sap"], ["Em projeto", c(1), "proj"], ...cusList().map(x => [esc(x.nome), stv[x.k], x.k])].map(([l, x, k]) => card([l, x], !on(k))).join("") + dCards;
   const dTab = (t, l, c) => l.length ? `<p style="margin:12px 0 4px"><span class="tag" style="--c:${c}">${t}</span> <small>${l.length} ${l.length > 1 ? "desenhos" : "desenho"} · ${fol(l)} folhas</small></p><div class="tw"><table class="st" style="min-width:560px"><thead><tr><th>Desenho (file_name)</th><th>Folhas</th><th>Área</th><th>Equipamento</th><th>Tipo</th></tr></thead><tbody>${l.map(r => `<tr><td class="h"><b>${esc(r.file_name)}</b></td><td data-l="Folhas"><div class="v">${Math.max(1, parseInt(r.folhas) || 1)}</div></td><td data-l="Área"><div class="v">${esc(r.area)}</div></td><td data-l="Equipamento"><div class="v">${esc(r.equipamento)}</div></td><td data-l="Tipo"><div class="v">${esc(r.tipo_projeto)}</div></td></tr>`).join("")}</tbody></table></div>` : `<p style="margin:12px 0 4px"><span class="tag" style="--c:${c}">${t}</span> <small>nenhum desenho</small></p>`;
   $("#dsapCnt").textContent = dT; $("#dsapN").textContent = `${dS} no SAP · ${dN} fora do SAP · clique para ver a lista`;
   $("#dsapL").innerHTML = dTab("Cadastrados no SAP", dwS, "#2e9e5b") + dTab("Não cadastrados no SAP", dwN, "#d9822b");
   document.querySelectorAll("#kpis .seg button").forEach(b => b.onclick = () => { unit = b.dataset.u; dash(); });
   stack("c1", "area", d); stack("c3", "tipo_projeto", d, true); evoDash(d);
   charts.c2?.destroy();
-  const FN = [["Levantamento", lev, "#f2a93b", "lev"], ["Em projeto", c(1), "#d9822b", "proj"], ["Desenho concluído+", c(2), "#3b82c4", "des"], ["No Sphera+", c(3), "#7a5cc7", "sph"], ["No SAP+", c(4), "#0e9aa7", "sap"]].filter(x => on(x[3]));
+  const FN = [["Levantamento", lev, "#f2a93b", "lev"], ["Em projeto", c(1), "#d9822b", "proj"], ["Desenho concluído+", c(2), "#3b82c4", "des"], ["No Sphera+", c(3), "#7a5cc7", "sph"], ["No SAP+", c(4), "#0e9aa7", "sap"], ...cusList().map(x => [x.nome, stv[x.k], x.cor, x.k])].filter(x => on(x[3]));
   charts.c2 = new Chart($("#c2"), { type: "bar", data: { labels: ["Total", ...FN.map(x => x[0])],
     datasets: [{ data: [tot, ...FN.map(x => x[1])], backgroundColor: ["#b0b7c3", ...FN.map(x => x[2])] }] },
     options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
@@ -851,7 +854,7 @@ async function fetchAll(t, eq) { // eq = filtros de igualdade opcionais, ex.: { 
 function evo(d, mode) {
   const set = new Set(d.map(r => r.id)), by = {}, ts = [];
   hist.forEach(h => { if (set.has(h.ponto_id)) { const t = new Date(h.created_at).getTime(); ts.push(t);
-    (by[h.ponto_id] = by[h.ponto_id] || []).push({ t, l: h.status_levantamento, s: ST.indexOf(h.status_projeto) }); } });
+    (by[h.ponto_id] = by[h.ponto_id] || []).push({ t, l: h.status_levantamento, s: ST.indexOf(h.status_projeto), x: h.etapas_extra || {} }); } });
   const now = new Date(), ends = [], labels = [], n = mode === "w" ? 12 : 6, f2 = x => String(x).padStart(2, "0");
   for (let i = n - 1; i >= 0; i--) {
     if (mode === "w") {
@@ -864,14 +867,15 @@ function evo(d, mode) {
     }
   }
   const rowsOut = ends.map(T => {
-    const t = T.getTime(); let lev = 0, proj = 0, des = 0, sph = 0, sap = 0, comp = 0;
+    const t = T.getTime(); let lev = 0, proj = 0, des = 0, sph = 0, sap = 0, comp = 0; const cx = {}; cusList().forEach(c => cx[c.k] = 0);
     for (const id of set) {
-      let l = "Pendente", st = 0;
-      for (const e of (by[id] || [])) { if (e.t <= t) { l = e.l; st = Math.max(0, e.s); } else break; }
+      let l = "Pendente", st = 0, ex = {};
+      for (const e of (by[id] || [])) { if (e.t <= t) { l = e.l; st = Math.max(0, e.s); ex = e.x || {}; } else break; }
+      cusList().forEach(c => { if (ex[c.k]) cx[c.k]++; });
       if (l === "Levantado") lev++; if (st >= 1) proj++; if (st >= 2) des++; if (st >= 3) sph++; if (st >= 4) sap++; if (st >= 5) comp++;
     }
     const prev = mode === "w" ? new Date(T.getFullYear(), T.getMonth(), T.getDate() - 7, 23, 59, 59, 999) : new Date(T.getFullYear(), T.getMonth(), 0, 23, 59, 59, 999);
-    return { lev, proj, des, sph, sap, comp, mov: ts.filter(x => x > prev.getTime() && x <= t).length };
+    return { lev, proj, des, sph, sap, comp, ...cx, mov: ts.filter(x => x > prev.getTime() && x <= t).length };
   });
   return { labels, rows: rowsOut, mode };
 }
@@ -905,11 +909,11 @@ function evoProj(d, key, pts, win, rng) {
   win = win || curWin(); rng = rng || {};
   const wf = r => pts ? (Number(r.qtd) > 0 ? Number(r.qtd) : 1) : 1, now = new Date(), tn = now.getTime(), DAY = 864e5, T0 = rng.ini != null ? rng.ini : PROJ.ini.getTime(), T1 = rng.fim != null ? rng.fim : PROJ.fim.getTime(), WA = win.a.getTime(), WB = win.b.getTime(), r1 = x => Math.round(x * 10) / 10;
   const keys = key === "tot" ? cfgK() : [key], LV = { proj: 1, des: 2, sph: 3, sap: 4, comp: 5 };
-  const okk = (k, l, st) => k === "lev" ? l === "Levantado" : st >= LV[k]; // andamento total = média das etapas ativas do projeto
+  const okk = (k, l, st, ex) => k === "lev" ? l === "Levantado" : /^x_/.test(k) ? !!(ex && ex[k]) : st >= LV[k]; // andamento total = média das etapas ativas do projeto
   const ids = new Map(d.map(r => [r.id, r])), by = {};
-  hist.forEach(h => { if (ids.has(h.ponto_id)) (by[h.ponto_id] = by[h.ponto_id] || []).push({ t: new Date(h.created_at).getTime(), l: h.status_levantamento, s: ST.indexOf(h.status_projeto) }); });
-  const at = t => { let n = 0; ids.forEach((r, id) => { let l = "Pendente", st = 0; for (const e of (by[id] || [])) { if (e.t <= t) { l = e.l; st = Math.max(0, e.s); } else break; } keys.forEach(k => { if (okk(k, l, st)) n += wf(r); }); }); return n / keys.length; };
-  const cur = d.reduce((t, r) => t + keys.filter(k => okk(k, r.status_levantamento, si(r))).length * wf(r), 0) / keys.length, tot = d.reduce((t, r) => t + wf(r), 0);
+  hist.forEach(h => { if (ids.has(h.ponto_id)) (by[h.ponto_id] = by[h.ponto_id] || []).push({ t: new Date(h.created_at).getTime(), l: h.status_levantamento, s: ST.indexOf(h.status_projeto), x: h.etapas_extra || {} }); });
+  const at = t => { let n = 0; ids.forEach((r, id) => { let l = "Pendente", st = 0, ex = {}; for (const e of (by[id] || [])) { if (e.t <= t) { l = e.l; st = Math.max(0, e.s); ex = e.x || {}; } else break; } keys.forEach(k => { if (okk(k, l, st, ex)) n += wf(r); }); }); return n / keys.length; };
+  const cur = d.reduce((t, r) => t + keys.filter(k => okk(k, r.status_levantamento, si(r), r.etapas_extra)).length * wf(r), 0) / keys.length, tot = d.reduce((t, r) => t + wf(r), 0);
   const started = tn >= T0, rate = started ? cur / Math.max(1, (Math.min(tn, T1) - T0) / DAY) : 0; // ritmo médio por dia desde o INÍCIO DO PROJETO
   const planAt = t => r1(tot * Math.min(1, Math.max(0, (t - T0) / (T1 - T0)))), projAt = t => r1(Math.min(tot, cur + rate * (t - tn) / DAY));
   // fins de mês que caem dentro da janela (ano fiscal ou duração total)
@@ -995,7 +999,7 @@ function evoDashProj(d) {
   $("#evn").textContent = `${win.label} (${dtBR(win.a)} a ${dtBR(win.b)}) · ano fiscal de ${fyRange(PROJ.fyM)}. ${nm[0]}: início ${dtBR(new Date(pr.T0))} · fim ${dtBR(new Date(pr.T1))}${rg.custom ? " (datas ajustadas)" : ""}. Projeto: ${dtBR(PROJ.ini)} a ${dtBR(PROJ.fim)}.${multi ? " O projeto atravessa mais de um ano fiscal: use o seletor para ver cada ano ou a duração total." : ""} Andamento total = média das etapas ativas do projeto. Projeção: ritmo médio desde a data de início mantido até a data fim (limitado ao total). Meta linear: avanço constante da data de início à data fim. O realizado dos meses anteriores depende do histórico registrado no app.`;
 }
 function evSync() { // o seletor só lista "Andamento total" e as etapas cadastradas em Parâmetros
-  const ks = cfgK(), el = $("#evS"), want = ks.length ? STG.filter(x => x[1] === "tot" || ks.includes(x[1])) : [], sig = want.map(x => x[1]).join(",");
+  const ks = cfgK(), el = $("#evS"), want = ks.length ? STG.filter(x => x[1] === "tot" || ks.includes(x[1])) : [], sig = want.map(x => x[1] + x[0]).join(",");
   if (el.dataset.sig === sig) return; el.dataset.sig = sig; const v = el.value;
   el.innerHTML = want.map(x => `<option value="${x[1]}">${x[0]}</option>`).join(""); el.value = want.some(x => x[1] === v) ? v : (want[0] ? want[0][1] : "");
 }
@@ -1013,8 +1017,8 @@ function evoDash(d) {
 }
 function evoDashHist(d) {
   const mode = $("#evP").value, e = evo(d, mode), R = e.rows, last = R[R.length - 1], prev = R[R.length - 2] || { lev: 0, proj: 0, des: 0, sph: 0, sap: 0, comp: 0 };
-  const ks = cfgK(), SER = [["Levantamento", "lev", "#f2a93b"], ["Em projeto", "proj", "#d9822b"], ["Com desenho", "des", "#3b82c4"], ["No Sphera", "sph", "#7a5cc7"], ["No SAP", "sap", "#0e9aa7"]].filter(x => ks.includes(x[1]));
-  const dl = (a, b) => (a >= b ? "+" : "") + (a - b), per = mode === "w" ? "Nesta semana" : "Neste mês";
+  const ks = cfgK(), SER = STG.slice(1).filter(x => ks.includes(x[1])); // etapas ativas (padrão + personalizadas)
+  const dl = (a, b) => { b = b || 0; return (a >= b ? "+" : "") + (a - b); }, per = mode === "w" ? "Nesta semana" : "Neste mês";
   $("#evk").innerHTML = [...SER.map(([n, k]) => [n, dl(last[k], prev[k])]), ["Movimentações", String(last.mov)]]
     .map(([l, v]) => `<div class="card kpi" style="margin:0"><b>${v}</b><span>${per}: ${l}</span></div>`).join("");
   charts.c4?.destroy();
@@ -1060,6 +1064,8 @@ function edit(r, p) {
   else if (p) for (const k in p) if (f[k]) f[k].value = p[k];
   f.elements.desenho_sap.checked = !!r?.desenho_sap;
   if (!f.elements.folhas.value) f.elements.folhas.value = 1;
+  { const cu = cusList(); $("#fEtxT").classList.toggle("hide", !cu.length); $("#fEtx").classList.toggle("hide", !cu.length);
+    $("#fEtx").innerHTML = cu.map(x => `<label>${esc(x.nome)}<span class="cbx"><input type="checkbox" data-xk="${esc(x.k)}"${cusOk(r, x.k) ? " checked" : ""}><em>Etapa concluída neste ponto</em></span></label>`).join(""); }
   prev(); $("#dlg").showModal();
 }
 function prev() {
@@ -1093,6 +1099,7 @@ $("#f").onsubmit = async e => {
   if (!hasS) { if (o.codigo_sap) return alert(SQLS); delete o.codigo_sap; }
   if (!hasD) { if (o.desenho_sap) return alert(SQLD); delete o.desenho_sap; }
   const id = o.id; delete o.id; if (!id) o.projeto_id = proj.id; // ponto novo nasce no projeto aberto
+  { const bx = [...document.querySelectorAll("#fEtx input[data-xk]")]; if (bx.length) { const ex = { ...(id ? ((rows.find(r => String(r.id) === String(id)) || {}).etapas_extra || {}) : {}) }; bx.forEach(b => { if (b.checked) ex[b.dataset.xk] = true; else delete ex[b.dataset.xk]; }); o.etapas_extra = ex; } } // etapas personalizadas marcadas
   const { error } = await (id ? sb.from("pontos").update(o).eq("id", id) : sb.from("pontos").insert(o));
   if (error) return alert("Erro ao salvar: " + error.message + (/folhas/.test(error.message) ? "\n\n" + SQLF : /codigo_sap/.test(error.message) ? "\n\n" + SQLS : /desenho_sap/.test(error.message) ? "\n\n" + SQLD : ""));
   logP(id ? "Editou ponto" : "Criou ponto", `${o.area} · ${o.equipamento} · ${o.tipo_projeto}`);
@@ -1116,7 +1123,8 @@ const stamp = () => new Date().toISOString().slice(0, 10);
 const slug = () => String(proj ? proj.nome : "projeto").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w]+/g, "_").replace(/^_+|_+$/g, "").toLowerCase();
 const pw = r => Number(r.qtd) > 0 ? Number(r.qtd) : 1; // pontos de adequação da linha (qtd vazia/0 conta 1)
 const psum = a => a.reduce((t, r) => t + pw(r), 0);
-function stats0(d) {
+function stats0(d) { const s = stats00(d); cusList().forEach(x => { const a = d.filter(r => cusOk(r, x.k)); s[x.k] = a.length; s.p[x.k] = psum(a); }); return s; }
+function stats00(d) {
   const c = k => d.filter(r => si(r) >= k);
   return { n: d.length, lev: d.filter(lv).length, proj: c(1).length, des: c(2).length, sph: c(3).length, sap: c(4).length, comp: c(5).length,
     p: { n: psum(d), lev: psum(d.filter(lv)), proj: psum(c(1)), des: psum(c(2)), sph: psum(c(3)), sap: psum(c(4)), comp: psum(c(5)) } };
@@ -1331,7 +1339,7 @@ $("#rpp").onclick = async () => {
   sl = content("Visão geral do projeto", `Indicadores consolidados · ${scope}`);
   { const kl = kpiList(s), g = 0.1, w = (12.25 - g * (kl.length - 1)) / kl.length; kl.forEach((k, i) => kpi(sl, 0.527 + i * (w + g), 1.4, w, k)); }
   h2(sl, "Avanço por etapa", 0.527, 3.35, 6);
-  const SKs = [["Levantamento", "lev"], ["Em projeto", "proj"], ["Desenho concluído ou além", "des"], ["Sphera ou além", "sph"], ["SAP ou além", "sap"]].filter(x => cfgK().includes(x[1])), labs = ["Total no escopo", ...SKs.map(x => x[0])];
+  const SKs = [["Levantamento", "lev"], ["Em projeto", "proj"], ["Desenho concluído ou além", "des"], ["Sphera ou além", "sph"], ["SAP ou além", "sap"], ...cusList().map(x => [x.nome, x.k])].filter(x => cfgK().includes(x[1])), labs = ["Total no escopo", ...SKs.map(x => x[0])];
   sl.addChart(P.ChartType.bar, [{ name: "Linhas", labels: labs, values: [s.n, ...SKs.map(x => s[x[1]])] }, { name: "Pontos de adequação", labels: labs, values: [s.p.n, ...SKs.map(x => s.p[x[1]])] }], {
     x: 0.527, y: 3.7, w: 6.4, h: 3.4, barDir: "bar", barGrouping: "clustered", chartColors: [TC.gray, TC.orange], catAxisOrientation: "maxMin",
     catAxisLabelFontFace: FT, catAxisLabelFontSize: 10, catAxisLabelColor: TC.gray, valAxisLabelFontFace: FT, valAxisLabelFontSize: 9, valAxisLabelColor: TC.mid, valAxisMinVal: 0,
@@ -1802,7 +1810,8 @@ boot();
 const CAT = [["tipo", "Tipos de intervenção"], ["area", "Áreas / locais"], ["etapa", "Etapas do fluxo"], ["campo", "Campos extras"],
   ["sup_campo", "Suprimentos · Campos extras do item"], ["sup_unidade", "Suprimentos · Unidades de medida"], ["sup_fornecedor", "Suprimentos · Fornecedores"]];
 const ETP2 = [["lev", "Levantamento"], ["proj", "Projeto"], ["des", "Desenho"], ["sph", "Sphera"], ["sap", "SAP"]];
-const ETM = { lev: r => lv(r), proj: r => si(r) >= 1, des: r => si(r) >= 2, sph: r => si(r) >= 3, sap: r => si(r) >= 4 }; // regra de cada etapa
+const ETM0 = { lev: r => lv(r), proj: r => si(r) >= 1, des: r => si(r) >= 2, sph: r => si(r) >= 3, sap: r => si(r) >= 4 }; // regra das etapas padrão (automáticas pelo status)
+const ETM = new Proxy(ETM0, { get: (o, k) => o[k] || (typeof k === "string" && /^x_/.test(k) ? (r => cusOk(r, k)) : undefined) }); // etapas personalizadas (x_...): marcadas ponto a ponto
 const DEF = { a: [...AREAS], t: [...TIPOS], k: ["lev", "des", "sph", "sap"] };
 const MAM = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";
 const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js", PDFW = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
@@ -1819,19 +1828,28 @@ async function loadCfg() {
   await loadAll(); const a = par("area").filter(p => p.ativo).map(p => p.nome), t = par("tipo").filter(p => p.ativo).map(p => p.nome);
   AREAS.splice(0, AREAS.length, ...a); TIPOS.splice(0, TIPOS.length, ...t);
   keep("#dA", AREAS, "Todas as áreas"); keep("#rA", AREAS, "Todas as áreas"); keep("#fA", AREAS, "Área"); fillSelect($("#fArea"), AREAS);
+  syncEtapas();
 }
 const _load = load; load = async function () { await loadCfg(); await _load(); };
 const _ah = abrirHome; abrirHome = async function (seq) { await loadAll(); return _ah(seq); };
 
 // ---- Andamento total = média das etapas ATIVAS ----
-const cfgFor = pid => ETP2.map(e => e[0]).filter(k => par("etapa", pid).some(p => p.ativo && p.config && p.config.chave === k)); // só as etapas cadastradas (sem padrão)
+const PAL = ["#e11d8c", "#16a34a", "#ea580c", "#0891b2", "#9333ea", "#ca8a04", "#be123c", "#4d7c0f"], cusCor = k => PAL[[...String(k)].reduce((t, ch) => t + ch.charCodeAt(0), 0) % PAL.length];
+const cusDe = pid => par("etapa", pid).filter(p => p.ativo && p.config && /^x_/.test(p.config.chave)).sort((a, b) => (a.ordem || 0) - (b.ordem || 0) || a.id - b.id);
+const cfgFor = pid => [...ETP2.map(e => e[0]).filter(k => par("etapa", pid).some(p => p.ativo && p.config && p.config.chave === k)), ...cusDe(pid).map(p => p.config.chave)]; // etapas cadastradas e ativas: padrão + personalizadas
+window.etapasX = () => proj ? cusDe(proj.id).map(p => ({ k: p.config.chave, nome: p.nome, cor: p.config.cor || cusCor(p.config.chave) })) : [];
+function syncEtapas() { // gráficos, KPIs e relatórios leem STG / TKEYS / ETP: aqui entram (ou saem) as etapas personalizadas do projeto
+  try { const cus = window.etapasX(), nx = x => !/^x_/.test(x[1]);
+    STG.splice(0, STG.length, ...STG.filter(nx), ...cus.map(x => [x.nome, x.k, x.cor]));
+    const t = TKEYS.filter(nx), tc = t.filter(x => x[1] === "comp"); TKEYS.splice(0, TKEYS.length, ...t.filter(x => x[1] !== "comp"), ...cus.map(x => [x.nome, x.k, x.cor.replace("#", "")]), ...tc);
+    const e = ETP.filter(nx), ec = e.filter(x => x[1] === "comp"); ETP.splice(0, ETP.length, ...e.filter(x => x[1] !== "comp"), ...cus.map(x => [x.nome, x.k]), ...ec); } catch (err) {} }
 andamento = function (list) { const pid = list.length ? list[0].projeto_id : (proj && proj.id), ks = cfgFor(pid), n = list.length || 1;
   if (!ks.length) return 0;
   return Math.round(100 * ks.reduce((t, k) => t + list.filter(ETM[k]).length, 0) / (ks.length * n)); };
 const _dash = dash;
 dash = function () { _dash();
   try { const a = $("#dA").value, d = a ? rows.filter(r => r.area === a) : rows, ks = cfgFor(proj.id), n = wsum(d) || 1; if (!ks.length) return;
-    const tp = Math.round(100 * ks.reduce((t, k) => t + wsum(d.filter(ETM[k])), 0) / (ks.length * n)), c = $("#kpis").children[1], nm = ks.map(k => ETP2.find(e => e[0] === k)[1].toLowerCase()).join(", ");
+    const tp = Math.round(100 * ks.reduce((t, k) => t + wsum(d.filter(ETM[k])), 0) / (ks.length * n)), c = $("#kpis").children[1], nm = ks.map(k => (ETP2.find(e => e[0] === k) || [0, (cusList().find(x => x.k === k) || {}).nome || k])[1].toLowerCase()).join(", ");
     c.querySelector("b").textContent = tp + "%"; c.querySelector("u").style.width = tp + "%"; c.querySelector("small").innerHTML = `<em>média das ${ks.length} etapas ativas (${esc(nm)})</em><br><i>faltam ${100 - tp}%</i>`; } catch (e) {}
 };
 $("#dA").onchange = dash; $("#evP").onchange = dash; $("#evS").onchange = dash;
@@ -1843,14 +1861,22 @@ nb.onclick = () => { const id = proj ? proj.id : lastProjId; if (id) location.ha
 const _ap = abrirProjeto;
 abrirProjeto = async function (id, tab, seq) { nb.classList.toggle("hide", !canProj); if (tab === "parametros" && !canProj) tab = "dashboard";
   await _ap(id, tab, seq); if (proj && proj.id === id && tab === "parametros") renderPar(); };
-const det = p => p.categoria === "tipo" ? "unidade: " + ((p.config || {}).unidade || "—") : p.categoria === "etapa" ? "chave: " + ((p.config || {}).chave || "personalizada") : (p.categoria === "campo" || p.categoria === "sup_campo") ? ((p.config || {}).tipo || "texto") + ((p.config || {}).opcoes ? " (" + p.config.opcoes.join(", ") + ")" : "") : "";
+const det = p => p.categoria === "tipo" ? "unidade: " + ((p.config || {}).unidade || "—") : p.categoria === "etapa" ? (/^x_/.test((p.config || {}).chave || "") ? "personalizada · marcada em cada ponto" : "padrão · automática pelo status do ponto") : (p.categoria === "campo" || p.categoria === "sup_campo") ? ((p.config || {}).tipo || "texto") + ((p.config || {}).opcoes ? " (" + p.config.opcoes.join(", ") + ")" : "") : "";
 function renderPar() {
   if (!canProj) { sec.innerHTML = ""; return; }
   sec.innerHTML = CAT.map(([c, t]) => `<div class="card"><div class="evh"><b>${t}</b><button class="p" data-add="${c}">+ Adicionar</button></div>` +
-    (par(c).map(p => `<div class="sl"><div><b>${esc(p.nome)}</b> <small>${esc(det(p))}${p.ativo ? "" : " · inativo"}</small></div><div class="ac"><button data-pe="${p.id}">Editar</button><button data-pt="${p.id}">${p.ativo ? "Desativar" : "Ativar"}</button></div></div>`).join("") || "<small>Nenhum parâmetro cadastrado.</small>") + "</div>").join("") +
-    "<small>Etapas: o andamento total é a média das etapas ativas. Desativar não apaga dados. Os parâmetros de Suprimentos aparecem no cadastro, na tabela e na exportação dos itens deste projeto.</small>";
+    (par(c).map(p => `<div class="sl"><div><b>${esc(p.nome)}</b> <small>${esc(det(p))}${p.ativo ? "" : " · inativo"}</small></div><div class="ac"><button data-pe="${p.id}">Editar</button><button data-pt="${p.id}">${p.ativo ? "Desativar" : "Ativar"}</button><button class="d" data-pd="${p.id}">Excluir</button></div></div>`).join("") || "<small>Nenhum parâmetro cadastrado.</small>") + "</div>").join("") +
+    "<small>Etapas: o andamento total é a média das etapas ativas. Desativar esconde (dá para reativar); Excluir remove o parâmetro de vez. Nenhum dos dois apaga os pontos. Os parâmetros de Suprimentos aparecem no cadastro, na tabela e na exportação dos itens deste projeto.</small>";
   sec.querySelectorAll("[data-add]").forEach(b => b.onclick = () => editPar(null, b.dataset.add));
   sec.querySelectorAll("[data-pe]").forEach(b => b.onclick = () => editPar((ALL[proj.id] || []).find(p => p.id == b.dataset.pe)));
+  sec.querySelectorAll("[data-pd]").forEach(b => b.onclick = async () => { if (!canProj) return; const p = (ALL[proj.id] || []).find(x => x.id == b.dataset.pd); if (!p) return;
+    let av = ""; const nU = p.categoria === "area" ? rows.filter(r => r.area === p.nome).length : p.categoria === "tipo" ? rows.filter(r => r.tipo_projeto === p.nome).length : 0;
+    if (nU) av = p.categoria === "area" ? `\n\n${nU} ponto(s) do Cadastro usam esta área: eles continuam existindo, mas a área deixa de ser opção nas listas.` : `\n\n${nU} ponto(s) do Cadastro usam este tipo: eles continuam existindo e passam para a coluna "Outros".`;
+    if (p.categoria === "etapa") av = "\n\nA etapa deixa de aparecer nos gráficos, KPIs e relatórios.";
+    if (!confirm(`Excluir "${p.nome}"?${av}\n\nEsta ação não pode ser desfeita (para só esconder, use Desativar).`)) return;
+    const { data, error } = await sb.from("projeto_parametros").delete().eq("id", p.id).select("id"); if (error) return alert(error.message);
+    if (!data || !data.length) return alert("Não foi possível excluir (sem permissão ou parâmetro já removido).");
+    logP("Excluiu parâmetro", `${p.categoria}: ${p.nome}`); await recarrega(); });
   sec.querySelectorAll("[data-pt]").forEach(b => b.onclick = async () => { if (!canProj) return; const p = (ALL[proj.id] || []).find(x => x.id == b.dataset.pt);
     const { error } = await sb.from("projeto_parametros").update({ ativo: !p.ativo }).eq("id", p.id); if (error) return alert(error.message);
     logP(p.ativo ? "Desativou parâmetro" : "Ativou parâmetro", `${p.categoria}: ${p.nome}`); await recarrega(); });
@@ -1861,10 +1887,12 @@ function editPar(p, cat) {
   let corpo = "", livres = [];
   if (c === "etapa" && !p) { // etapas do fluxo que ainda não foram cadastradas neste projeto
     const usadas = par("etapa").map(x => x.config && x.config.chave); livres = ETP2.filter(e => !usadas.includes(e[0]));
-    if (!livres.length) return alert("Todas as etapas do fluxo já estão cadastradas neste projeto.");
-    corpo = `<label>Etapa<select name="chave">${livres.map(e => `<option value="${e[0]}">${e[1]}</option>`).join("")}</select></label><small>O andamento total do projeto é a média das etapas ativas.</small>`;
+    corpo = `<label>Etapa<select name="chave">${livres.map(e => `<option value="${e[0]}">${e[1]} (padrão, automática pelo status)</option>`).join("")}<option value="__novo"${livres.length ? "" : " selected"}>➕ Nova etapa personalizada…</option></select></label>
+      <div id="peNv" class="${livres.length ? "hide" : ""}"><label>Nome da etapa<input name="nome" maxlength="120" autocomplete="off" placeholder="Ex.: Medição aprovada, Instalada, Comissionada"></label><label>Cor nos gráficos<input type="color" name="cor" value="#e11d8c"></label></div>
+      <small>Etapa personalizada: você marca como concluída em cada ponto, no Cadastro. Ela entra no andamento total, nos gráficos e nos relatórios.</small>`;
   } else {
     corpo = `<label>Nome<input name="nome" required maxlength="120" autocomplete="off" value="${esc(p ? p.nome : "")}"></label>`;
+    if (c === "etapa" && p && /^x_/.test(cf.chave || "")) corpo += `<label>Cor nos gráficos<input type="color" name="cor" value="${esc(cf.cor || cusCor(cf.chave))}"></label>`;
     if (c === "tipo") corpo += `<label>Unidade<input name="unidade" maxlength="20" autocomplete="off" placeholder="un, m, m²" value="${esc(cf.unidade || "un")}"></label>`;
     if (c === "campo" || c === "sup_campo") { const t = cf.tipo === "numero" ? "número" : (cf.tipo || "texto");
       corpo += `<label>Tipo do campo<select name="tipo">${["texto", "número", "data", "lista"].map(x => `<option ${x === t ? "selected" : ""}>${x}</option>`).join("")}</select></label>
@@ -1872,8 +1900,10 @@ function editPar(p, cat) {
   }
   dlgUsuario(`${p ? "Editar" : "Adicionar"} · ${tit}`, corpo, "Salvar", async d => {
     const f = d.querySelector("form").elements; let nome;
-    if (c === "etapa" && !p) { const e = livres.find(x => x[0] === f.chave.value); if (!e) return "Escolha uma etapa."; cf.chave = e[0]; nome = e[1]; }
-    else nome = f.nome.value.trim();
+    if (c === "etapa" && !p) {
+      if (f.chave.value === "__novo") { nome = f.nome.value.trim(); if (!nome) return "Informe o nome da etapa."; cf.chave = "x_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); cf.cor = f.cor.value; }
+      else { const e = livres.find(x => x[0] === f.chave.value); if (!e) return "Escolha uma etapa."; cf.chave = e[0]; nome = e[1]; } }
+    else { nome = f.nome.value.trim(); if (c === "etapa" && f.cor) cf.cor = f.cor.value; }
     if (!nome) return "Informe o nome.";
     if (c === "tipo") cf.unidade = f.unidade.value.trim() || "un";
     if (c === "campo" || c === "sup_campo") { cf.tipo = f.tipo.value;
@@ -1882,6 +1912,7 @@ function editPar(p, cat) {
     if (error) return /duplicate|unique/i.test(error.message) ? "Já existe um parâmetro com esse nome." : "Erro: " + error.message;
     logP(p ? "Editou parâmetro" : "Criou parâmetro", `${c}: ${nome}`); await recarrega();
   });
+  const sc = document.querySelector("#usDlg select[name=chave]"); if (sc) sc.onchange = () => document.querySelector("#peNv").classList.toggle("hide", sc.value !== "__novo");
   const tp = document.querySelector("#usDlg select[name=tipo]"); if (tp) tp.onchange = () => document.querySelector("#peOp").classList.toggle("hide", tp.value !== "lista");
 }
 
