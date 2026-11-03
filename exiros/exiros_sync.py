@@ -113,18 +113,12 @@ def aguardar_aumento(page, frase, antes, timeout=60):
     while time.time() < fim:
         if _conta(page, frase) > antes:
             return
-        # Se o bot reclamar ou voltar para o menu principal, interrompe para reiniciar o passo/fluxo
-        txt_atual = _norm(chat_text(page))
-        if "select one of the options" in txt_atual or "como posso te ajudar" in txt_atual:
-            # Se detectarmos que voltou para o início unexpectedly, sinalizamos para recuperar
-            pass
         time.sleep(1)
     raise TimeoutError(f"O bot não respondeu '{_frases(frase)[0]}'. Últimas mensagens do chat: ...{_cauda(page)}")
 
 
 def passo(page, frase, acao, timeout=60, alternativa=None):
-    """Executa `acao` e espera o bot responder `frase`. Se o bot se perder (voltar pro menu),
-    reotenta o fluxo automaticamente."""
+    """Executa `acao` e espera o bot responder `frase`. Se falhar, tenta alternativa."""
     for tentativa in range(2):
         antes = _conta(page, frase)
         try:
@@ -133,7 +127,6 @@ def passo(page, frase, acao, timeout=60, alternativa=None):
             return
         except Exception:
             if tentativa == 0:
-                # Se falhou ou resetou, tenta mandar um "Olá" para destravar e refazer o passo
                 try:
                     enviar(page, "Olá")
                     time.sleep(2)
@@ -155,38 +148,46 @@ def passo(page, frase, acao, timeout=60, alternativa=None):
 
 
 def consultar_rc(page, rc):
-    # Garante que começa do menu principal limpo
-    passo(page, ("Como posso te ajudar", "Como posso ajudar"), lambda: enviar(page, "Olá"))
+    # 1. Garante que começa do menu principal limpo (aceita variações em PT e EN)
+    passo(page, ("Como posso te ajudar", "Como posso ajudar", "How can I help"), lambda: enviar(page, "Olá"))
+    time.sleep(1)
     
-    # Clica em Status de documentos
-    passo(page, ("Qual tipo de documento", "Qual o tipo de documento"),
+    # 2. Clica em Status de documentos
+    passo(page, ("Qual tipo de documento", "Qual o tipo de documento", "What type"),
           lambda: clicar(page, r"Status de documentos"),
           alternativa=lambda: enviar(page, "Status de documentos"))
+    time.sleep(1)
           
-    # Clica em RC
-    passo(page, ("Digite o número da sua RC", "número da sua RC", "número da RC", "Informe o número"),
+    # 3. Clica em RC
+    passo(page, ("Digite o número da sua RC", "número da sua RC", "número da RC", "Informe o número", "Enter your"),
           lambda: clicar(page, r"^\s*RC\s*$"),
           alternativa=lambda: enviar(page, "RC"))
-          
-    # Validação extra antes de enviar o número da RC para garantir que o bot está aguardando o número
+    time.sleep(1)
+
+    # Validação extra para garantir que o campo de texto está pronto
     inicio_espera = time.time()
-    while time.time() - inicio_espera < 15:
+    while time.time() - inicio_espera < 20:
         txt = _norm(chat_text(page))
-        if "numero da sua rc" in txt or "informe o numero" in txt:
+        if any(k in txt for k in ["numero da sua rc", "informe o numero", "enter your", "rc"]):
             break
         time.sleep(1)
 
-    # Envia o número da RC específica
-    passo(page, ("Digite o número do item", "número do item"), lambda: enviar(page, rc))
+    # 4. Envia o número da RC específica
+    passo(page, ("Digite o número do item", "número do item", "item number"), lambda: enviar(page, rc))
+    time.sleep(1)
 
-    # Pede "Todos" os itens do requerimento
-    antes_ok = _conta(page, "Perfeito, aguarde")
+    # 5. Pede "Todos" os itens do requerimento
+    antes_ok = _conta(page, ("Perfeito, aguarde", "Perfeito", "Please wait"))
     antes_fim = chat_text(page).count(FIM_ITEM)
     enviar(page, "Todos")
-    aguardar_aumento(page, "Perfeito, aguarde", antes_ok, 60)
+    
+    try:
+        aguardar_aumento(page, ("Perfeito, aguarde", "Perfeito"), antes_ok, 30)
+    except Exception:
+        pass
 
     # Espera os itens chegarem e o número parar de crescer por ~8 s
-    fim, ultimo, desde = time.time() + 150, -1, time.time()
+    fim, ultimo, desde = time.time() + 180, -1, time.time()
     while time.time() < fim:
         texto = chat_text(page)
         n = texto.count(FIM_ITEM)
@@ -196,7 +197,12 @@ def consultar_rc(page, rc):
             elif time.time() - desde >= 8:
                 return texto
         time.sleep(1.5)
-    raise TimeoutError("O bot não devolveu os itens a tempo")
+        
+    texto_final = chat_text(page)
+    if rc in texto_final and len(texto_final) > 200:
+        return texto_final
+        
+    raise TimeoutError("O bot não devolveu os itens a tempo ou a sessão travou no meio.")
 
 
 # ---------- Supabase ----------
@@ -259,20 +265,37 @@ def main():
             browser.close()
             return 1
 
-        for rc in rcs:
-            try:
-                texto = consultar_rc(page, rc)
-                rows = parse_blocks(texto, only_rc=rc)
-                if not rows:
-                    raise ValueError("bot respondeu, mas nenhum item foi reconhecido")
-                gravar(rows)
-                total += len(rows)
-                print(f"RC {rc}: {len(rows)} itens gravados")
-            except Exception as e:
-                foto(page, f"rc_{rc}")
-                erros.append(f"{rc}: {e}")
-                print(f"RC {rc}: ERRO {e}", file=sys.stderr)
-                traceback.print_exc()
+        for idx, rc in enumerate(rcs):
+            sucesso_rc = False
+            # Tenta até 2 vezes por RC: se a primeira falhar, faz um refresh completo (do zero)
+            for tentativa_rc in range(2):
+                try:
+                    # Se for a segunda tentativa (retry), recarrega a página para limpar o chat do zero
+                    if tentativa_rc > 0:
+                        print(f"RC {rc}: Tentando novamente com recarregamento (refresh) do chat...")
+                        abrir_chat(page)
+                        time.sleep(3)
+
+                    texto = consultar_rc(page, rc)
+                    rows = parse_blocks(texto, only_rc=rc)
+                    if not rows:
+                        raise ValueError("bot respondeu, mas nenhum item foi reconhecido")
+                    
+                    gravar(rows)
+                    total += len(rows)
+                    print(f"RC {rc}: {len(rows)} itens gravados")
+                    sucesso_rc = True
+                    break
+                except Exception as e:
+                    print(f"RC {rc} (Tentativa {tentativa_rc + 1}): ERRO {e}", file=sys.stderr)
+                    if tentativa_rc == 1:
+                        # Se falhou nas duas tentativas, tira foto do erro final desta RC
+                        foto(page, f"rc_{rc}")
+                        erros.append(f"{rc}: {e}")
+                        traceback.print_exc()
+
+            # Pequena pausa entre uma RC e outra para aliviar o bot
+            time.sleep(2)
 
         save_state(ctx.storage_state())  # renova a sessão para a próxima execução
         browser.close()
