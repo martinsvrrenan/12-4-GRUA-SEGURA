@@ -129,7 +129,7 @@ def passo(page, frase, acao, timeout=60, alternativa=None):
             if tentativa == 0:
                 try:
                     enviar(page, "Olá")
-                    time.sleep(2)
+                    time.sleep(3)
                 except Exception:
                     pass
                 if alternativa:
@@ -148,33 +148,54 @@ def passo(page, frase, acao, timeout=60, alternativa=None):
 
 
 def consultar_rc(page, rc):
-    # 1. Garante que começa do menu principal limpo (aceita variações em PT e EN)
-    passo(page, ("Como posso te ajudar", "Como posso ajudar", "How can I help"), lambda: enviar(page, "Olá"))
-    time.sleep(1)
+    # 1. Envia "Olá" para acordar o bot e garante que o menu principal apareceu antes de prosseguir
+    enviar(page, "Olá")
     
-    # 2. Clica em Status de documentos
+    inicio_menu = time.time()
+    menu_ok = False
+    while time.time() - inicio_menu < 25:
+        txt = _norm(chat_text(page))
+        if "como posso te ajudar" in txt or "como posso ajudar" in txt or "how can i help" in txt:
+            menu_ok = True
+            break
+        time.sleep(1.5)
+        
+    if not menu_ok:
+        # Se não estabilizou no menu principal, tenta mais uma vez forçando pelo método seguro
+        passo(page, ("Como posso te ajudar", "Como posso ajudar", "How can I help"), lambda: enviar(page, "Olá"))
+    
+    time.sleep(2) # Pausa de estabilização do render do Teams
+    
+    # 2. Clica em "Status de documentos" de forma segura
     passo(page, ("Qual tipo de documento", "Qual o tipo de documento", "What type"),
           lambda: clicar(page, r"Status de documentos"),
           alternativa=lambda: enviar(page, "Status de documentos"))
-    time.sleep(1)
           
-    # 3. Clica em RC
+    time.sleep(2) # Pausa para o bot carregar as opções de documentos (Reserva, RC, Pedido)
+          
+    # 3. Clica na opção "RC"
     passo(page, ("Digite o número da sua RC", "número da sua RC", "número da RC", "Informe o número", "Enter your"),
           lambda: clicar(page, r"^\s*RC\s*$"),
           alternativa=lambda: enviar(page, "RC"))
-    time.sleep(1)
 
-    # Validação extra para garantir que o campo de texto está pronto
+    # Validação rigorosa garantindo que o bot realmente pediu o número da RC antes de digitar
     inicio_espera = time.time()
+    rc_solicitada = False
     while time.time() - inicio_espera < 20:
         txt = _norm(chat_text(page))
         if any(k in txt for k in ["numero da sua rc", "informe o numero", "enter your", "rc"]):
+            rc_solicitada = True
             break
         time.sleep(1)
 
-    # 4. Envia o número da RC específica
+    if not rc_solicitada:
+        # Força o envio direto por texto caso o botão de clique estivesse indisponível na interface
+        enviar(page, "RC")
+        time.sleep(2)
+
+    # 4. Envia o número da RC específica com segurança
     passo(page, ("Digite o número do item", "número do item", "item number"), lambda: enviar(page, rc))
-    time.sleep(1)
+    time.sleep(2)
 
     # 5. Pede "Todos" os itens do requerimento
     antes_ok = _conta(page, ("Perfeito, aguarde", "Perfeito", "Please wait"))
@@ -289,12 +310,10 @@ def main():
                 except Exception as e:
                     print(f"RC {rc} (Tentativa {tentativa_rc + 1}): ERRO {e}", file=sys.stderr)
                     if tentativa_rc == 1:
-                        # Se falhou nas duas tentativas, tira foto do erro final desta RC
                         foto(page, f"rc_{rc}")
                         erros.append(f"{rc}: {e}")
                         traceback.print_exc()
 
-            # Pequena pausa entre uma RC e outra para aliviar o bot
             time.sleep(2)
 
         save_state(ctx.storage_state())  # renova a sessão para a próxima execução
