@@ -1,4 +1,4 @@
-"""Consulta o Exiros bot no Teams para cada RC de forma inteligente e interpretativa,
+"""Consulta o Exiros bot no Teams para cada RC de forma interpretativa e resiliente,
 gravando o resultado em public.exiros_rc.
 
 Uso:  python exiros_sync.py                -> RCs vindas de suprimentos.rc_numero
@@ -76,7 +76,7 @@ def abrir_chat(page):
 def enviar(page, texto):
     box = page.locator(TEXTBOX).last
     box.click()
-    page.keyboard.type(texto, delay=30)
+    page.keyboard.type(texto, delay=35)
     page.keyboard.press("Enter")
 
 
@@ -98,89 +98,106 @@ def _norm(t):
 
 
 def consultar_rc_inteligente(page, rc):
-    """Interpreta o texto atual da tela do bot e decide dinamicamente o que fazer em loop."""
+    """Lê, interpreta o estado atual do chat dinamicamente e responde com pausas de segurança."""
     
-    # Inicia a conversa mandando um Olá para acordar o bot
+    # Acorda o bot no início
     enviar(page, "Olá")
+    time.sleep(3)
     
-    # Máximo de interações dinâmicas para evitar loop infinito caso o bot fique preso
-    limite_passos = 15
-    passo_atual = 0
-    
-    # Controladores para saber em que estágio estamos da consulta da RC
-    etapa = "AGUARDANDO_MENU"
-    
-    # Armazena o texto anterior para detectar se o bot respondeu algo novo
-    ultimo_texto_lido = ""
-    
+    limite_tentativas = 25
+    tentativa = 0
     inicio_geral = time.time()
     
-    while passo_atual < limite_passos and time.time() - inicio_geral < 120:
-        passo_atual += 1
-        time.sleep(2)  # Pausa breve para o render do chat
+    # Controla o fluxo interno para saber o que já foi enviado para esta RC específica
+    etapa_enviada = {
+        "status_doc": False,
+        "tipo_rc": False,
+        "numero_rc": False,
+        "todos_itens": False
+    }
+
+    ultimo_texto_analisado = ""
+    vezes_texto_estagnado = 0
+    
+    while tentativa < limite_tentativas and time.time() - inicio_geral < 150:
+        tentativa += 1
+        time.sleep(2.5)  # Pausa obrigatória de respiro para o chat renderizar
         
         texto_tela = chat_text(page)
         texto_norm = _norm(texto_tela)
         
-        # Se os itens já terminaram de carregar e o bloco final está presente, retorna o texto completo
+        # 1. Se os itens da RC já terminaram de carregar por completo, retorna o texto
         if FIM_ITEM in texto_tela and rc in texto_tela:
-            # Garante que estabilizou por alguns segundos
+            print(f"-> RC {rc}: Dados carregados com sucesso! Estabilizando leitura...")
             time.sleep(4)
             return chat_text(page)
 
-        # MÁQUINA DE ESTADO BASEADA NA INTERPRETAÇÃO DO TEXTO DA TELA:
+        # Proteção contra congelamento: se o texto da tela não mudar por muito tempo, força uma interação de resgate
+        if texto_tela == ultimo_texto_analisado:
+            vezes_texto_estagnado += 1
+            if vezes_texto_estagnado >= 5:
+                print("-> Aviso: O chat parece estagnado. Enviando 'Menu' para destravar...")
+                enviar(page, "Menu")
+                time.sleep(3)
+                vezes_texto_estagnado = 0
+                continue
+        else:
+            vezes_texto_estagnado = 0
+            ultimo_texto_analisado = texto_tela
+
+        # 2. INTERPRETAÇÃO DINÂMICA DA TELA:
         
-        # 1. Se o bot apresentou o menu principal (pergunta como ajudar)
-        if etapa == "AGUARDANDO_MENU" and any(k in texto_norm for k in ["como posso te ajudar", "como posso ajudar", "how can i help", "bem-vindo"]):
-            print("-> Interpretado: Menu principal detectado. Clicando em 'Status de documentos'...")
+        # A. Se o bot está pedindo para selecionar uma opção (mensagem em inglês comum no seu log) ou menu principal
+        if not etapa_enviada["status_doc"] and (any(k in texto_norm for k in ["como posso te ajudar", "como posso ajudar", "how can i help", "bem-vindo", "select one of the options"])):
+            print("-> Interpretado: Menu principal / Seleção de opções detectada. Clicando em 'Status de documentos'...")
             if not clicar_se_visivel(page, r"Status de documentos"):
                 enviar(page, "Status de documentos")
-            etapa = "AGUARDANDO_TIPO_DOCUMENTO"
+            etapa_enviada["status_doc"] = True
+            time.sleep(3)
             continue
 
-        # 2. Se o bot pediu o tipo de documento
-        if etapa == "AGUARDANDO_TIPO_DOCUMENTO" and any(k in texto_norm for k in ["qual tipo de documento", "qual o tipo", "what type"]):
-            print("-> Interpretado: Menu de documentos detectado. Selecionando 'RC'...")
+        # B. Se o bot pediu o tipo de documento
+        if etapa_enviada["status_doc"] and not etapa_enviada["tipo_rc"] and (any(k in texto_norm for k in ["qual tipo de documento", "qual o tipo", "what type", "holding: ternium"])):
+            print("-> Interpretado: Solicitação de tipo de documento detectada. Selecionando 'RC'...")
             if not clicar_se_visivel(page, r"^\s*RC\s*$"):
                 enviar(page, "RC")
-            etapa = "AGUARDANDO_NUMERO_RC"
+            etapa_enviada["tipo_rc"] = True
+            time.sleep(3)
             continue
 
-        # 3. Se o bot pediu o número da RC
-        if etapa == "AGUARDANDO_NUMERO_RC" and any(k in texto_norm for k in ["digite o numero", "informe o numero", "enter your", "numero da sua rc"]):
-            print(f"-> Interpretado: Solicitação de RC detectada. Enviando número: {rc}...")
+        # C. Se o bot pediu o número da RC
+        if etapa_enviada["tipo_rc"] and not etapa_enviada["numero_rc"] and (any(k in texto_norm for k in ["digite o numero da sua rc", "informe o numero", "enter your", "numero da rc"])):
+            print(f"-> Interpretado: Solicitação de número de RC detectada. Enviando RC: {rc}...")
             enviar(page, rc)
-            etapa = "AGUARDANDO_OPCAO_ITENS"
+            etapa_enviada["numero_rc"] = True
+            time.sleep(3)
             continue
 
-        # 4. Se o bot pediu o número do item / opção de listar itens
-        if etapa == "AGUARDANDO_OPCAO_ITENS" and any(k in texto_norm for k in ["numero do item", "item number", "digite o numero do item"]):
-            print("-> Interpretado: Solicitação de itens detectada. Enviando 'Todos'...")
-            enviar(page, "Todos")
-            etapa = "COLETANDO_DADOS"
-            continue
+        # D. Se o bot pediu o número do item após receber a RC
+        if etapa_enviada["numero_rc"] and not etapa_enviada["todos_itens"] and (any(k in texto_norm for k in ["digite o numero do item", "item number", "aguarde"])):
+            # Verifica se já enviou o comando "Todos" para evitar duplicidade
+            if "todos" not in texto_norm[-100:]:
+                print("-> Interpretado: Solicitação de item detectada. Enviando 'Todos'...")
+                enviar(page, "Todos")
+                etapa_enviada["todos_itens"] = True
+                time.sleep(4)
+                continue
 
-        # 5. Fallback dinâmico caso o bot mude de assunto ou mande uma mensagem genérica de erro/retorno
-        if "select one of the options" in texto_norm or "desculpe" in texto_norm or "nao entendi" in texto_norm:
-            print("-> Interpretado: Bot pediu redefinição ou não entendeu. Reiniciando fluxo com 'Olá'...")
+        # E. Fallback geral de segurança caso o bot mande mensagem de erro ou reinicialização
+        if "desculpe" in texto_norm or "nao entendi" in texto_norm:
+            print("-> Interpretado: Bot indicou erro de entendimento. Enviando 'Olá' para recomeçar o fluxo...")
             enviar(page, "Olá")
-            etapa = "AGUARDANDO_MENU"
+            # Reseta as travas para refazer o ciclo de forma limpa
+            etapa_enviada = {"status_doc": False, "tipo_rc": False, "numero_rc": False, "todos_itens": False}
+            time.sleep(3)
             continue
-            
-        # Se estivermos na etapa de coleta de dados, apenas aguardamos o volume de itens crescer
-        if etapa == "COLETANDO_DADOS":
-            time.sleep(2)
-            # Se já passou bastante tempo e os itens apareceram na tela, podemos retornar
-            if rc in texto_tela and texto_tela.count(FIM_ITEM) > 0:
-                time.sleep(3)
-                return texto_tela
 
-    # Verificação de resgate final caso o chat contenha os dados brutos mas o loop tenha esgotado
+    # Verificação final de resgate caso os dados estejam na tela mas o loop tenha encerrado
     texto_final = chat_text(page)
     if rc in texto_final and len(texto_final) > 300:
         return texto_final
 
-    raise TimeoutError("A interpretação dinâmica esgotou o tempo limite sem concluir o fluxo do bot.")
+    raise TimeoutError(f"A interpretação inteligente esgotou o tempo limite para a RC {rc}.")
 
 
 # ---------- Supabase ----------
@@ -245,12 +262,13 @@ def main():
 
         for idx, rc in enumerate(rcs):
             sucesso_rc = False
+            # Tenta até 2 vezes por RC: se houver falha, faz um refresh completo do chat do zero
             for tentativa_rc in range(2):
                 try:
                     if tentativa_rc > 0:
                         print(f"RC {rc}: Realizando refresh completo do chat e tentando novamente...")
                         abrir_chat(page)
-                        time.sleep(3)
+                        time.sleep(4)
 
                     texto = consultar_rc_inteligente(page, rc)
                     rows = parse_blocks(texto, only_rc=rc)
@@ -269,7 +287,7 @@ def main():
                         erros.append(f"{rc}: {e}")
                         traceback.print_exc()
 
-            time.sleep(2)
+            time.sleep(3)
 
         save_state(ctx.storage_state())
         browser.close()
