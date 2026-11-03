@@ -20,7 +20,8 @@ from exiros_parser import parse_blocks
 
 BOT_NAME = os.environ.get("EXIROS_BOT_NAME", "Exiros")
 CHAT_URL = os.environ.get("TEAMS_CHAT_URL", "").strip()
-TEXTBOX = '[data-tid="ckeditor"], div[role="textbox"][contenteditable="true"]'
+TEXTBOX = ('[data-tid="ckeditor"], [data-tid="ckeditor-replyConversation"], div[role="textbox"][contenteditable="true"], '
+           'div[contenteditable="true"][aria-label*="mensagem" i], div[contenteditable="true"][aria-label*="message" i]')
 DEBUG_DIR = os.path.join(os.path.dirname(__file__), "debug")
 FIM_ITEM = "Solicitar ação sobre este requerimento"
 
@@ -46,21 +47,103 @@ def foto(page, nome):
     try:
         page.screenshot(path=os.path.join(DEBUG_DIR, f"{nome}.png"), full_page=False)
         with open(os.path.join(DEBUG_DIR, f"{nome}.txt"), "w", encoding="utf-8") as f:
-            f.write(page.url + "\n\n" + chat_text(page)[-6000:])
+            f.write(page.url + "\n\n" + resumo_pagina(page) + "\n\n" + chat_text(page)[-6000:])
     except Exception:
         pass
+
+
+LAUNCHER = re.compile(r"usar (o |este )?aplicativo (da )?web|use (the|this) web app|continuar (neste|no) navegador|continue on this browser", re.I)
+AVISOS = re.compile(r"^(entendi|got it|pular|skip|agora n[aã]o|not now|dispensar|dismiss|talvez mais tarde|maybe later)$", re.I)
+
+
+def _clicar_primeiro(page, padrao, roles=("button", "link")):
+    """Clica no primeiro elemento visível cujo nome combina com o padrão."""
+    for role in roles:
+        try:
+            loc = page.get_by_role(role, name=padrao)
+            for i in range(min(loc.count(), 3)):
+                el = loc.nth(i)
+                if el.is_visible():
+                    el.click(timeout=3000)
+                    return True
+        except Exception:
+            pass
+    return False
+
+
+def fechar_avisos(page):
+    """Tela 'abrir no aplicativo do Teams?' e pop-ups de boas-vindas que escondem o chat."""
+    a = _clicar_primeiro(page, LAUNCHER)
+    b = _clicar_primeiro(page, AVISOS, roles=("button",))
+    return a or b
+
+
+def buscar_bot(page):
+    """Último recurso: acha o bot pela busca do Teams."""
+    try:
+        caixa = page.get_by_role("combobox", name=re.compile(r"pesquis|search", re.I)).first
+        if not caixa.count() or not caixa.is_visible():
+            caixa = page.get_by_placeholder(re.compile(r"pesquis|search", re.I)).first
+        caixa.click(timeout=3000)
+        page.keyboard.type(BOT_NAME, delay=60)
+        time.sleep(3)
+        for alvo in (page.get_by_role("option", name=re.compile(BOT_NAME, re.I)),
+                     page.get_by_text(re.compile(BOT_NAME, re.I))):
+            if alvo.count():
+                alvo.first.click(timeout=3000)
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def resumo_pagina(page):
+    """O que o robô está vendo (vai para o log do app, para dar para entender o erro sem abrir o GitHub)."""
+    partes = []
+    try:
+        partes.append(f"URL: {page.url[:110]}")
+    except Exception:
+        pass
+    try:
+        partes.append(f"título: {page.title()[:70]!r}")
+    except Exception:
+        pass
+    partes.append("TEAMS_CHAT_URL definido: " + ("sim" if CHAT_URL else "não"))
+    try:
+        nomes = []
+        for role in ("button", "treeitem", "link"):
+            loc = page.get_by_role(role)
+            for i in range(min(loc.count(), 25)):
+                el = loc.nth(i)
+                if el.is_visible():
+                    t = (el.get_attribute("aria-label") or el.text_content(timeout=400) or "").strip().replace("\n", " ")[:35]
+                    if t:
+                        nomes.append(f"{role}:{t}")
+                if len(nomes) >= 12:
+                    break
+        if nomes:
+            partes.append("na tela: " + " | ".join(nomes))
+    except Exception:
+        pass
+    return " · ".join(partes)[:760]
 
 
 def abrir_chat(page):
     page.goto(CHAT_URL or TEAMS_URL, wait_until="domcontentloaded", timeout=60000)
     inicio = time.time()
     clicou = bool(CHAT_URL)
-    while time.time() - inicio < 90:
-        if re.search(r"login\.(microsoftonline|live)\.com", page.url) and time.time() - inicio > 25:
+    foi_aba = buscou = False
+    while time.time() - inicio < 120:
+        dec = time.time() - inicio
+        if re.search(r"login\.(microsoftonline|live)\.com", page.url) and dec > 25:
             raise SessaoExpirada("Teams pediu login novamente")
         if page.locator(TEXTBOX).count():
             return
+        fechar_avisos(page)  # "usar o aplicativo da Web", pop-ups de novidades etc.
         if not clicou:
+            if not foi_aba and dec > 6:  # garante que a lista de conversas está aberta
+                foi_aba = True
+                _clicar_primeiro(page, re.compile(r"^(chat|bate-papo|conversas?)\b", re.I), roles=("button", "tab"))
             for alvo in (page.get_by_role("treeitem", name=re.compile(BOT_NAME, re.I)),
                          page.get_by_text(re.compile(BOT_NAME, re.I))):
                 try:
@@ -70,8 +153,11 @@ def abrir_chat(page):
                         break
                 except Exception:
                     pass
+            if not clicou and not buscou and dec > 45:
+                buscou = True
+                clicou = buscar_bot(page)
         time.sleep(2)
-    raise TimeoutError("Não consegui abrir o chat do bot (veja a captura em debug/)")
+    raise TimeoutError("Não consegui abrir o chat do bot. " + resumo_pagina(page))
 
 
 def enviar(page, texto):
