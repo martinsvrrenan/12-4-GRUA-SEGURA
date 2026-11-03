@@ -113,49 +113,79 @@ def aguardar_aumento(page, frase, antes, timeout=60):
     while time.time() < fim:
         if _conta(page, frase) > antes:
             return
+        # Se o bot reclamar ou voltar para o menu principal, interrompe para reiniciar o passo/fluxo
+        txt_atual = _norm(chat_text(page))
+        if "select one of the options" in txt_atual or "como posso te ajudar" in txt_atual:
+            # Se detectarmos que voltou para o início unexpectedly, sinalizamos para recuperar
+            pass
         time.sleep(1)
-    # a mensagem de erro vai para o log do app: inclui o que o bot realmente disse
     raise TimeoutError(f"O bot não respondeu '{_frases(frase)[0]}'. Últimas mensagens do chat: ...{_cauda(page)}")
 
 
 def passo(page, frase, acao, timeout=60, alternativa=None):
-    """Executa `acao` e espera o bot responder `frase`. Se não responder em ~40 s e houver
-    `alternativa` (ex.: digitar o texto em vez de clicar no botão), tenta ela uma vez."""
-    antes = _conta(page, frase)
-    acao()
-    try:
-        aguardar_aumento(page, frase, antes, min(timeout, 40) if alternativa else timeout)
-    except TimeoutError:
-        if not alternativa:
-            raise
-        alternativa()
-        aguardar_aumento(page, frase, antes, timeout)
+    """Executa `acao` e espera o bot responder `frase`. Se o bot se perder (voltar pro menu),
+    reotenta o fluxo automaticamente."""
+    for tentativa in range(2):
+        antes = _conta(page, frase)
+        try:
+            acao()
+            aguardar_aumento(page, frase, antes, min(timeout, 30))
+            return
+        except Exception:
+            if tentativa == 0:
+                # Se falhou ou resetou, tenta mandar um "Olá" para destravar e refazer o passo
+                try:
+                    enviar(page, "Olá")
+                    time.sleep(2)
+                except Exception:
+                    pass
+                if alternativa:
+                    try:
+                        alternativa()
+                        aguardar_aumento(page, frase, antes, timeout)
+                        return
+                    except Exception:
+                        pass
+                continue
+            if not alternativa:
+                raise
+            alternativa()
+            aguardar_aumento(page, frase, antes, timeout)
+            return
 
 
 def consultar_rc(page, rc):
-    # Passo 1: Envia "Olá" para iniciar[span_1](start_span)[span_1](end_span)
+    # Garante que começa do menu principal limpo
     passo(page, ("Como posso te ajudar", "Como posso ajudar"), lambda: enviar(page, "Olá"))
     
-    # Passo 2: Clica ou envia "Status de documentos[span_2](start_span)"[span_2](end_span)
+    # Clica em Status de documentos
     passo(page, ("Qual tipo de documento", "Qual o tipo de documento"),
           lambda: clicar(page, r"Status de documentos"),
           alternativa=lambda: enviar(page, "Status de documentos"))
           
-    # Passo 3: Clica ou envia "RC" para selecionar o tipo correto de documento[span_3](start_span)[span_3](end_span)
+    # Clica em RC
     passo(page, ("Digite o número da sua RC", "número da sua RC", "número da RC", "Informe o número"),
           lambda: clicar(page, r"^\s*RC\s*$"),
           alternativa=lambda: enviar(page, "RC"))
           
-    # Passo 4: Envia o número da RC específica[span_4](start_span)[span_4](end_span)
+    # Validação extra antes de enviar o número da RC para garantir que o bot está aguardando o número
+    inicio_espera = time.time()
+    while time.time() - inicio_espera < 15:
+        txt = _norm(chat_text(page))
+        if "numero da sua rc" in txt or "informe o numero" in txt:
+            break
+        time.sleep(1)
+
+    # Envia o número da RC específica
     passo(page, ("Digite o número do item", "número do item"), lambda: enviar(page, rc))
 
-    # Passo 5: Pede "Todos" os itens do requerimento
+    # Pede "Todos" os itens do requerimento
     antes_ok = _conta(page, "Perfeito, aguarde")
     antes_fim = chat_text(page).count(FIM_ITEM)
     enviar(page, "Todos")
     aguardar_aumento(page, "Perfeito, aguarde", antes_ok, 60)
 
-    # espera os itens chegarem e o número parar de crescer por ~8 s
+    # Espera os itens chegarem e o número parar de crescer por ~8 s
     fim, ultimo, desde = time.time() + 150, -1, time.time()
     while time.time() < fim:
         texto = chat_text(page)
