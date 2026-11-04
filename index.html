@@ -3904,7 +3904,7 @@ nav,main{transition:width .2s ease,margin-left .2s ease}
  .nv-tg svg{width:20px;height:20px;flex:none;transition:transform .2s}
  body.nav-min .nv-tg svg{transform:rotate(180deg)}
  body.nav-min nav{padding-left:10px;padding-right:10px;overflow-x:hidden}
- body.nav-min nav .lg,body.nav-min .nv-tg .tl{display:none}
+ body.nav-min nav button span,body.nav-min .nv-tg .tl{display:none!important}
  body.nav-min nav button,body.nav-min .nv-tg{justify-content:center;padding-left:0;padding-right:0}
 }
 @media(max-width:899px){.nv-tg{display:none!important}}
@@ -3913,7 +3913,7 @@ nav,main{transition:width .2s ease,margin-left .2s ease}
 (function(){
  var K="gs-nav-min",b=document.body,nav=document.querySelector("nav");
  if(!nav)return;
- function labels(){nav.querySelectorAll("button").forEach(function(x){var l=x.querySelector(".lg");if(l&&l.textContent.trim())x.title=l.textContent.trim()})}
+ function labels(){nav.querySelectorAll("button").forEach(function(x){var l=x.querySelector("span:not(.sh)");if(l&&l.textContent.trim())x.title=l.textContent.trim()})}
  function set(m){b.classList.toggle("nav-min",m);try{localStorage.setItem(K,m?"1":"0")}catch(e){}
   t.setAttribute("aria-label",m?"Expandir menu":"Recolher menu");t.title=m?"Expandir menu":"Recolher menu";
   setTimeout(function(){window.dispatchEvent(new Event("resize"))},230)}
