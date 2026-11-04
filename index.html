@@ -1211,7 +1211,7 @@ $("#rp").onclick = () => {
     });
     const step = Math.max(1, Math.ceil(e.labels.length / 6));
     e.labels.forEach((lab, i) => { if (i % step === 0 || i === e.labels.length - 1) g += `<text x="${x(i)}" y="${H - 28}" text-anchor="middle" font-size="10" fill="#7f7f7f">${esc2(lab)}</text>`; });
-    let lx = L; TCH().forEach(([name, key, color]) => { g += `<line x1="${lx}" y1="${H - 9}" x2="${lx + 14}" y2="${H - 9}" stroke="#${color}" stroke-width="3.5"/><text x="${lx + 19}" y="${H - 5.5}" font-size="10" fill="#666666">${name}</text>`; lx += name.length * 5.6 + 40; });
+    const lgW = TCH().reduce((t, k) => t + k[0].length * 5.6 + 40, 0), lgK = Math.min(1, (W - L - R) / Math.max(1, lgW)); let lx = L; TCH().forEach(([name, key, color]) => { g += `<line x1="${lx}" y1="${H - 9}" x2="${lx + 14}" y2="${H - 9}" stroke="#${color}" stroke-width="3.5"/><text x="${lx + 19}" y="${H - 5.5}" font-size="${(10 * Math.max(.8, lgK)).toFixed(1)}" fill="#666666">${esc2(name)}</text>`; lx += (name.length * 5.6 + 40) * lgK; });
     return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc2(title)}" xmlns="http://www.w3.org/2000/svg">${g}</svg>`;
   };
   const hasK = cfgK().length, pj = hasK ? evoProj(d, "tot", true, undefined, evrRange("tot", curWin())) : null;
@@ -2650,8 +2650,9 @@ function build(){const k=$("#kpis"),top=$("#gxTop");if(!k||!top||k.children.leng
  const C=[...k.children],ev=$("#evk")?[...$("#evk").children]:[],val=c=>c?((c.querySelector("b")||{}).textContent||"").trim():"",lab=c=>c?((c.querySelector("span")||{}).textContent||"").trim():"";
  const fd=re=>ev.find(c=>re.test(c.textContent.toLowerCase())),at=fd(/atrás|atras/),me=fd(/meta linear/),te=fd(/término|termino/),late=at&&num(val(at))<0;
  const ks=window.etapasCfg?window.etapasCfg():["lev","des","sph","sap"],pc=C.map(val),d0=$("#dA").value?rows.filter(r=>r.area===$("#dA").value):rows,n0=wsum(d0)||1,
- E=[["Levantamento",2,"lev"],["Em projeto",-1,"proj"],["Desenho",4,"des"],["Sphera",5,"sph"],["SAP",6,"sap"]].filter(x=>ks.includes(x[2])).map(([n,i])=>[n,i<0?Math.round(100*wsum(d0.filter(r=>si(r)>=1))/n0):(Math.round(parseFloat(pc[i]))||0)]);
- let gi=-1,gd=9;for(let i=1;i<E.length;i++){const d=E[i-1][1]-E[i][1];if(d>gd){gd=d;gi=i}}
+ E0=[["Levantamento",2,"lev"],["Em projeto",-1,"proj"],["Desenho",4,"des"],["Sphera",5,"sph"],["SAP",6,"sap"]].filter(x=>ks.includes(x[2])).map(([n,i])=>[n,i<0?Math.round(100*wsum(d0.filter(r=>si(r)>=1))/n0):(Math.round(parseFloat(pc[i]))||0)]);
+ let gi=-1,gd=9;for(let i=1;i<E0.length;i++){const d=E0[i-1][1]-E0[i][1];if(d>gd){gd=d;gi=i}} /* gargalo só entre as etapas padrão (sequenciais) */
+ const cx=(window.etapasX?window.etapasX():[]).filter(x=>ks.includes(x.k)).map(x=>[x.nome,Math.round(100*wsum(d0.filter(r=>r.etapas_extra&&r.etapas_extra[x.k]))/n0)]),E=[...E0,...cx]; /* etapas personalizadas (ex.: Fluxo), marcadas ponto a ponto */
  const col=p=>p>=70?"#2e9e5b":p>=30?"#d9822b":"#d64545",bar=(n,p)=>`<div class="gx-b"><span>${esc(n)}</span><span class="gx-t"><i style="width:${Math.max(p,p>0?2:0)}%;background:${col(p)}"></i></span><span>${p}%</span></div>`;
  const ars=[...new Set(rows.map(r=>r.area).filter(Boolean))],pa=!ks.length?"":ars.map(a=>{let p=0;try{p=Number(andamento(rows.filter(r=>r.area===a)))||0}catch(e){}return bar(a,p)}).join("");
  const cards=(window.gxCards?window.gxCards(C,ev,te):[C[1],C[2],C[3],te].filter(Boolean)).map(c=>c.outerHTML).join("")||"<small>Nenhum indicador escolhido. Use o menu ☰.</small>";
