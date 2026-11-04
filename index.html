@@ -1039,6 +1039,7 @@ const nzt = t => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, ""
 const colsT = () => [...TIPOS.map(t => [t, t]), ["Outros", null]];
 const colOf = (r, C) => { const k = nzt(r.tipo_projeto), i = C.findIndex(c => c[1] !== null && nzt(c[1]) === k); return i < 0 ? C.length - 1 : i; };
 const cell = r => `<div class="ce" data-id="${r.id}" title="${esc(r.tipo_projeto)}"><b>${r.qtd ?? "•"}</b> <span class="tag" style="--c:${COL[si(r)]}">${esc(r.status_projeto)}</span>${r.status_levantamento === "Levantado" ? " ✓" : ""}${r.desenho_sap ? ' <span class="tag" style="--c:#0e9aa7">Desenho no SAP</span>' : ""}${fnHtml(r)}</div>`;
+let pEq = false; // contar por equipamentos (levantado = todas as linhas do equipamento levantadas, igual ao Painel)
 let pLev = ""; // filtro dos dois indicadores no topo de Pontos: "" = todos | "Levantado" | "Pendente"
 const pLevOk = r => r.status_levantamento === "Levantado";
 function pKfDraw(nL, nP) { // indicadores clicáveis (mesmo molde das etiquetas de status do Exiros em Suprimentos)
@@ -1046,18 +1047,29 @@ function pKfDraw(nL, nP) { // indicadores clicáveis (mesmo molde das etiquetas 
   const t = (k, n, nome, c) => { const on = pLev === k, off = pLev && !on;
     return `<span class="tag${on ? " on" : ""}${off ? " off" : ""}" role="button" tabindex="0" data-lv="${k}" aria-pressed="${on}" title="${on ? "Clique para mostrar todos" : "Clique para filtrar"}" style="--c:${c};${on ? `background:${c};color:#fff` : `background:${c}22;color:${c}`}">${n} · ${nome}</span>`; };
   host.innerHTML = t("Levantado", nL, "Levantados", "#2e9e5b") + t("Pendente", nP, "Pendentes", "#d64545")
-    + `<span class="seg"><button type="button" data-u="l" class="${unit === "l" ? "on" : ""}">Linhas</button><button type="button" data-u="p" class="${unit === "p" ? "on" : ""}">Pontos</button></span>`;
+    + `<span class="seg"><button type="button" data-u="l" class="${!pEq && unit === "l" ? "on" : ""}">Linhas</button><button type="button" data-u="p" class="${!pEq && unit === "p" ? "on" : ""}">Pontos</button><button type="button" data-u="e" class="${pEq ? "on" : ""}">Equipamentos</button></span>`;
   const alterna = el => { const k = el.dataset.lv; pLev = pLev === k ? "" : k; table(); }; // clicar de novo no ativo volta a mostrar todos
   host.onclick = e => { const g = e.target.closest("[data-lv]"); if (g) return alterna(g);
-    const u = e.target.closest("[data-u]"); if (u && u.dataset.u !== unit) { unit = u.dataset.u; dash(); table(); } };
+    const u = e.target.closest("[data-u]"); if (!u) return; const v = u.dataset.u;
+    if (v === "e") { if (!pEq) { pEq = true; table(); } return; }
+    if (pEq || v !== unit) { pEq = false; unit = v; dash(); table(); } };
   host.onkeydown = e => { const g = e.target.closest("[data-lv]"); if (g && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); alterna(g); } };
 }
 function table() {
   const C = colsT(), a = $("#fA").value, s = $("#fS").value, q = $("#fQ").value.toLowerCase();
   const base = rows.filter(r => (!a || r.area === a) && (!s || ST[si(r)] === s) &&
     (!q || [r.equipamento, r.tipo_projeto, r.file_name, sheetNames(r.file_name, r.folhas).join(" "), r.sphera, r.codigo_sap, r.responsavel].join(" ").toLowerCase().includes(q)));
-  const nL = wsum(base.filter(pLevOk)), nP = wsum(base.filter(r => !pLevOk(r)));
-  const d = pLev ? base.filter(r => (pLev === "Levantado") === pLevOk(r)) : base;
+  const eqK = r => `${r.area}|${String(r.equipamento || "").trim().toLowerCase()}`;
+  let nL, nP, d;
+  if (pEq) { // por equipamento: levantado = todas as linhas dele levantadas (parcial conta como pendente)
+    const all = {}; rows.forEach(r => { (all[eqK(r)] = all[eqK(r)] || []).push(r); });
+    const ok = k => all[k].every(pLevOk), vis = [...new Set(base.map(eqK))];
+    nL = vis.filter(ok).length; nP = vis.length - nL;
+    d = pLev ? base.filter(r => (pLev === "Levantado") === ok(eqK(r))) : base;
+  } else {
+    nL = wsum(base.filter(pLevOk)); nP = wsum(base.filter(r => !pLevOk(r)));
+    d = pLev ? base.filter(r => (pLev === "Levantado") === pLevOk(r)) : base;
+  }
   pKfDraw(nL, nP);
   const g = {};
   d.forEach(r => { const k = r.area + "|" + r.equipamento;
@@ -1673,7 +1685,7 @@ async function abrirProjeto(id, tab, seq) {
     let p = projs.find(x => x.id === id);
     if (!p) { const { data, error } = await sb.from("projetos").select("*").eq("id", id).maybeSingle(); if (seq !== navSeq) return; if (error || !data) { alert(error ? "Erro ao abrir o projeto: " + error.message : "Projeto não encontrado ou sem acesso."); location.hash = "#/"; return; } p = data; }
     proj = p; const pe = periodo(p); PROJ = { ini: pe.ini, fim: pe.fim, fyM: fyMes(p) };
-    rows = []; hist = []; unit = "l"; pLev = ""; ["dA", "fA", "fS", "rA"].forEach(i => { $("#" + i).value = ""; }); $("#fQ").value = ""; $("#evS").value = "tot";
+    rows = []; hist = []; unit = "l"; pLev = ""; pEq = false; ["dA", "fA", "fS", "rA"].forEach(i => { $("#" + i).value = ""; }); $("#fQ").value = ""; $("#evS").value = "tot";
     prefetchProjeto(id);
     mostrar(); document.body.classList.add("carregando"); // a tela do projeto aparece já; os dados entram em seguida
     try { evoOpts(); await load(); } finally { if (seq === navSeq) document.body.classList.remove("carregando"); }
