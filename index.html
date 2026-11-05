@@ -1078,10 +1078,24 @@ function table() {
   const used = C.map((c, i) => c[1] !== null || list.some(x => x.c[i].length));
   $("#th").innerHTML = "<tr><th>Área</th><th>Equipamento</th>" + C.map((c, i) => used[i] ? `<th>${esc(c[0])}</th>` : "").join("") + "</tr>";
   $("#tb").innerHTML = list.map(x => `<tr><td data-l="Área"><div class="v">${esc(x.area)}</div></td><td class="h"><b>${esc(x.eq)}</b></td>` +
-    x.c.map((l, i) => !used[i] ? "" : `<td data-l="${esc(C[i][0])}"${l.length || canEdit ? "" : ' class="em"'}><div class="v">${l.length ? l.map(cell).join("") : (canEdit ? `<a class="add" data-a="${esc(x.area)}" data-e="${esc(x.eq)}" data-t="${esc(x.te || "")}" data-c="${i}">+</a>` : "–")}</div></td>`).join("") + "</tr>").join("");
+    x.c.map((l, i) => !used[i] ? "" : `<td data-l="${esc(C[i][0])}"${l.length || canEdit ? "" : ' class="em"'}><div class="v">${l.length ? l.map(cell).join("") : (canEdit ? `<a class="add" data-a="${esc(x.area)}" data-e="${esc(x.eq)}" data-t="${esc(x.te || "")}" data-c="${i}">+</a>` : "–")}</div></td>`).join("") + (() => { const em = canEdit ? x.c.map((l, i) => used[i] && !l.length ? i : -1).filter(i => i >= 0) : []; return em.length ? `<td class="mad" data-l="Adicionar etapa"><div class="v"><a class="add madb" role="button" aria-label="Adicionar etapa" data-a="${esc(x.area)}" data-e="${esc(x.eq)}" data-t="${esc(x.te || "")}" data-m="${em.join(",")}">+</a></div></td>` : ""; })() + "</tr>").join("");
   $("#cnt").textContent = `${d.length} de ${rows.length} registros em ${list.length} equipamentos · ✓ levantado${pLev ? " · filtro: " + (pLev === "Levantado" ? "levantados" : "pendentes") : ""}`;
   document.querySelectorAll(".ce").forEach(el => el.onclick = () => edit(rows.find(r => r.id == el.dataset.id)));
-  document.querySelectorAll(".add").forEach(el => el.onclick = () => edit(null, { area: el.dataset.a, equipamento: el.dataset.e, tipo_equipamento: el.dataset.t, tipo_projeto: C[el.dataset.c][1] || "" }));
+  document.querySelectorAll(".add:not(.madb)").forEach(el => el.onclick = () => edit(null, { area: el.dataset.a, equipamento: el.dataset.e, tipo_equipamento: el.dataset.t, tipo_projeto: C[el.dataset.c][1] || "" }));
+  // mobile: um único "+" por equipamento; se houver mais de uma etapa livre, pergunta qual
+  document.querySelectorAll(".madb").forEach(el => el.onclick = ev => { ev.stopPropagation();
+    const ids = el.dataset.m.split(",");
+    const go = i => edit(null, { area: el.dataset.a, equipamento: el.dataset.e, tipo_equipamento: el.dataset.t, tipo_projeto: C[i][1] || "" });
+    if (ids.length === 1) return go(ids[0]);
+    document.querySelectorAll(".mad-menu").forEach(m => m.remove());
+    const m = document.createElement("div"); m.className = "mad-menu";
+    m.innerHTML = "<small>Adicionar em…</small>" + ids.map(i => `<button type="button" data-i="${i}">${esc(C[i][0])}</button>`).join("");
+    document.body.appendChild(m);
+    const r = el.getBoundingClientRect();
+    m.style.top = Math.max(70, Math.min(r.bottom + 6, innerHeight - m.offsetHeight - 100)) + "px";
+    m.querySelectorAll("button").forEach(b => b.onclick = () => { m.remove(); go(b.dataset.i); });
+    setTimeout(() => document.addEventListener("click", () => m.remove(), { once: true }), 0);
+  });
 }
 ["fA", "fS"].forEach(i => $("#" + i).onchange = table); $("#fQ").oninput = table;
 function edit(r, p) {
@@ -4061,6 +4075,17 @@ html[data-theme=dark] .sl .ac .ib-e{background:#1b2f5f;color:#b9c8e8}
 html[data-theme=dark] .sl .ac .ib-e:hover{background:#243d78;color:#fff}
 html[data-theme=dark] .sl .ac .ib-sw{background:#4a5878}
 html[data-theme=dark] .sl .ac .ib-sw.on{background:#2fbf6b}
+
+/* Cadastro: no mobile mostra só as etapas preenchidas + um único "+" */
+#tb td.mad{display:none}
+.mad-menu{position:fixed;right:16px;z-index:9999;min-width:200px;max-width:calc(100vw - 32px);max-height:50vh;overflow:auto;display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:14px;background:var(--s,#fff);border:1px solid var(--bd,#dbe3f1);box-shadow:0 12px 32px #0003}
+.mad-menu small{color:var(--mut,#66738a);font-weight:700;padding:0 4px 2px}
+.mad-menu button{text-align:left;min-height:0;padding:10px 12px;border-radius:10px}
+@media(max-width:760px){
+#tb td:has(> .v > .add:not(.madb)),#tb td.em{display:none}
+#tb td.mad{display:flex;flex:1 1 100%;align-items:center;justify-content:space-between}
+#tb td.mad .add{padding:6px 22px;font-size:18px;line-height:1.2;text-decoration:none}
+}
 </style>
 <script id="gs-v4-js">
 (function(){
