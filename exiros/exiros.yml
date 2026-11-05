@@ -2,7 +2,7 @@ name: Exiros sync
 
 on:
   schedule:
-    - cron: "0 9 * * *"        # 09:00 UTC = 06:00 em Brasília
+    - cron: "0 9 * * 1-5"      # 09:00 UTC = 06:00 em Brasília, só de segunda a sexta
   workflow_dispatch:
     inputs:
       rc:
