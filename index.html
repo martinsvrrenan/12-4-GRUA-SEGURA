@@ -3265,11 +3265,16 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
     OK = !(a.error || b.error || c.error); EX = a.error ? [] : (a.data || []); LOG = b.error ? null : ((b.data || [])[0] || null); LOK = c.error ? null : ((c.data || [])[0] || null); IDX = porRc();
     card(); decora();
   }
-  function clique() { if (busy || rodando()) parar(); else dispara(); } // botão alterna: atualizar / parar
+  function clique() { if (busy || rodando()) parar(); else escolher(); } // botão alterna: escolher onde atualizar / parar
   async function parar() {
     if (papel !== "admin" || parando) return;
     parando = true; MSG = "Parando a atualização…"; card();
     try {
+      const loc = await chamarLocal({ acao: "parar" }).catch(() => null); // atualização no computador do admin?
+      if (loc && loc.parou) {
+        MSG = "Parada solicitada ao computador: ele termina a RC em andamento e para. As RCs já consultadas ficam salvas.";
+        busy = true; parando = false; card(); espera((LOG ? LOG.id : 1) - 1); return;
+      }
       const { data, error } = await sb.functions.invoke("disparar-exiros", { body: { acao: "parar" } });
       let det = data && data.erro;
       if (error && !det) { try { det = (await error.context.json()).erro; } catch (e) { det = error.message; } }
@@ -3280,8 +3285,9 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
     } catch (e) { MSG = "Não foi possível parar: " + (e.message || e); }
     parando = false; card();
   }
-  async function dispara() {
+  async function dispara(modo) {
     if (papel !== "admin" || busy || !proj) return;
+    if (modo === "local") return disparaLocal();
     busy = true; MSG = "Disparando a consulta ao Exiros para as RCs deste projeto…"; card();
     const antes = LOG ? LOG.id : 0;
     try {
@@ -3292,6 +3298,68 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
       MSG = "Atualização das RCs deste projeto iniciada. Leva alguns minutos; esta tela atualiza sozinha quando terminar.";
       card(); espera(antes);
     } catch (e) { busy = false; MSG = "Não foi possível iniciar: " + (e.message || e); card(); }
+  }
+  async function chamarLocal(body) { // ponte com o agente do PC (Edge Function exiros-local)
+    const { data, error } = await sb.functions.invoke("exiros-local", { body });
+    let det = data && data.erro;
+    if (error && !det) { try { det = (await error.context.json()).erro; } catch (e) { det = error.message; } }
+    if (det) throw new Error(det);
+    return data;
+  }
+  async function disparaLocal() {
+    busy = true; MSG = "Enviando o pedido ao seu computador…"; card();
+    const antes = LOG ? LOG.id : 0;
+    try {
+      const r = await chamarLocal({ acao: "pedir", projeto_id: proj.id });
+      MSG = r && r.ja_existia ? "Já há uma atualização local em andamento ou na fila." : "Pedido enviado ao computador. Ele começa em até 1 minuto; esta tela atualiza sozinha quando terminar.";
+      card(); espera(antes);
+    } catch (e) { busy = false; MSG = "Não foi possível enviar ao computador: " + (e.message || e); card(); }
+  }
+  async function escolher() { // janela: atualizar neste computador ou remoto (GitHub)
+    if (papel !== "admin" || busy || !proj) return;
+    const d = document.createElement("dialog");
+    d.innerHTML = `<h3>Atualizar RCs deste projeto</h3><small>Escolha onde a consulta ao Exiros será feita.</small>
+      <div style="display:grid;gap:10px;margin-top:14px">
+        <div class="card" style="margin:0"><b>Neste computador</b>
+          <small data-st style="display:block;margin:4px 0 10px">Verificando o agente local…</small>
+          <button class="p" type="button" data-loc disabled>Atualizar neste computador</button>
+          <div data-baixar hidden style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)">
+            <small style="display:block">Para usar esta opção o computador precisa do agente local:</small>
+            <ol style="margin:6px 0 10px 18px;padding:0;font-size:13px;line-height:1.5">
+              <li>Baixe o pacote e extraia em <b>C:\\ExirosBot</b> (fora do OneDrive).</li>
+              <li>Dê dois cliques em <b>instalar.bat</b> e entre no Teams quando o Chrome abrir.</li>
+              <li>Deixe <b>iniciar_exiros.bat</b> aberto (ele abre sozinho ao ligar o PC).</li>
+            </ol>
+            <div class="bar" style="margin:0"><a href="exiros_local.zip" download><button type="button">Baixar o agente local</button></a><button type="button" data-ver>Já instalei, verificar de novo</button></div>
+          </div>
+        </div>
+        <div class="card" style="margin:0"><b>Remoto (GitHub)</b>
+          <small style="display:block;margin:4px 0 10px">Roda na nuvem, sem depender do seu computador. Usa a sessão do Teams salva e pode falhar se o Teams recusar o acesso.</small>
+          <button type="button" data-rem>Atualizar remoto</button>
+        </div>
+      </div>
+      <div class="bar" style="margin-top:12px"><button type="button" data-cx>Cancelar</button></div>`;
+    document.body.appendChild(d);
+    const fim = () => { d.close(); d.remove(); };
+    const st = d.querySelector("[data-st]"), bLoc = d.querySelector("[data-loc]"), baixar = d.querySelector("[data-baixar]");
+    d.querySelector("[data-cx]").onclick = fim; d.addEventListener("cancel", e => { e.preventDefault(); fim(); });
+    d.querySelector("[data-rem]").onclick = () => { fim(); dispara("remoto"); };
+    bLoc.onclick = () => { fim(); dispara("local"); };
+    async function verifica() {
+      st.textContent = "Verificando o agente local…"; bLoc.disabled = true; baixar.hidden = true;
+      try {
+        const r = await chamarLocal({ acao: "status" });
+        if (r.online) {
+          st.textContent = r.estado === "executando" ? "Agente online, mas já está atualizando agora." : r.estado === "aguardando_login" ? "Agente online, aguardando você entrar no Teams (veja o Chrome do computador)." : `Agente online${r.maquina ? " (" + r.maquina + ")" : ""}. Pronto para atualizar.`;
+          bLoc.disabled = r.estado === "executando";
+        } else {
+          st.textContent = r.ultimo_ping ? `Agente local desligado ou sem internet (último sinal em ${dataHora(r.ultimo_ping)}).` : "Nenhum agente local instalado ainda.";
+          baixar.hidden = false;
+        }
+      } catch (e) { st.textContent = "Não foi possível verificar o agente local: " + (e.message || e) + " (a função exiros-local foi publicada?)"; }
+    }
+    d.querySelector("[data-ver]").onclick = verifica;
+    d.showModal(); verifica();
   }
   function espera(antes) {
     clearInterval(poll); const t0 = Date.now();
