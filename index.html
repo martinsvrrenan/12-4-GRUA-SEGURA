@@ -1891,11 +1891,13 @@ const _ap = abrirProjeto;
 abrirProjeto = async function (id, tab, seq) { nb.classList.toggle("hide", !canProj); if (tab === "parametros" && !canProj) tab = "dashboard";
   await _ap(id, tab, seq); if (proj && proj.id === id && tab === "parametros") renderPar(); };
 const det = p => p.categoria === "tipo" ? "unidade: " + ((p.config || {}).unidade || "—") : p.categoria === "etapa" ? (/^x_/.test((p.config || {}).chave || "") ? "personalizada · marcada em cada ponto" : "padrão · automática pelo status do ponto") : (p.categoria === "campo" || p.categoria === "sup_campo") ? ((p.config || {}).tipo || "texto") + ((p.config || {}).opcoes ? " (" + p.config.opcoes.join(", ") + ")" : "") : "";
+const IC_ED = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+const IC_TR = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
 function renderPar() {
   if (!canProj) { sec.innerHTML = ""; return; }
   sec.innerHTML = CAT.map(([c, t]) => `<div class="card"><div class="evh"><b>${t}</b><button class="p" data-add="${c}">+ Adicionar</button></div>` +
-    (par(c).map(p => `<div class="sl"><div><b>${esc(p.nome)}</b> <small>${esc(det(p))}${p.ativo ? "" : " · inativo"}</small></div><div class="ac"><button data-pe="${p.id}">Editar</button><button data-pt="${p.id}">${p.ativo ? "Desativar" : "Ativar"}</button><button class="d" data-pd="${p.id}">Excluir</button></div></div>`).join("") || "<small>Nenhum parâmetro cadastrado.</small>") + "</div>").join("") +
-    "<small>Etapas: o andamento total é a média das etapas ativas. Desativar esconde (dá para reativar); Excluir remove o parâmetro de vez. Nenhum dos dois apaga os pontos. Os parâmetros de Suprimentos aparecem no cadastro, na tabela e na exportação dos itens deste projeto.</small>";
+    (par(c).map(p => `<div class="sl"><div><b>${esc(p.nome)}</b> <small>${esc(det(p))}${p.ativo ? "" : " · inativo"}</small></div><div class="ac"><button type="button" class="ib ib-e" data-pe="${p.id}" title="Editar" aria-label="Editar">${IC_ED}</button><button type="button" class="ib-sw${p.ativo ? " on" : ""}" role="switch" aria-checked="${p.ativo ? "true" : "false"}" data-pt="${p.id}" title="${p.ativo ? "Desativar" : "Ativar"}" aria-label="${p.ativo ? "Desativar" : "Ativar"}"></button><button type="button" class="ib ib-d" data-pd="${p.id}" title="Excluir" aria-label="Excluir">${IC_TR}</button></div></div>`).join("") || "<small>Nenhum parâmetro cadastrado.</small>") + "</div>").join("") +
+    "<small>Etapas: o andamento total é a média das etapas ativas. O interruptor desativa/reativa (esconde sem apagar); a lixeira remove o parâmetro de vez. Nenhum dos dois apaga os pontos. Os parâmetros de Suprimentos aparecem no cadastro, na tabela e na exportação dos itens deste projeto.</small>";
   sec.querySelectorAll("[data-add]").forEach(b => b.onclick = () => editPar(null, b.dataset.add));
   sec.querySelectorAll("[data-pe]").forEach(b => b.onclick = () => editPar((ALL[proj.id] || []).find(p => p.id == b.dataset.pe)));
   sec.querySelectorAll("[data-pd]").forEach(b => b.onclick = async () => { if (!canProj) return; const p = (ALL[proj.id] || []).find(x => x.id == b.dataset.pd); if (!p) return;
@@ -4041,6 +4043,24 @@ nav,main{transition:width .2s ease,margin-left .2s ease}
  body.nav-min nav button,body.nav-min .nv-tg{justify-content:center;padding-left:0;padding-right:0}
 }
 @media(max-width:899px){.nv-tg{display:none!important}}
+
+/* Botões de ação padrão: ícones (editar / ativar-desativar / excluir) */
+.sl .ac{display:flex;align-items:center;gap:10px;flex-wrap:nowrap}
+.sl .ac .ib,html[data-theme] .sl .ac .ib{width:40px;height:40px;min-height:0;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:12px;border:0;box-shadow:none;cursor:pointer;transition:background .15s,transform .1s,filter .15s}
+.sl .ac .ib svg{width:20px;height:20px;display:block}
+.sl .ac .ib:active{transform:scale(.94)}
+.sl .ac .ib-e,html[data-theme] .sl .ac .ib-e{background:#e8ebf4;color:#5b6678}
+.sl .ac .ib-e:hover,html[data-theme] .sl .ac .ib-e:hover{background:#dde2ef;color:#14284b}
+.sl .ac .ib-d,html[data-theme] .sl .ac .ib-d{background:#d64545;color:#fff}
+.sl .ac .ib-d:hover,html[data-theme] .sl .ac .ib-d:hover{background:#c23a3a;filter:brightness(1.03)}
+.sl .ac .ib-sw,html[data-theme] .sl .ac .ib-sw{position:relative;flex:none;width:44px;height:24px;min-height:0;padding:0;border:0;border-radius:12px;background:#b6bfce;box-shadow:none;cursor:pointer;transition:background .2s}
+.sl .ac .ib-sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0004;transition:transform .2s}
+.sl .ac .ib-sw.on,html[data-theme] .sl .ac .ib-sw.on{background:#2e9e5b}
+.sl .ac .ib-sw.on::after{transform:translateX(20px)}
+html[data-theme=dark] .sl .ac .ib-e{background:#1b2f5f;color:#b9c8e8}
+html[data-theme=dark] .sl .ac .ib-e:hover{background:#243d78;color:#fff}
+html[data-theme=dark] .sl .ac .ib-sw{background:#4a5878}
+html[data-theme=dark] .sl .ac .ib-sw.on{background:#2fbf6b}
 </style>
 <script id="gs-v4-js">
 (function(){
