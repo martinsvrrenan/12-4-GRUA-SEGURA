@@ -2026,12 +2026,13 @@ window.lerArq = lerArq; window.etapasAtivas = () => keysFor(proj.id); window.eta
 /* Grua Segura – Fase 3: Suprimentos por projeto. */
 (function () {
 //#PURE
-const SIT = ["Sem RC", "RC emitida", "Pedido emitido", "Entregue"];
-const sitOf = i => i.data_recebimento ? 3 : i.pedido_numero ? 2 : i.rc_numero ? 1 : 0;
+const SIT = ["Sem RC", "RC emitida", "Pedido emitido", "Entregue", "Cancelado"];
+const ovr = i => { const v = i && i.extras && i.extras._sit; return v === "Entregue" || v === "Cancelado" ? v : null; }; // situação definida pelo Exiros ou manualmente (extras._sit)
+const sitOf = i => { const o = ovr(i); return o === "Cancelado" ? 4 : o === "Entregue" ? 3 : i.data_recebimento ? 3 : i.pedido_numero ? 2 : i.rc_numero ? 1 : 0; };
 const hj = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
 const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const dias = (a, b) => Math.round((parseD(b) - parseD(a)) / DAY);
-const atras = i => !!i.prazo_entrega && !i.data_recebimento && parseD(i.prazo_entrega) < hj();
+const atras = i => !!i.prazo_entrega && !i.data_recebimento && !ovr(i) && parseD(i.prazo_entrega) < hj();
 const semPrazo = i => sitOf(i) === 2 && !i.prazo_entrega;
 const cl = v => { v = String(v ?? "").trim(); return v || null; };
 const kk = (sap, sph) => sap ? "S:" + sap : sph ? "P:" + sph : null; // chave: SAP; sem SAP, Sphera
@@ -2045,10 +2046,10 @@ function brNum(v) { v = String(v ?? "").replace(/[^\d.,\-]/g, ""); if (!v) retur
 function pdateLast(v) { v = String(v ?? "").trim(); const m = v.match(/\d{4}-\d{2}-\d{2}|\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}/g); return m ? pdate(m[m.length - 1]) : pdate(v); } // "de/até": usa a última data
 const vTot = i => i.valor_total != null ? Number(i.valor_total) : (i.valor_unitario != null && i.quantidade != null ? Number(i.valor_unitario) * Number(i.quantidade) : 0);
 function supValores(L) { const v = { rc: 0, pd: 0, rec: 0, prev: 0 }; L.forEach(i => { const s = sitOf(i), x = vTot(i) || 0; if (s === 0) v.prev += x; else if (s === 1) v.rc += x; else if (s === 2) v.pd += x; else if (s === 3) v.rec += x; }); v.comp = v.rc + v.pd + v.rec; return v; }
-function supStats(L) { const t = L.length, c = f => L.filter(f).length, h = hj().getTime();
+function supStats(L0) { const L = L0.filter(i => sitOf(i) !== 4), cn = L0.length - L.length, t = L.length, c = f => L.filter(f).length, h = hj().getTime();
   const av = d => c(i => i.prazo_entrega && !i.data_recebimento && !atras(i) && (parseD(i.prazo_entrega).getTime() - h) / DAY <= d);
   const pm = L.filter(i => i.pedido_data && i.prazo_entrega).map(i => dias(i.pedido_data, i.prazo_entrega));
-  return { t, rc: c(i => sitOf(i) >= 1), pd: c(i => sitOf(i) >= 2), pz: c(i => i.prazo_entrega), en: c(i => sitOf(i) === 3), at: c(atras), sp: c(semPrazo),
+  return { t, cn, rc: c(i => sitOf(i) >= 1), pd: c(i => sitOf(i) >= 2), pz: c(i => i.prazo_entrega), en: c(i => sitOf(i) === 3), at: c(atras), sp: c(semPrazo),
     a7: av(7), a15: av(15), a30: av(30), pm: pm.length ? Math.round(pm.reduce((a, b) => a + b, 0) / pm.length) : null }; }
 
 // ---- Texto do MyItems (chatbot) -> tabela no mesmo padrão da planilha SAP ----
@@ -2252,7 +2253,7 @@ function pintaOrc() {
 function pintaEvo(orc) {
   const cv = $("#c7"); if (!cv) return;
   const D = x => String(x || "").slice(0, 10), okD = d => /^\d{4}-\d{2}-\d{2}$/.test(d), ev = [];
-  SUP.forEach(i => { const st = sitOf(i), x = vTot(i) || 0; if (!x || st === 0) return;
+  SUP.forEach(i => { const st = sitOf(i), x = vTot(i) || 0; if (!x || st === 0 || st === 4) return;
     const dc = D(st === 3 ? (i.pedido_data || i.rc_data || i.data_recebimento) : st === 2 ? (i.pedido_data || i.rc_data) : i.rc_data) || D(i.created_at);
     if (okD(dc)) ev.push([dc, x, 0]); if (st === 3 && okD(D(i.data_recebimento))) ev.push([D(i.data_recebimento), x, 1]); });
   gasLista().forEach(g => { const d = D(g.data), x = Number(g.valor) || 0; if (okD(d) && x) { ev.push([d, x, 0]); ev.push([d, x, 1]); } });
@@ -2308,8 +2309,8 @@ function editaGasto(g) {
 }
 function filtrados() { const q = F.q.toLowerCase(); return SUP.filter(i => { const p = pontoDe(i);
   return (!F.sit || sitTxt(i) === F.sit || (F.sit === "Sem prazo" && semPrazo(i))) && (!F.area || (p && p.area === F.area)) && (!F.tipo || (p && p.tipo_projeto === F.tipo)) && (!q || [i.codigo_sap, i.codigo_sphera, i.descricao, ...xCampos().map(p => xVal(i, p))].join(" ").toLowerCase().includes(q)); }); }
-const prazoKpis = s => [[s.t, "itens"], [pc3(s.rc, s.t), "com RC"], [pc3(s.pd, s.t), "com pedido"], [pc3(s.pz, s.t), "com prazo"], [pc3(s.en, s.t), "entregues"], [`${s.at} (${pc3(s.at, s.t)})`, "atrasados"], [s.sp, "pedidos sem prazo"], [`${s.a7} / ${s.a15} / ${s.a30}`, "a vencer em 7 / 15 / 30 dias"], [s.pm == null ? "—" : s.pm + " d", "prazo médio (pedido → entrega)"]];
-const atencao = L => { const hojeS = ymd(hj()), d = x => x ? dtBR(parseD(x)) : "—"; // itens que pedem ação: acima do previsto, aguardando aprovação, atrasados e sem RC há muito tempo
+const prazoKpis = s => [[s.t, "itens"], [pc3(s.rc, s.t), "com RC"], [pc3(s.pd, s.t), "com pedido"], [pc3(s.pz, s.t), "com prazo"], [pc3(s.en, s.t), "entregues"], [`${s.at} (${pc3(s.at, s.t)})`, "atrasados"], [s.sp, "pedidos sem prazo"], ...(s.cn ? [[s.cn, "cancelados"]] : []), [`${s.a7} / ${s.a15} / ${s.a30}`, "a vencer em 7 / 15 / 30 dias"], [s.pm == null ? "—" : s.pm + " d", "prazo médio (pedido → entrega)"]];
+const atencao = L => { L = L.filter(i => sitOf(i) !== 4); const hojeS = ymd(hj()), d = x => x ? dtBR(parseD(x)) : "—"; // itens que pedem ação: acima do previsto, aguardando aprovação, atrasados e sem RC há muito tempo
   return [...L.filter(i => i.valor_estimado != null && vTot(i) > Number(i.valor_estimado) + 0.005).map(i => [i, "Acima do previsto (+" + fR(vTot(i) - Number(i.valor_estimado)) + ")"]), ...L.filter(i => /aguard/i.test(i.aprovacao || "") && !i.pedido_numero).map(i => [i, "Aguardando aprovação"]), ...L.filter(atras).map(i => [i, "Atrasado desde " + d(i.prazo_entrega)]), ...L.filter(i => sitOf(i) === 0 && i.created_at && dias(i.created_at.slice(0, 10), hojeS) > X).map(i => [i, `Sem RC há ${dias(i.created_at.slice(0, 10), hojeS)} dias`])]; };
 function pinta() {
   const L = filtrados(), s = supStats(L), d = x => x ? dtBR(parseD(x)) : "—", cd = prazoKpis(s);
@@ -2317,13 +2318,14 @@ function pinta() {
   charts.c5?.destroy(); charts.c5 = new Chart($("#c5"), { type: "bar", data: { labels: ["Total", "Com RC", "Com pedido", "Entregues"], datasets: [{ data: [s.t, s.rc, s.pd, s.en], backgroundColor: ["#b0b7c3", "#f2a93b", "#3b82c4", "#2e9e5b"] }] }, options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
   const at = atencao(L);
   $("#sA").innerHTML = at.length ? at.slice(0, 15).map(([i, t]) => `<div class="sl"><div><b>${esc(i.codigo_sap || i.codigo_sphera || "—")}</b> <small>${esc(i.descricao || "")}</small></div><span class="tag" style="--c:#d64545">${t}</span></div>`).join("") + (at.length > 15 ? `<small>+${at.length - 15} itens</small>` : "") : "Nenhum item em atenção.";
-  const cor = i => atras(i) ? "#d64545" : semPrazo(i) ? "#d9822b" : ["#b0b7c3", "#f2a93b", "#3b82c4", "#2e9e5b"][sitOf(i)];
+  const cor = i => atras(i) ? "#d64545" : semPrazo(i) ? "#d9822b" : ["#b0b7c3", "#f2a93b", "#3b82c4", "#2e9e5b", "#7a828f"][sitOf(i)];
   $("#sT").innerHTML = L.map(i => `<tr data-id="${i.id}" style="${canProj ? "cursor:pointer" : ""}"><td class="h"><b>${esc(i.codigo_sap || "—")}</b></td><td data-l="Sphera"><div class="v">${esc(i.codigo_sphera || "—")}</div></td><td data-l="Descrição"><div class="v">${esc(i.descricao || "—")}</div></td><td data-l="Qtd"><div class="v">${i.quantidade ?? "—"} ${esc(i.unidade || "")}</div></td><td data-l="Valor unit."><div class="v">${fR(i.valor_unitario)}</div></td><td data-l="Valor total"><div class="v">${i.valor_total != null || i.valor_unitario != null ? fR(vTot(i)) : "—"}</div></td><td data-l="Situação"><div class="v"><span class="tag" style="--c:${cor(i)}">${sitTxt(i)}</span></div></td><td data-l="RC"><div class="v">${esc(i.rc_numero || "—")} <small>${i.rc_data ? d(i.rc_data) : ""}</small></div></td><td data-l="Pedido"><div class="v">${esc(i.pedido_numero || "—")} <small>${esc(i.fornecedor || "")}</small></div></td><td data-l="Prazo"><div class="v">${d(i.prazo_entrega)}</div></td><td data-l="Recebido"><div class="v">${d(i.data_recebimento)}</div></td>${xCampos().map(p => `<td data-l="${esc(p.nome)}"><div class="v">${esc(xFmt(i, p))}</div></td>`).join("")}</tr>`).join("");
   $("#sC").textContent = `${L.length} de ${SUP.length} itens · valor total listado: ${fR(L.reduce((a, i) => a + (vTot(i) || 0), 0))}`; if (canProj) document.querySelectorAll("#sT tr").forEach(tr => tr.onclick = () => editaItem(SUP.find(i => i.id == tr.dataset.id)));
 }
 
 // ---- Item manual (inserir / editar / excluir) ----
 const dl = document.createElement("dialog"); dl.id = "spDlg"; document.body.appendChild(dl);
+const sitCod = it => ovr(it) || (it && it.extras && it.extras._sit_src === "manual" ? "dados" : "");
 function itemCampos(it) {
   const un = xLista("sup_unidade"), fo = xLista("sup_fornecedor");
   const std = ORD.map(k => { const f = ff(k), w = f[3] === "w" ? ' style="grid-column:1/-1"' : "", v = it ? it[k] ?? "" : k === "unidade" ? (un[0] || "un") : "";
@@ -2335,7 +2337,10 @@ function itemCampos(it) {
     if (t === "lista") { const op = (p.config || {}).opcoes || [], l = v !== "" && !op.includes(v) ? [...op, v] : op;
       return `<label>${esc(p.nome)}<select name="${nm}"><option value="">—</option>${l.map(x => `<option ${x === v ? "selected" : ""}>${esc(x)}</option>`).join("")}</select></label>`; }
     return `<label>${esc(p.nome)}<input name="${nm}" type="${t === "número" ? "number" : t === "data" ? "date" : "text"}"${t === "número" ? ' step="any"' : ""} value="${esc(v)}"></label>`; }).join("");
-  return std + dl2 + (ex ? '<div style="grid-column:1/-1;margin-top:6px"><b>Campos extras</b></div>' + ex : "");
+  const sc = sitCod(it), so = [["", "Automática (dados do item + Exiros)"], ["Entregue", "Entregue"], ["Cancelado", "Cancelado"], ["dados", "Só pelos dados do item (ignorar Exiros)"]],
+    sh = it && it.extras && it.extras._sit_src === "exiros" ? "definida automaticamente pelo Exiros — você pode alterar" : "";
+  const sit = `<label style="grid-column:1/-1">Situação do item${sh ? ` <small>(${sh})</small>` : ""}<select name="sit_manual">${so.map(([v, t]) => `<option value="${v}" ${v === sc ? "selected" : ""}>${t}</option>`).join("")}</select></label>`;
+  return std + sit + dl2 + (ex ? '<div style="grid-column:1/-1;margin-top:6px"><b>Campos extras</b></div>' + ex : "");
 }
 function editaItem(it) {
   if (!canProj) return;
@@ -2343,7 +2348,8 @@ function editaItem(it) {
   <p class="err" id="spE"></p><div class="bar" style="margin-top:12px"><button class="p">Salvar</button><button type="button" id="spCx">Cancelar</button>${it && canDelete ? '<button type="button" class="d" id="spDel">Excluir</button>' : ""}</div></form>`;
   $("#spCx").onclick = () => dl.close();
   if ($("#spDel")) $("#spDel").onclick = async () => { if (!confirm("Excluir este item de suprimentos?")) return; const { error } = await sb.from("suprimentos").delete().eq("id", it.id); if (error) return alert(error.message); logP("Excluiu item de suprimentos", it.codigo_sap || it.codigo_sphera || it.descricao || ""); dl.close(); await loadSup(); renderSup(); };
-  $("#spF").onsubmit = async e => { e.preventDefault(); const o = {}, ex = Object.assign({}, it && it.extras); new FormData(e.target).forEach((v, k) => { if (k.startsWith("x_")) { const id = k.slice(2), p = xCampos().find(q => String(q.id) === id); let z = cl(v); if (z != null && p && xTipo(p) === "número") z = brNum(z); if (z == null) delete ex[id]; else ex[id] = z; } else o[k] = cl(v); }); o.extras = ex; ["quantidade", "valor_unitario", "valor_total", "valor_cotado", "valor_estimado", "valor_pago", "qtd_recebida"].forEach(k => { if (o[k] != null) o[k] = brNum(o[k]); });
+  $("#spF").onsubmit = async e => { e.preventDefault(); const o = {}, ex = Object.assign({}, it && it.extras); let sm = null; new FormData(e.target).forEach((v, k) => { if (k === "sit_manual") sm = v; else if (k.startsWith("x_")) { const id = k.slice(2), p = xCampos().find(q => String(q.id) === id); let z = cl(v); if (z != null && p && xTipo(p) === "número") z = brNum(z); if (z == null) delete ex[id]; else ex[id] = z; } else o[k] = cl(v); }); if (sm !== null && sm !== sitCod(it)) { delete ex._sit; delete ex._sit_src; if (sm === "Entregue" || sm === "Cancelado") { ex._sit = sm; ex._sit_src = "manual"; } else if (sm === "dados") ex._sit_src = "manual"; } // mudança manual: o Exiros deixa de sobrescrever
+    o.extras = ex; ["quantidade", "valor_unitario", "valor_total", "valor_cotado", "valor_estimado", "valor_pago", "qtd_recebida"].forEach(k => { if (o[k] != null) o[k] = brNum(o[k]); });
     if (!o.codigo_sap && !o.codigo_sphera) return $("#spE").textContent = "Informe o código SAP ou o código Sphera.";
     // Item vinculado ao Cadastro: o código vem do ponto e a sincronização (sync) devolvia o código antigo ao recarregar.
     // Por isso, se o código mudou aqui, grava também no ponto de origem (com o mesmo status automático do Cadastro).
@@ -2488,7 +2494,7 @@ function exporta() {
 // ---- Gastos para os relatórios (PDF, PowerPoint e Excel) ----
 function gastoEv() {
   const D = x => String(x || "").slice(0, 10), okD = d => /^\d{4}-\d{2}-\d{2}$/.test(d), ev = [];
-  SUP.forEach(i => { const st = sitOf(i), x = vTot(i) || 0; if (!x || st === 0) return;
+  SUP.forEach(i => { const st = sitOf(i), x = vTot(i) || 0; if (!x || st === 0 || st === 4) return;
     const dc = D(st === 3 ? (i.pedido_data || i.rc_data || i.data_recebimento) : st === 2 ? (i.pedido_data || i.rc_data) : i.rc_data) || D(i.created_at), t = i.descricao || i.codigo_sap || i.codigo_sphera || "Item", o = st === 3 ? "Item recebido" : st === 2 ? "Item em pedido" : "Item em RC";
     if (okD(dc)) ev.push({ d: dc, v: x, k: 0, t, o }); if (st === 3 && okD(D(i.data_recebimento))) ev.push({ d: D(i.data_recebimento), v: x, k: 1, t, o }); });
   gasLista().forEach(g => { const d = D(g.data), x = Number(g.valor) || 0; if (okD(d) && x) ev.push({ d, v: x, k: 2, t: g.descricao, o: g.categoria || "Outros gastos" }); });
@@ -2539,7 +2545,7 @@ window.supRel = (img) => { const s = supStats(SUP), d = x => x ? dtBR(parseD(x))
     all: SUP.map(i => [i.codigo_sap || i.codigo_sphera || "—", String(i.descricao || "—").slice(0, 110), [i.quantidade ?? "", okv("sup_unidade", i.unidade) ? i.unidade || "" : ""].join(" ").trim() || "—", okv("sup_fornecedor", i.fornecedor) && i.fornecedor ? i.fornecedor : "—", sitTxt(i), d(i.prazo_entrega)]),
     rows: SUP.map(i => ({ ...Object.fromEntries(ORD.map(k => [ff(k)[1], (k === "fornecedor" && !okv("sup_fornecedor", i[k])) || (k === "unidade" && !okv("sup_unidade", i[k])) ? "" : i[k] ?? ""])), ...Object.fromEntries(xCampos().map(p => [xCol(p), xVal(i, p)])), "Situação": sitTxt(i) })) }; };
 /* gancho para o bloco do Exiros (gx-exiros): expõe SUP e permite encaixar nas funções internas desta aba */
-window.gxSup = { get SUP() { return SUP; } };
+window.gxSup = { get SUP() { return SUP; }, rerender() { renderSup(); } };
 window.gxSupHook = h => {
   const _rs = renderSup; renderSup = function () { _rs(); h.render(); };
   const _pt = pinta; pinta = function () { _pt(); h.pinta(); };
@@ -3054,7 +3060,7 @@ function pickOrc(){cfgLoad();if(!ORC.length)return alert("Os cards do orçamento
  d.onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;if(b.dataset.a==="ok"){CF.o=[...d.querySelectorAll("input:checked")].map(i=>i.value);cfgSave();d.close();renderOrc()}else d.close()}}
 function applySup(){cfgLoad();renderOrc();const a=$("#sV2"),b=$("#sK");a&&a.classList.toggle("gx-aslist",CF.dv==="l");b&&b.classList.toggle("gx-aslist",CF.pv==="l")}
 /* ---- Suprimentos › Itens: áreas em botões e lista de situações no visual do app ---- */
-const DOT={"Sem RC":"#b0b7c3","RC emitida":"#f2a93b","Pedido emitido":"#3b82c4","Entregue":"#2e9e5b","Atrasado":"#d64545","Sem prazo":"#d9822b"};
+const DOT={"Sem RC":"#b0b7c3","RC emitida":"#f2a93b","Pedido emitido":"#3b82c4","Entregue":"#2e9e5b","Cancelado":"#7a828f","Atrasado":"#d64545","Sem prazo":"#d9822b"};
 function filtrosItens(){const sa=$("#sFa"),ss=$("#sFs");if(!sa||!ss)return;const card=sa.closest(".card");
  if(card&&!card.querySelector(".gxar")){const g=document.createElement("div");g.className="seg gxsg gxar";g.setAttribute("role","group");g.setAttribute("aria-label","Área");
   const draw=()=>{g.innerHTML=[...sa.options].map(o=>`<button type="button" data-v="${E(o.value)}" class="${o.value===sa.value?"on":""}" aria-pressed="${o.value===sa.value}">${E(o.value?o.textContent:"Todas")}</button>`).join("")};
@@ -3189,7 +3195,7 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
   const E = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const dBR = s => { const m = String(s || "").slice(0, 10).split("-"); return m.length === 3 && m[0] ? `${m[2]}/${m[1]}/${m[0]}` : "—"; };
   const dhBR = s => { const d = s ? new Date(s) : null; return d && !isNaN(d) ? d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"; };
-  const cor = st => { const s = String(st || "").toLowerCase(); return /cancel|rejeit|elimin|bloque/.test(s) ? "#d64545" : /pedido|atendid|entreg|receb|conclu/.test(s) ? "#2e9e5b" : /licit|cota/.test(s) ? "#3b82c4" : "#d9822b"; };
+  const cor = st => { const s = String(st || "").toLowerCase(); return /cancel|rejeit|elimin|bloque|exclu/.test(s) ? "#d64545" : /pedido|atendid|entreg|receb|conclu|expedid/.test(s) ? "#2e9e5b" : /licit|cota/.test(s) ? "#3b82c4" : "#d9822b"; };
   const tag = (t, c) => `<span class="tag" style="background:${c}22;color:${c}">${E(t)}</span>`;
   const porRc = () => { const m = new Map(); EX.forEach(x => { const k = norm(x.rc_numero); if (!m.has(k)) m.set(k, []); m.get(k).push(x); }); return m; };
   const acha = it => { const l = it && IDX.get(norm(it.rc_numero)); if (!l) return null; const cod = String(it.codigo_sap || "").trim(); return cod ? l.find(x => String(x.material_codigo || "").trim() === cod) || null : null; };
@@ -3263,7 +3269,28 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
       sb.from("exiros_sync_log").select(SEL).in("status", ["ok", "parcial"]).or(`projeto_id.is.null,projeto_id.eq.${id}`).order("id", { ascending: false }).limit(1)]); // última atualização que cobre ESTE projeto
     if (!proj || proj.id !== id) return;
     OK = !(a.error || b.error || c.error); EX = a.error ? [] : (a.data || []); LOG = b.error ? null : ((b.data || [])[0] || null); LOK = c.error ? null : ((c.data || [])[0] || null); IDX = porRc();
-    card(); decora();
+    await aplicaSit(); card(); decora();
+  }
+  // Situação do item a partir do status do Exiros: "Material expedido ao usuário" → Entregue; "Req. excluída" → Cancelado.
+  // Só mexe em itens que o usuário não alterou manualmente (extras._sit_src !== "manual"); o usuário pode mudar depois pelo formulário do item.
+  const sem = t => String(t == null ? "" : t).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const mapSit = x => { const t = sem(x && x.status); return /material expedido/.test(t) ? "Entregue" : /exclu/.test(t) ? "Cancelado" : null; };
+  let aplicando = false;
+  async function aplicaSit() {
+    if (aplicando || !IDX.size) return; aplicando = true;
+    try {
+      let n = 0;
+      for (const it of supL()) {
+        const ex = it.extras || {}; if (ex._sit_src === "manual") continue;
+        const x = acha(it), d = x ? mapSit(x) : null, atual = ex._sit || null;
+        if (d === atual || (!d && ex._sit_src !== "exiros")) continue;
+        const nx = Object.assign({}, ex); delete nx._sit; delete nx._sit_src; if (d) { nx._sit = d; nx._sit_src = "exiros"; }
+        if (canProj) { const r = await sb.from("suprimentos").update({ extras: nx }).eq("id", it.id).select("id"); if (r.error || !(r.data && r.data.length)) continue; }
+        it.extras = nx; n++; // quem não edita vê o resultado na tela, sem gravar
+      }
+      if (n) { if (canProj && typeof logP === "function") logP("Atualizou a situação de itens pelo Exiros", n + " item(ns)"); window.gxSup.rerender(); }
+    } catch (e) { console.warn("Exiros: situação dos itens:", e); }
+    aplicando = false;
   }
   function clique() { if (busy || rodando()) parar(); else escolher(); } // botão alterna: escolher onde atualizar / parar
   async function parar() {
