@@ -267,7 +267,7 @@ html[data-theme=dark] .bdg{background:#222d45;color:#c9d3e8;border-color:#34405c
 </div>
 
 <div id="app" class="hide">
-<header><div class="brand"><button id="back" aria-label="Voltar para a lista de projetos" title="Voltar para a lista de projetos"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg><span class="tx">Projetos</span></button><svg class="logo" aria-hidden="true"><use href="#lg"/></svg><svg class="wm" role="img" aria-label="Grua Segura"><use href="#wm"/></svg><div><h1 id="hT">Grua Segura</h1><small id="hS">Gestão de projetos</small></div></div><div class="hb"><button id="hUsr" aria-label="Usuários" title="Usuários e log de ações"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c2 .6 3.3 2.2 3.5 5.2"/></svg><span class="hl">Usuários</span></button><button id="tema" class="tema" title="Alternar modo escuro" aria-label="Alternar modo escuro"></button><button id="out">Sair</button><button id="mBtn" aria-label="Menu" aria-haspopup="true" aria-expanded="false" title="Menu"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button></div></header>
+<header><div class="brand"><button id="back" class="gs-home" aria-label="Voltar para a lista de projetos" title="Voltar para a lista de projetos"><svg class="bl" aria-hidden="true"><use href="#lg"/></svg><span class="tx">Projetos</span></button><svg class="logo" aria-hidden="true"><use href="#lg"/></svg><svg class="wm" role="img" aria-label="Grua Segura"><use href="#wm"/></svg><div><h1 id="hT">Grua Segura</h1><small id="hS">Gestão de projetos</small></div></div><div class="hb"><button id="hUsr" aria-label="Usuários" title="Usuários e log de ações"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c2 .6 3.3 2.2 3.5 5.2"/></svg><span class="hl">Usuários</span></button><button id="tema" class="tema" title="Alternar modo escuro" aria-label="Alternar modo escuro"></button><button id="out">Sair</button><button id="mBtn" aria-label="Menu" aria-haspopup="true" aria-expanded="false" title="Menu"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button></div></header>
 <div id="mMenu" class="hide" role="menu">
  <button class="mi" id="mHome" role="menuitem">Projetos</button>
  <button class="mi" data-r="dashboard" role="menuitem">Dashboard</button>
@@ -4090,6 +4090,13 @@ html[data-theme=dark] .sl .ac .ib-sw.on{background:#2fbf6b}
 #tb td.mad .add{padding:6px 22px;font-size:18px;line-height:1.2;text-decoration:none}
 }
 
+
+/* Botão de voltar = logo do escudo com o gancho (leva à página inicial) */
+header #back.gs-home,html[data-theme] header #back.gs-home{min-width:0;width:48px;height:48px;padding:0;border:0;border-radius:14px;background:transparent;box-shadow:none;color:inherit;justify-content:center;align-items:center;flex:none}
+header #back.gs-home .bl{width:40px;height:40px;display:block;flex:none;transition:transform .15s}
+header #back.gs-home:hover,html[data-theme] header #back.gs-home:hover{background:#ffffff14}
+header #back.gs-home:active .bl{transform:scale(.92)}
+body.v-users .brand>.logo{display:none}
 </style>
 <script id="gs-v4-js">
 (function(){
