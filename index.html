@@ -4086,6 +4086,18 @@ html[data-theme=dark] .sl .ac .ib-sw.on{background:#2fbf6b}
 #tb td.mad{display:flex;flex:1 1 100%;align-items:center;justify-content:space-between}
 #tb td.mad .add{padding:6px 22px;font-size:18px;line-height:1.2;text-decoration:none}
 }
+
+/* Lista de opções própria (mobile): abre colada no campo, em vez da folha nativa lá embaixo */
+.gs-bd{position:fixed;inset:0;z-index:2147483000;background:transparent;touch-action:none}
+.gs-dd{position:fixed;z-index:2147483001;box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;padding:6px;border-radius:16px;background:var(--s,#fff);color:var(--tx,#1a2433);border:1px solid var(--bd,#dbe3f1);box-shadow:0 14px 36px #0a183040,0 2px 8px #0a18301a;animation:gsdd .12s ease-out}
+@keyframes gsdd{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.gs-dd .gs-g{padding:8px 12px 4px;font-size:12px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;color:var(--mut,#66738a)}
+.gs-dd button.gs-o{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:48px;margin:0;padding:10px 12px;border:0;border-radius:12px;background:transparent;color:inherit;font:inherit;font-weight:500;text-align:left;box-shadow:none}
+.gs-dd button.gs-o:hover,.gs-dd button.gs-o:active{background:var(--s2,#f3f6fc)}
+.gs-dd button.gs-o.on{background:var(--s2,#f3f6fc);font-weight:700}
+.gs-dd button.gs-o:disabled{opacity:.45}
+.gs-dd .gs-ck{flex:none;width:20px;height:20px;color:#f7b928}
+@media(prefers-reduced-motion:reduce){.gs-dd{animation:none}}
 </style>
 <script id="gs-v4-js">
 (function(){
@@ -4103,6 +4115,51 @@ html[data-theme=dark] .sl .ac .ib-sw.on{background:#2fbf6b}
  labels();new MutationObserver(labels).observe(nav,{childList:true,subtree:true});
  var m=false;try{m=localStorage.getItem(K)==="1"}catch(e){}
  b.classList.toggle("nav-min",m);t.title=m?"Expandir menu":"Recolher menu";
+})();
+</script>
+<script>
+/* Lista de opções (select) no mobile: abre logo abaixo do campo (ou acima, se faltar espaço) */
+(function () {
+  var mq = window.matchMedia("(max-width:760px)"), open = null;
+  var CK = '<svg class="gs-ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  function fechar() { if (!open) return; open.bd.remove(); open.dd.remove(); open = null; }
+  function eMobile(t) { return mq.matches && t && t.tagName === "SELECT" && !t.multiple && !t.disabled && !t.hasAttribute("data-nativo"); }
+  function abrir(sel) {
+    fechar();
+    var host = sel.closest("dialog") || document.body;
+    var bd = document.createElement("div"); bd.className = "gs-bd";
+    var dd = document.createElement("div"); dd.className = "gs-dd"; dd.setAttribute("role", "listbox");
+    var h = "";
+    Array.prototype.forEach.call(sel.children, function (n) {
+      function item(o) { var on = o.value === sel.value && o === sel.options[sel.selectedIndex];
+        return '<button type="button" class="gs-o' + (on ? " on" : "") + '" role="option" aria-selected="' + on + '" data-i="' + o.index + '"' + (o.disabled ? " disabled" : "") + '><span>' + (o.textContent || "").replace(/[<>&]/g, function (c) { return { "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]; }) + '</span>' + (on ? CK : "") + '</button>'; }
+      if (n.tagName === "OPTGROUP") { h += '<div class="gs-g">' + n.label + '</div>'; Array.prototype.forEach.call(n.children, function (o) { h += item(o); }); }
+      else if (n.tagName === "OPTION") h += item(n);
+    });
+    dd.innerHTML = h;
+    host.appendChild(bd); host.appendChild(dd);
+    var r = sel.getBoundingClientRect(), vh = window.innerHeight, gap = 6;
+    var hd = document.querySelector("header"), nv = document.querySelector("nav");
+    var topL = hd ? Math.max(8, hd.getBoundingClientRect().bottom + 8) : 8, botL = vh - 8;
+    if (nv) { var nr = nv.getBoundingClientRect(); if (getComputedStyle(nv).position === "fixed" && nr.top > vh / 2) botL = nr.top - 8; }
+    var below = botL - r.bottom - gap, above = r.top - topL - gap, need = Math.min(dd.scrollHeight + 14, 360);
+    var w = Math.min(Math.max(r.width, 200), window.innerWidth - 16), left = Math.min(Math.max(8, r.left), window.innerWidth - w - 8);
+    dd.style.left = left + "px"; dd.style.width = w + "px";
+    if (below >= need || below >= above) { dd.style.top = (r.bottom + gap) + "px"; dd.style.maxHeight = Math.max(120, Math.min(below, 360)) + "px"; }
+    else { var mh = Math.max(120, Math.min(above, 360)); dd.style.maxHeight = mh + "px"; dd.style.top = Math.max(topL, r.top - gap - Math.min(need, mh)) + "px"; }
+    var on = dd.querySelector(".on"); if (on) on.scrollIntoView({ block: "nearest" });
+    bd.addEventListener("click", function (e) { e.preventDefault(); fechar(); });
+    dd.addEventListener("click", function (e) {
+      var b = e.target.closest(".gs-o"); if (!b || b.disabled) return;
+      var i = +b.dataset.i, mudou = sel.selectedIndex !== i; sel.selectedIndex = i; fechar();
+      if (mudou) { sel.dispatchEvent(new Event("input", { bubbles: true })); sel.dispatchEvent(new Event("change", { bubbles: true })); }
+    });
+    open = { bd: bd, dd: dd };
+  }
+  document.addEventListener("mousedown", function (e) { if (eMobile(e.target)) e.preventDefault(); }, true);
+  document.addEventListener("click", function (e) { if (eMobile(e.target)) { e.preventDefault(); abrir(e.target); } }, true);
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") fechar(); });
+  window.addEventListener("resize", fechar); window.addEventListener("orientationchange", fechar);
 })();
 </script>
 </body>
