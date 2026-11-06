@@ -1600,7 +1600,7 @@ async function abrirHome(seq) {
     const by = {}; pt.data.forEach(r => (by[r.projeto_id] = by[r.projeto_id] || []).push(r));
     projs = pr.data.map(p => { let pct = 0; try { pct = andamento(by[p.id] || []); } catch (e) { console.error(e); } return { ...p, pct }; });
     sols = so.error ? [] : so.data; // sem a tabela (SQL 07/08 não rodado) o app segue funcionando
-    listaProjetos(); painelSolic();
+    listaProjetos(); painelSolic(); if (window.gxExHome) window.gxExHome();
   } catch (e) {
     console.error(e);
     $("#pList").innerHTML = `<div class="card"><b>Não foi possível exibir os projetos.</b><p class="err">${esc(e && e.message || String(e))}</p><p><button type="button" id="hRe">Tentar de novo</button></p></div>`;
@@ -3205,7 +3205,12 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
 <script id="gx-exiros">
 /* ===== Exiros: status das RCs (bot do Teams) na aba Suprimentos + botão do administrador ===== */
 (function () {
-  let EX = [], LOG = null, LOK = null, IDX = new Map(), OK = true, busy = false, parando = false, poll = null, MSG = "";
+  let EX = [], LOG = null, LOK = null, IDX = new Map(), OK = true, busy = false, parando = false, poll = null, MSG = "", MSGK = "", HL = false;
+  const escopo = () => (proj ? String(proj.id) : "todos"); // a mensagem de andamento vale só para onde foi disparada (projeto aberto ou tela inicial)
+  const setMsg = t => { MSG = t; MSGK = escopo(); };
+  const getMsg = () => (MSGK === escopo() ? MSG : "");
+  const refresh = () => (proj ? card() : homeCard());
+  const recarrega = () => (proj ? carrega() : carregaHome());
   const COLS = "id,rc_item,rc_numero,item,status,status_descricao,material_codigo,material_descricao,unidade,planta,data_necessidade,quantidade,rc_exiros,data_criacao_rc,data_liberacao_rc,comprador_codigo,comprador_nome,planejador,licitacao_numero,licitacao_status,licitacao_abertura,licitacao_encerramento,consultado_em";
   const supL = () => (window.gxSup ? window.gxSup.SUP : []);
   const norm = v => String(v == null ? "" : v).split("-")[0].replace(/\D/g, "").replace(/^0+/, "");
@@ -3269,13 +3274,40 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
     let el = document.getElementById("exCard");
     if (!OK && !adm) { if (el) el.remove(); botao(); return; }
     if (!el) { host.insertAdjacentHTML("afterbegin", '<div class="card" id="exCard"></div>'); el = document.getElementById("exCard"); }
-    const aviso = adm ? [falhaLog(), MSG].filter(Boolean) : [];
+    const aviso = adm ? [falhaLog(), getMsg()].filter(Boolean) : [];
     el.innerHTML = `<div class="evh"><b>Exiros · status das RCs</b></div>`
       + `<small style="display:block">${OK ? E(statusLog()) : "Tabelas do Exiros não encontradas ou sem permissão no Supabase."}</small>`
       + (EX.length ? `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">${resumo()}</div>` : "")
       + aviso.map(t => `<small style="display:block;margin-top:8px">${E(t)}</small>`).join("");
     botao();
   }
+  function homeCard() { // tela inicial: atualizar as RCs de TODOS os projetos (só administrador)
+    let el = document.getElementById("exHome");
+    if (papel !== "admin") { if (el) el.remove(); return; }
+    const ref = document.getElementById("solic"); if (!ref) return;
+    if (!el) { ref.insertAdjacentHTML("afterend", '<div class="card" id="exHome"></div>'); el = document.getElementById("exHome"); }
+    const ocupado = busy || rodando();
+    const status = !OK ? "Tabelas do Exiros não encontradas ou sem permissão no Supabase."
+      : !HL ? "Verificando a última atualização…"
+      : rodando() ? (dele(LOG) ? "Atualização das RCs de todos os projetos em andamento…" : "Há uma atualização de RCs em andamento em um projeto.")
+      : LOK ? `Todos os projetos atualizados pelo Exiros em ${dataHora(LOK.finalizado_em || LOK.iniciado_em)}` : "Ainda não há atualização de todos os projetos registrada.";
+    const aviso = [falhaLog(), getMsg()].filter(Boolean);
+    el.innerHTML = `<div class="evh"><b>Exiros · RCs de todos os projetos</b><div class="bar"><button type="button" id="exAll" class="${ocupado ? "d" : "p"}" ${parando ? "disabled" : ""} title="${ocupado ? "Interrompe a atualização em andamento (as RCs já consultadas ficam salvas)" : "Consulta no Exiros as RCs de todos os projetos"}">${parando ? "Parando…" : ocupado ? "Parar atualização" : "Atualizar todas as RCs"}</button></div></div>`
+      + `<small style="display:block">${E(status)}</small>`
+      + aviso.map(t => `<small style="display:block;margin-top:8px">${E(t)}</small>`).join("");
+    document.getElementById("exAll").onclick = clique;
+  }
+  async function carregaHome() {
+    if (proj || papel !== "admin") return;
+    const SEL = "id,iniciado_em,finalizado_em,status,rcs,itens,mensagem,projeto_id";
+    const [b, c] = await Promise.all([
+      sb.from("exiros_sync_log").select(SEL).order("id", { ascending: false }).limit(1),
+      sb.from("exiros_sync_log").select(SEL).in("status", ["ok", "parcial"]).is("projeto_id", null).order("id", { ascending: false }).limit(1)]); // última atualização geral (todos os projetos)
+    if (proj) return;
+    OK = !(b.error || c.error); LOG = b.error ? null : ((b.data || [])[0] || null); LOK = c.error ? null : ((c.data || [])[0] || null); HL = true;
+    homeCard();
+  }
+  window.gxExHome = () => { HL = false; LOG = null; LOK = null; homeCard(); carregaHome(); }; // chamado ao montar a lista de projetos
   async function carrega() {
     const id = proj && proj.id; if (!id) return;
     const rcs = [...new Set(supL().map(i => norm(i.rc_numero)).filter(Boolean))];
@@ -3312,36 +3344,37 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
   function clique() { if (busy || rodando()) parar(); else escolher(); } // botão alterna: escolher onde atualizar / parar
   async function parar() {
     if (papel !== "admin" || parando) return;
-    parando = true; MSG = "Parando a atualização…"; card();
+    parando = true; setMsg("Parando a atualização…"); refresh();
     try {
       const loc = await chamarLocal({ acao: "parar" }).catch(() => null); // atualização no computador do admin?
       if (loc && loc.parou) {
-        MSG = "Parada solicitada ao computador: ele termina a RC em andamento e para. As RCs já consultadas ficam salvas.";
-        busy = true; parando = false; card(); espera((LOG ? LOG.id : 1) - 1); return;
+        setMsg("Parada solicitada ao computador: ele termina a RC em andamento e para. As RCs já consultadas ficam salvas.");
+        busy = true; parando = false; refresh(); espera((LOG ? LOG.id : 1) - 1); return;
       }
       const { data, error } = await sb.functions.invoke("disparar-exiros", { body: { acao: "parar" } });
       let det = data && data.erro;
       if (error && !det) { try { det = (await error.context.json()).erro; } catch (e) { det = error.message; } }
       if (det) throw new Error(det);
       clearInterval(poll); busy = false;
-      MSG = data && data.canceladas ? "Atualização interrompida. As RCs já consultadas ficaram salvas." : "Nenhuma atualização em andamento no GitHub.";
-      await carrega();
-    } catch (e) { MSG = "Não foi possível parar: " + (e.message || e); }
-    parando = false; card();
+      setMsg(data && data.canceladas ? "Atualização interrompida. As RCs já consultadas ficaram salvas." : "Nenhuma atualização em andamento no GitHub.");
+      await recarrega();
+    } catch (e) { setMsg("Não foi possível parar: " + (e.message || e)); }
+    parando = false; refresh();
   }
   async function dispara(modo) {
-    if (papel !== "admin" || busy || !proj) return;
-    if (modo === "local") return disparaLocal();
-    busy = true; MSG = "Disparando a consulta ao Exiros para as RCs deste projeto…"; card();
+    if (papel !== "admin" || busy) return;
+    const todos = !proj; // sem projeto aberto (tela inicial) = RCs de todos os projetos
+    if (modo === "local") return disparaLocal(todos);
+    busy = true; setMsg(todos ? "Disparando a consulta ao Exiros para as RCs de todos os projetos…" : "Disparando a consulta ao Exiros para as RCs deste projeto…"); refresh();
     const antes = LOG ? LOG.id : 0;
     try {
-      const { data, error } = await sb.functions.invoke("disparar-exiros", { body: { projeto_id: proj.id } });
+      const { data, error } = await sb.functions.invoke("disparar-exiros", { body: todos ? {} : { projeto_id: proj.id } });
       let det = data && data.erro;
       if (error && !det) { try { det = (await error.context.json()).erro; } catch (e) { det = error.message; } }
       if (det) throw new Error(det);
-      MSG = "Atualização das RCs deste projeto iniciada. Leva alguns minutos; esta tela atualiza sozinha quando terminar.";
-      card(); espera(antes);
-    } catch (e) { busy = false; MSG = "Não foi possível iniciar: " + (e.message || e); card(); }
+      setMsg(todos ? "Atualização das RCs de todos os projetos iniciada. Leva alguns minutos; esta tela atualiza sozinha quando terminar." : "Atualização das RCs deste projeto iniciada. Leva alguns minutos; esta tela atualiza sozinha quando terminar.");
+      refresh(); espera(antes);
+    } catch (e) { busy = false; setMsg("Não foi possível iniciar: " + (e.message || e)); refresh(); }
   }
   async function chamarLocal(body) { // ponte com o agente do PC (Edge Function exiros-local)
     const { data, error } = await sb.functions.invoke("exiros-local", { body });
@@ -3350,32 +3383,24 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
     if (det) throw new Error(det);
     return data;
   }
-  async function disparaLocal() {
-    busy = true; MSG = "Enviando o pedido ao seu computador…"; card();
+  async function disparaLocal(todos) {
+    busy = true; setMsg("Enviando o pedido ao seu computador…"); refresh();
     const antes = LOG ? LOG.id : 0;
     try {
-      const r = await chamarLocal({ acao: "pedir", projeto_id: proj.id });
-      MSG = r && r.ja_existia ? "Já há uma atualização local em andamento ou na fila." : "Pedido enviado ao computador. Ele começa em até 1 minuto; esta tela atualiza sozinha quando terminar.";
-      card(); espera(antes);
-    } catch (e) { busy = false; MSG = "Não foi possível enviar ao computador: " + (e.message || e); card(); }
+      const r = await chamarLocal({ acao: "pedir", projeto_id: todos ? null : proj.id });
+      setMsg(r && r.ja_existia ? "Já há uma atualização local em andamento ou na fila." : "Pedido enviado ao computador. Ele começa em até 1 minuto; esta tela atualiza sozinha quando terminar.");
+      refresh(); espera(antes);
+    } catch (e) { busy = false; setMsg("Não foi possível enviar ao computador: " + (e.message || e)); refresh(); }
   }
   async function escolher() { // janela: atualizar neste computador ou remoto (GitHub)
-    if (papel !== "admin" || busy || !proj) return;
+    if (papel !== "admin" || busy) return;
+    const todos = !proj, alvo = todos ? "de todos os projetos" : "deste projeto";
     const d = document.createElement("dialog");
-    d.innerHTML = `<h3>Atualizar RCs deste projeto</h3><small>Escolha onde a consulta ao Exiros será feita.</small>
+    d.innerHTML = `<h3>Atualizar RCs ${alvo}</h3><small>Escolha onde a consulta ao Exiros será feita.</small>
       <div style="display:grid;gap:10px;margin-top:14px">
         <div class="card" style="margin:0"><b>Neste computador</b>
           <small data-st style="display:block;margin:4px 0 10px">Verificando o agente local…</small>
           <button class="p" type="button" data-loc disabled>Atualizar neste computador</button>
-          <div data-baixar hidden style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)">
-            <small style="display:block">Para usar esta opção o computador precisa do agente local:</small>
-            <ol style="margin:6px 0 10px 18px;padding:0;font-size:13px;line-height:1.5">
-              <li>Baixe o pacote e extraia em <b>C:\\ExirosBot</b> (fora do OneDrive).</li>
-              <li>Dê dois cliques em <b>instalar.bat</b> e entre no Teams quando o Chrome abrir.</li>
-              <li>Deixe <b>iniciar_exiros.bat</b> aberto (ele abre sozinho ao ligar o PC).</li>
-            </ol>
-            <div class="bar" style="margin:0"><a href="exiros_local.zip" download><button type="button">Baixar o agente local</button></a><button type="button" data-ver>Já instalei, verificar de novo</button></div>
-          </div>
         </div>
         <div class="card" style="margin:0"><b>Remoto (GitHub)</b>
           <small style="display:block;margin:4px 0 10px">Roda na nuvem, sem depender do seu computador. Usa a sessão do Teams salva e pode falhar se o Teams recusar o acesso.</small>
@@ -3385,33 +3410,30 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
       <div class="bar" style="margin-top:12px"><button type="button" data-cx>Cancelar</button></div>`;
     document.body.appendChild(d);
     const fim = () => { d.close(); d.remove(); };
-    const st = d.querySelector("[data-st]"), bLoc = d.querySelector("[data-loc]"), baixar = d.querySelector("[data-baixar]");
+    const st = d.querySelector("[data-st]"), bLoc = d.querySelector("[data-loc]");
     d.querySelector("[data-cx]").onclick = fim; d.addEventListener("cancel", e => { e.preventDefault(); fim(); });
     d.querySelector("[data-rem]").onclick = () => { fim(); dispara("remoto"); };
     bLoc.onclick = () => { fim(); dispara("local"); };
     async function verifica() {
-      st.textContent = "Verificando o agente local…"; bLoc.disabled = true; baixar.hidden = true;
       try {
         const r = await chamarLocal({ acao: "status" });
         if (r.online) {
           st.textContent = r.estado === "executando" ? "Agente online, mas já está atualizando agora." : r.estado === "aguardando_login" ? "Agente online, aguardando você entrar no Teams (veja o Chrome do computador)." : `Agente online${r.maquina ? " (" + r.maquina + ")" : ""}. Pronto para atualizar.`;
           bLoc.disabled = r.estado === "executando";
         } else {
-          st.textContent = r.ultimo_ping ? `Agente local desligado ou sem internet (último sinal em ${dataHora(r.ultimo_ping)}).` : "Nenhum agente local instalado ainda.";
-          baixar.hidden = false;
+          st.textContent = r.ultimo_ping ? `Agente local desligado ou sem internet (último sinal em ${dataHora(r.ultimo_ping)}).` : "O agente local ainda não enviou nenhum sinal.";
         }
       } catch (e) { st.textContent = "Não foi possível verificar o agente local: " + (e.message || e) + " (a função exiros-local foi publicada?)"; }
     }
-    d.querySelector("[data-ver]").onclick = verifica;
     d.showModal(); verifica();
   }
   function espera(antes) {
     clearInterval(poll); const t0 = Date.now();
     poll = setInterval(async () => {
-      if (!document.getElementById("exCard")) { clearInterval(poll); busy = false; return; }
-      if (Date.now() - t0 > 20 * 60 * 1000) { clearInterval(poll); busy = false; MSG = "A consulta está demorando; recarregue a página mais tarde."; card(); return; }
-      await carrega();
-      if (LOG && LOG.id > antes && LOG.status !== "executando") { clearInterval(poll); busy = false; MSG = ""; card(); }
+      if (!document.getElementById("exCard") && !document.getElementById("exHome")) { clearInterval(poll); busy = false; return; }
+      if (Date.now() - t0 > 20 * 60 * 1000) { clearInterval(poll); busy = false; setMsg("A consulta está demorando; recarregue a página mais tarde."); refresh(); return; }
+      await recarrega();
+      if (LOG && LOG.id > antes && LOG.status !== "executando") { clearInterval(poll); busy = false; setMsg(""); refresh(); }
     }, 15000);
   }
   function bloco(x) {
