@@ -784,7 +784,8 @@ function stack(id, field, d, horiz) {
 const cfgK = () => window.etapasCfg ? window.etapasCfg() : ["lev", "des", "sph", "sap"]; // etapas cadastradas em Parâmetros (vazio = nenhuma)
 const cusList = () => window.etapasX ? window.etapasX() : []; // etapas PERSONALIZADAS ativas do projeto aberto: [{ k, nome, cor }]
 const cusOk = (r, k) => !!(r && r.etapas_extra && r.etapas_extra[k]); // ponto com a etapa personalizada k marcada como concluída
-let unit = "l"; // "l" = linhas de projeto | "p" = pontos de adequação (soma das quantidades)
+const prefUnit = () => { try { return localStorage.getItem("gs-unidade") === "p" ? "p" : "l"; } catch (e) { return "l"; } }; // unidade escolhida na engrenagem do Painel (fica salva neste aparelho)
+let unit = prefUnit(); // "l" = linhas de projeto | "p" = pontos de adequação (soma das quantidades)
 const wt = r => unit === "p" ? (Number(r.qtd) > 0 ? Number(r.qtd) : 1) : 1;
 const wsum = a => a.reduce((t, r) => t + wt(r), 0);
 const fmt = x => Number.isInteger(x) ? String(x) : x.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
@@ -795,7 +796,7 @@ function dash() {
   const c = k => wsum(d.filter(r => si(r) >= k));
   const ks = cfgK(), on = k => ks.includes(k);
   const card = ([l, x], off) => `<div class="card kpi${off ? " hide" : ""}" style="margin:0"><b>${pct(x, n)}</b><span>${l}</span><small><em>${fmt(x)} ${u} realizados</em><br><i>${fmt(tot - x)} faltam</i> · de ${fmt(tot)}</small><div class="pb"><u style="width:${Math.round(100 * x / n)}%"></u></div></div>`;
-  const first = `<div class="card kpi" style="margin:0"><b>${fmt(tot)}</b><span>${unit === "p" ? "Pontos de adequação" : "Linhas de projeto"}</span><div class="seg"><button data-u="l" class="${unit === "l" ? "on" : ""}">Linhas</button><button data-u="p" class="${unit === "p" ? "on" : ""}">Pontos</button></div></div>`;
+  const first = `<div class="card kpi" style="margin:0"><b>${fmt(tot)}</b><span>${unit === "p" ? "Pontos de adequação" : "Linhas de projeto"}</span></div>`;
   const stv = { lev, proj: c(1), des: c(2), sph: c(3), sap: c(4), ...Object.fromEntries(cusList().map(x => [x.k, wsum(d.filter(r => cusOk(r, x.k)))])) }, tp = ks.length ? Math.round(100 * ks.reduce((t, k) => t + stv[k], 0) / (ks.length * n)) : null;
   const andam = tp === null ? `<div class="card kpi" style="margin:0"><b>—</b><span>Andamento total</span><small><em>nenhuma etapa cadastrada</em><br>Cadastre em Parâmetros › Etapas do fluxo</small><div class="pb"><u style="width:0%"></u></div></div>`
     : `<div class="card kpi" style="margin:0"><b>${tp}%</b><span>Andamento total</span><small><em>média das etapas ativas do projeto</em><br><i>faltam ${100 - tp}%</i></small><div class="pb"><u style="width:${tp}%"></u></div></div>`;
@@ -1700,7 +1701,7 @@ async function abrirProjeto(id, tab, seq) {
     let p = projs.find(x => x.id === id);
     if (!p) { const { data, error } = await sb.from("projetos").select("*").eq("id", id).maybeSingle(); if (seq !== navSeq) return; if (error || !data) { alert(error ? "Erro ao abrir o projeto: " + error.message : "Projeto não encontrado ou sem acesso."); location.hash = "#/"; return; } p = data; }
     proj = p; const pe = periodo(p); PROJ = { ini: pe.ini, fim: pe.fim, fyM: fyMes(p) };
-    rows = []; hist = []; unit = "l"; pLev = ""; pEq = false; ["dA", "fA", "fS", "rA"].forEach(i => { $("#" + i).value = ""; }); $("#fQ").value = ""; $("#evS").value = "tot";
+    rows = []; hist = []; unit = prefUnit(); pLev = ""; pEq = false; ["dA", "fA", "fS", "rA"].forEach(i => { $("#" + i).value = ""; }); $("#fQ").value = ""; $("#evS").value = "tot";
     prefetchProjeto(id);
     mostrar(); document.body.classList.add("carregando"); // a tela do projeto aparece já; os dados entram em seguida
     try { evoOpts(); await load(); } finally { if (seq === navSeq) document.body.classList.remove("carregando"); }
@@ -2708,14 +2709,15 @@ function build(){const k=$("#kpis"),top=$("#gxTop");if(!k||!top||k.children.leng
  const col=p=>p>=70?"#2e9e5b":p>=30?"#d9822b":"#d64545",bar=(n,p)=>`<div class="gx-b"><span>${esc(n)}</span><span class="gx-t"><i style="width:${Math.max(p,p>0?2:0)}%;background:${col(p)}"></i></span><span>${p}%</span></div>`;
  const ars=[...new Set(rows.map(r=>r.area).filter(Boolean))],pa=!ks.length?"":ars.map(a=>{let p=0;try{p=Number(andamento(rows.filter(r=>r.area===a)))||0}catch(e){}return bar(a,p)}).join("");
  const cards=(window.gxCards?window.gxCards(C,ev,te):[C[1],C[2],C[3],te].filter(Boolean)).map(c=>c.outerHTML).join("")||"<small>Nenhum indicador escolhido. Use o menu ☰.</small>";
- top.innerHTML=`<div class="gx-h"><span class="seg"><button data-gu="l" class="${unit==="l"?"on":""}">Linhas</button><button data-gu="p" class="${unit==="p"?"on":""}">Pontos</button></span></div>`
- +(late?`<div class="gx-al"><b>Projeto atrás da meta</b> · ${esc(val(at))} em relação à meta linear${te?` · término previsto ${esc(val(te))}${/após/.test(te.textContent.toLowerCase())?" (depois do prazo)":""}`:""}</div>`:"")
+ top.innerHTML=(late?`<div class="gx-al"><b>Projeto atrás da meta</b> · ${esc(val(at))} em relação à meta linear${te?` · término previsto ${esc(val(te))}${/após/.test(te.textContent.toLowerCase())?" (depois do prazo)":""}`:""}</div>`:"")
  +`<div class="gx-sh"><b>Indicadores principais</b>${window.gxMb?window.gxMb("k"):""}</div><div class="cards gx-k">${cards}</div><div class="gx-et"><div class="card"><b>Etapas</b>${E.length?E.map(([n,p])=>bar(n,p)).join(""):"<small>Nenhuma etapa cadastrada. Adicione em Parâmetros › Etapas do fluxo.</small>"}${gi>0?`<span class="gx-g">Gargalo: ${esc(E[gi][0])} · ${E[gi-1][1]}% ${esc(E[gi-1][0].toLowerCase())} contra ${E[gi][1]}%</span>`:""}</div><div class="card"><b>Andamento por área</b>${pa||"—"}</div></div>`;
  top.querySelectorAll(".gx-al").forEach(e=>e.classList.add("gx-al"));top.querySelector(".gx-k")&&0;
  const kk=top.querySelector(".gx-k");if(kk)kk.classList.add("gx-k");const et=top.querySelector(".gx-et");et&&et.classList.add("gx-et")}
 function blocksDialog(pg){let d=$("#gxDlg");if(!d){d=document.createElement("dialog");d.id="gxDlg";document.body.appendChild(d);d.addEventListener("click",e=>{if(e.target===d)d.close()})}
  const o=prefOf(pg.key);
- d.innerHTML=`<h3>${pg.title}</h3><p class="l">${pg.intro} A escolha fica salva neste aparelho.</p>${pg.blocks.map(([k,n])=>`<label><input type="checkbox" data-k="${k}" ${o[k]===false?"":"checked"}>${n}</label>`).join("")}<div class="bar" style="margin-top:12px"><button class="p" id="gxOk">Fechar</button><button id="gxRs" type="button">Restaurar padrão</button></div>`;
+ const pu=prefUnit(),un=pg.sec==="t1"?`<p class="l" style="margin:12px 0 6px"><b>Unidade dos indicadores</b></p><div class="seg" id="gxUn"><button type="button" data-un="l" class="${pu==="l"?"on":""}">Linhas</button><button type="button" data-un="p" class="${pu==="p"?"on":""}">Pontos</button></div><p class="l" style="margin:14px 0 4px"><b>Blocos do painel</b></p>`:"";
+ d.innerHTML=`<h3>${pg.title}</h3><p class="l">${pg.intro} A escolha fica salva neste aparelho.</p>${un}${pg.blocks.map(([k,n])=>`<label><input type="checkbox" data-k="${k}" ${o[k]===false?"":"checked"}>${n}</label>`).join("")}<div class="bar" style="margin-top:12px"><button class="p" id="gxOk">Fechar</button><button id="gxRs" type="button">Restaurar padrão</button></div>`;
+ d.querySelectorAll("[data-un]").forEach(b=>b.onclick=()=>{const v=b.dataset.un;try{localStorage.setItem("gs-unidade",v)}catch(e){}unit=v;d.querySelectorAll("[data-un]").forEach(x=>x.classList.toggle("on",x===b));try{dash();table()}catch(e){}});
  d.querySelectorAll("input").forEach(i=>i.onchange=()=>{const p=prefOf(pg.key);p[i.dataset.k]=i.checked;try{localStorage.setItem(pg.key,JSON.stringify(p))}catch(e){}applyBlocks(pg)});
  $("#gxOk").onclick=()=>d.close();
  $("#gxRs").onclick=()=>{try{localStorage.removeItem(pg.key)}catch(e){}applyBlocks(pg);d.querySelectorAll("input").forEach(i=>i.checked=true)};
