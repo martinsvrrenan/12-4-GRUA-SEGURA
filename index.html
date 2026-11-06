@@ -2173,7 +2173,7 @@ const sitTxt = i => atras(i) ? "Atrasado" : semPrazo(i) ? "Sem prazo" : SIT[sitO
 function renderSup() {
   const ar = [...new Set(rows.map(r => r.area).filter(Boolean))].sort(), tp = [...new Set(rows.map(r => r.tipo_projeto).filter(Boolean))].sort(), op = (a, f) => a.map(x => `<option ${x === f ? "selected" : ""}>${esc(x)}</option>`).join("");
   sec.innerHTML = `<div class="card"><div class="bar"><select id="sFs"><option value="">Todas as situações</option>${op([...SIT, "Atrasado", "Sem prazo"], F.sit)}</select><select id="sFa"><option value="">Todas as áreas</option>${op(ar, F.area)}</select><input id="sFq" type="search" placeholder="Buscar código SAP, Sphera ou descrição…" value="${esc(F.q)}"></div>
-  <div class="bar">${canProj ? '<button class="p" id="sNew">+ Item</button><button id="sRcs">Copiar RCs</button>' : ""}</div></div>
+  <div class="bar">${canProj ? '<button class="p" id="sNew">+ Item</button>' : ""}</div></div>
   <div class="card" id="sB"><div class="evh"><b>Orçamento e gasto do projeto</b><small>Valores dos itens em R$ (SAP) · orçamento liberado em US$</small></div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0 12px"><label>Orçamento disponível (US$)<input id="sBu" type="number" min="0" step="any" value="${proj.orcamento_usd ?? ""}" ${canProj ? "" : "disabled"}></label>
   <label>Câmbio (R$ por US$)<input id="sBc" type="number" min="0" step="any" value="${proj.cambio_usd_brl ?? ""}" ${canProj ? "" : "disabled"}></label><label>Orçamento em R$<input id="sBr" disabled></label></div>
@@ -2562,7 +2562,7 @@ window.supRel = (img) => { const s = supStats(SUP), d = x => x ? dtBR(parseD(x))
     all: SUP.map(i => [i.codigo_sap || i.codigo_sphera || "—", String(i.descricao || "—").slice(0, 110), [i.quantidade ?? "", okv("sup_unidade", i.unidade) ? i.unidade || "" : ""].join(" ").trim() || "—", okv("sup_fornecedor", i.fornecedor) && i.fornecedor ? i.fornecedor : "—", sitTxt(i), d(i.prazo_entrega)]),
     rows: SUP.map(i => ({ ...Object.fromEntries(ORD.map(k => [ff(k)[1], (k === "fornecedor" && !okv("sup_fornecedor", i[k])) || (k === "unidade" && !okv("sup_unidade", i[k])) ? "" : i[k] ?? ""])), ...Object.fromEntries(xCampos().map(p => [xCol(p), xVal(i, p)])), "Situação": sitTxt(i) })) }; };
 /* gancho para o bloco do Exiros (gx-exiros): expõe SUP e permite encaixar nas funções internas desta aba */
-window.gxSup = { get SUP() { return SUP; }, rerender() { renderSup(); } };
+window.gxSup = { get SUP() { return SUP; }, rerender() { renderSup(); }, copiar() { copiaRcs(); } };
 window.gxSupHook = h => {
   const _rs = renderSup; renderSup = function () { _rs(); h.render(); };
   const _pt = pinta; pinta = function () { _pt(); h.pinta(); };
@@ -3219,6 +3219,22 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
   const dhBR = s => { const d = s ? new Date(s) : null; return d && !isNaN(d) ? d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"; };
   const cor = st => { const s = String(st || "").toLowerCase(); return /cancel|rejeit|elimin|bloque|exclu/.test(s) ? "#d64545" : /pedido|atendid|entreg|receb|conclu|expedid/.test(s) ? "#2e9e5b" : /licit|cota/.test(s) ? "#3b82c4" : "#d9822b"; };
   const tag = (t, c) => `<span class="tag" style="background:${c}22;color:${c}">${E(t)}</span>`;
+  // ---- Botões de ícone: computador+atualizar (local, azul), globo+atualizar (remoto/GitHub, amarelo), parar (vermelho) ----
+  const BG = { loc: "#2456b8", rem: "#e8bd00", stop: "#d64545" };
+  const REF = '<path stroke-width="3.2" d="M28.6 33.7A7.5 7.5 0 0 1 41.75 30.2M41.75 25.4v4.8h-4.85M43.4 36.3A7.5 7.5 0 0 1 30.25 39.8M30.25 44.6v-4.8h4.85"/>';
+  const SV = (b, bg) => `<svg viewBox="0 0 48 48" width="30" height="30" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block">${b}<circle cx="36" cy="35" r="11.5" fill="${bg}" stroke="none"/>${REF}</svg>`;
+  const ICO = {
+    loc: bg => SV('<rect x="7" y="8" width="28" height="21" rx="3.5"/><rect x="4" y="31" width="26" height="5.5" rx="2.7" fill="#fff" stroke="none"/>', bg),
+    rem: bg => SV('<circle cx="21" cy="21" r="14.5"/><ellipse cx="21" cy="21" rx="6.5" ry="14.5" stroke-width="2.6"/><path stroke-width="2.6" d="M7 16.5h28M7 26h28M21 6.5v29"/>', bg),
+    stop: () => '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" style="display:block"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="#fff"/></svg>'
+  };
+  const bt = (k, t, off) => `<button type="button" data-ex="${k}" title="${t}" aria-label="${t}" ${off ? "disabled" : ""} style="display:inline-flex;align-items:center;justify-content:center;flex:none;width:44px;height:44px;min-height:0!important;padding:0!important;margin:0;border:0!important;border-radius:50%!important;background:${BG[k]}!important;color:#fff;box-shadow:0 4px 12px ${BG[k]}55;${off ? "opacity:.5;cursor:not-allowed" : "cursor:pointer"}">${ICO[k](BG[k])}</button>`;
+  function botoes(alvo, ocupado, pode) { // alvo: "deste projeto" | "de todos os projetos"; pode = dá para parar a atualização em andamento
+    if (pode) return bt("stop", parando ? "Parando…" : "Parar a atualização em andamento (as RCs já consultadas ficam salvas)", parando);
+    const tl = ocupado ? "Há uma atualização em andamento em outro projeto" : "";
+    return bt("loc", tl || `Atualizar as RCs ${alvo} neste computador`, ocupado) + bt("rem", tl || `Atualizar as RCs ${alvo} pelo GitHub (remoto)`, ocupado);
+  }
+  const acaoBt = e => { const b = e.target.closest && e.target.closest("[data-ex]"); if (!b || b.disabled) return; const k = b.dataset.ex; if (k === "stop") parar(); else dispara(k === "loc" ? "local" : "remoto"); };
   const porRc = () => { const m = new Map(); EX.forEach(x => { const k = norm(x.rc_numero); if (!m.has(k)) m.set(k, []); m.get(k).push(x); }); return m; };
   const acha = it => { const l = it && IDX.get(norm(it.rc_numero)); if (!l) return null; const cod = String(it.codigo_sap || "").trim(); return cod ? l.find(x => String(x.material_codigo || "").trim() === cod) || null : null; };
 
@@ -3257,31 +3273,32 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
     const c = {}; EX.forEach(x => { const k = x.status || "—"; c[k] = (c[k] || 0) + 1; });
     return Object.entries(c).sort((a, b) => b[1] - a[1]).map(([k, n]) => tag(n + " · " + k, cor(k))).join(" ");
   }
-  function botao() { // botão só para admin, ao lado de "Copiar RCs"
-    let b = document.getElementById("exBtn");
-    if (papel !== "admin") { if (b) b.remove(); return; }
-    const ref = document.getElementById("sRcs"); if (!ref) return;
-    if (!b) { ref.insertAdjacentHTML("afterend", '<button class="p" id="exBtn" type="button"></button>'); b = document.getElementById("exBtn"); b.onclick = clique; }
+  function botao() { // só admin: dois botões de ícone ao lado de "+ Item"
+    let c = document.getElementById("exBtns");
+    if (papel !== "admin") { if (c) c.remove(); return; }
+    const ref = document.getElementById("sNew"); if (!ref) return;
+    if (!c) { ref.insertAdjacentHTML("afterend", '<span id="exBtns" style="display:inline-flex;gap:8px;align-items:center;flex:none"></span>'); c = document.getElementById("exBtns"); c.onclick = acaoBt; }
     const ocupado = busy || rodando(), pode = ocupado && (busy || dele(LOG)); // pode parar: a atualização foi iniciada aqui ou é deste projeto (ou de todos)
-    b.disabled = parando || (ocupado && !pode); b.className = pode ? "d" : "p";
-    b.textContent = parando ? "Parando…" : pode ? "Parar atualização" : ocupado ? "Atualizando…" : "Atualizar RCs deste projeto";
-    b.title = pode ? "Interrompe a atualização em andamento (as RCs já consultadas ficam salvas)" : ocupado ? "Há uma atualização em andamento em outro projeto" : "Consulta no Exiros só as RCs deste projeto";
+    c.innerHTML = botoes("deste projeto", ocupado, pode);
   }
+  let exOpen = false; // o cartão fica recolhido; guarda se foi aberto para não fechar a cada atualização da tela
   function card() {
     const sec = document.getElementById("t7"); if (!sec || !proj) return;
     const host = sec.querySelector('.sp[data-p="i"]'); if (!host) return; // painel da aba Itens (só existe depois que as abas são montadas)
     const adm = papel === "admin";
     let el = document.getElementById("exCard");
     if (!OK && !adm) { if (el) el.remove(); botao(); return; }
-    if (!el) { host.insertAdjacentHTML("afterbegin", '<div class="card" id="exCard"></div>'); el = document.getElementById("exCard"); }
+    if (!el) { host.insertAdjacentHTML("afterbegin", '<div id="exCard"></div>'); el = document.getElementById("exCard"); }
     const aviso = adm ? [falhaLog(), getMsg()].filter(Boolean) : [];
-    el.innerHTML = `<div class="evh"><b>Exiros · status das RCs</b></div>`
-      + `<small style="display:block">${OK ? E(statusLog()) : "Tabelas do Exiros não encontradas ou sem permissão no Supabase."}</small>`
-      + (EX.length ? `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">${resumo()}</div>` : "")
-      + aviso.map(t => `<small style="display:block;margin-top:8px">${E(t)}</small>`).join("");
+    el.innerHTML = (aviso.length ? `<div style="margin:0 2px 10px">${aviso.map(t => `<small style="display:block;margin-top:4px">${E(t)}</small>`).join("")}</div>` : "")
+      + `<details class="gxd" id="exDet" ${exOpen ? "open" : ""}><summary>Exiros · RCs<small>${OK ? E(statusLog()) : "Tabelas do Exiros não encontradas ou sem permissão no Supabase."}</small></summary>`
+      + `<div style="padding:0 0 14px">${EX.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px">${resumo()}</div>` : "<small>Nenhuma RC consultada ainda.</small>"}`
+      + (canProj ? `<div class="bar" style="margin:12px 0 0"><button type="button" data-cp>Copiar RCs</button></div>` : "") + `</div></details>`;
+    const d = el.querySelector("#exDet"); d.addEventListener("toggle", () => { exOpen = d.open; });
+    const cp = el.querySelector("[data-cp]"); if (cp) cp.onclick = () => window.gxSup.copiar();
     botao();
   }
-  function homeCard() { // tela inicial: atualizar as RCs de TODOS os projetos (só administrador)
+  function homeCard() { // tela inicial: "Exiros" + botões local e remoto para atualizar as RCs de TODOS os projetos (só administrador)
     let el = document.getElementById("exHome");
     if (papel !== "admin") { if (el) el.remove(); return; }
     const ref = document.getElementById("solic"); if (!ref) return;
@@ -3292,14 +3309,10 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
       : rodando() ? (dele(LOG) ? "Atualização das RCs de todos os projetos em andamento…" : "Há uma atualização de RCs em andamento em um projeto.")
       : LOK ? `Todos os projetos atualizados pelo Exiros em ${dataHora(LOK.finalizado_em || LOK.iniciado_em)}` : "Ainda não há atualização de todos os projetos registrada.";
     const aviso = [falhaLog(), getMsg()].filter(Boolean);
-    const IC = ocupado && !parando
-      ? '<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true" style="width:18px;height:18px;display:block"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>'
-      : '<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true" style="width:24px;height:24px;display:block"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>';
-    const rot = parando ? "Parando…" : ocupado ? "Parar a atualização" : "Atualizar as RCs de todos os projetos";
-    el.innerHTML = `<div class="evh" style="justify-content:flex-start;flex-wrap:nowrap;gap:12px"><b style="flex:0 1 auto;min-width:0">Exiros · RCs de todos os projetos</b><button type="button" id="exAll" class="${ocupado ? "d" : "p"}" ${parando ? "disabled" : ""} aria-label="${rot}" title="${rot}" style="display:inline-flex;align-items:center;justify-content:center;flex:none;width:40px;height:40px;padding:0;border-radius:12px;color:#fff;${ocupado ? "" : "background:linear-gradient(180deg,#3b78e0,#2456b8);box-shadow:0 6px 16px #2456b844;border:0;"}">${IC}</button></div>`
+    el.innerHTML = `<div class="evh" style="justify-content:flex-start;flex-wrap:nowrap;gap:14px"><b style="flex:0 1 auto;min-width:0">Exiros</b><span id="exBtnsH" style="display:inline-flex;gap:8px;align-items:center;flex:none">${botoes("de todos os projetos", ocupado, ocupado)}</span></div>`
       + `<small style="display:block">${E(status)}</small>`
       + aviso.map(t => `<small style="display:block;margin-top:8px">${E(t)}</small>`).join("");
-    document.getElementById("exAll").onclick = clique;
+    document.getElementById("exBtnsH").onclick = acaoBt;
   }
   async function carregaHome() {
     if (proj || papel !== "admin") return;
@@ -3345,7 +3358,6 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
     } catch (e) { console.warn("Exiros: situação dos itens:", e); }
     aplicando = false;
   }
-  function clique() { if (busy || rodando()) parar(); else escolher(); } // botão alterna: escolher onde atualizar / parar
   async function parar() {
     if (papel !== "admin" || parando) return;
     parando = true; setMsg("Parando a atualização…"); refresh();
@@ -3395,41 +3407,6 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
       setMsg(r && r.ja_existia ? "Já há uma atualização local em andamento ou na fila." : "Pedido enviado ao computador. Ele começa em até 1 minuto; esta tela atualiza sozinha quando terminar.");
       refresh(); espera(antes);
     } catch (e) { busy = false; setMsg("Não foi possível enviar ao computador: " + (e.message || e)); refresh(); }
-  }
-  async function escolher() { // janela: atualizar neste computador ou remoto (GitHub)
-    if (papel !== "admin" || busy) return;
-    const todos = !proj, alvo = todos ? "de todos os projetos" : "deste projeto";
-    const d = document.createElement("dialog");
-    d.innerHTML = `<h3>Atualizar RCs ${alvo}</h3><small>Escolha onde a consulta ao Exiros será feita.</small>
-      <div style="display:grid;gap:10px;margin-top:14px">
-        <div class="card" style="margin:0"><b>Neste computador</b>
-          <small data-st style="display:block;margin:4px 0 10px">Verificando o agente local…</small>
-          <button class="p" type="button" data-loc disabled>Atualizar neste computador</button>
-        </div>
-        <div class="card" style="margin:0"><b>Remoto (GitHub)</b>
-          <small style="display:block;margin:4px 0 10px">Roda na nuvem, sem depender do seu computador. Usa a sessão do Teams salva e pode falhar se o Teams recusar o acesso.</small>
-          <button type="button" data-rem>Atualizar remoto</button>
-        </div>
-      </div>
-      <div class="bar" style="margin-top:12px"><button type="button" data-cx>Cancelar</button></div>`;
-    document.body.appendChild(d);
-    const fim = () => { d.close(); d.remove(); };
-    const st = d.querySelector("[data-st]"), bLoc = d.querySelector("[data-loc]");
-    d.querySelector("[data-cx]").onclick = fim; d.addEventListener("cancel", e => { e.preventDefault(); fim(); });
-    d.querySelector("[data-rem]").onclick = () => { fim(); dispara("remoto"); };
-    bLoc.onclick = () => { fim(); dispara("local"); };
-    async function verifica() {
-      try {
-        const r = await chamarLocal({ acao: "status" });
-        if (r.online) {
-          st.textContent = r.estado === "executando" ? "Agente online, mas já está atualizando agora." : r.estado === "aguardando_login" ? "Agente online, aguardando você entrar no Teams (veja o Chrome do computador)." : `Agente online${r.maquina ? " (" + r.maquina + ")" : ""}. Pronto para atualizar.`;
-          bLoc.disabled = r.estado === "executando";
-        } else {
-          st.textContent = r.ultimo_ping ? `Agente local desligado ou sem internet (último sinal em ${dataHora(r.ultimo_ping)}).` : "O agente local ainda não enviou nenhum sinal.";
-        }
-      } catch (e) { st.textContent = "Não foi possível verificar o agente local: " + (e.message || e) + " (a função exiros-local foi publicada?)"; }
-    }
-    d.showModal(); verifica();
   }
   function espera(antes) {
     clearInterval(poll); const t0 = Date.now();
