@@ -784,7 +784,13 @@ function stack(id, field, d, horiz) {
 const cfgK = () => window.etapasCfg ? window.etapasCfg() : ["lev", "des", "sph", "sap"]; // etapas cadastradas em Parâmetros (vazio = nenhuma)
 const cusList = () => window.etapasX ? window.etapasX() : []; // etapas PERSONALIZADAS ativas do projeto aberto: [{ k, nome, cor }]
 const cusOk = (r, k) => !!(r && r.etapas_extra && r.etapas_extra[k]); // ponto com a etapa personalizada k marcada como concluída
-const prefUnit = () => { try { return localStorage.getItem("gs-unidade") === "p" ? "p" : "l"; } catch (e) { return "l"; } }; // unidade escolhida na engrenagem do Painel (fica salva neste aparelho)
+const ppGet = (k, d) => { const c = proj && proj.painel_config; return c && typeof c === "object" && c[k] !== undefined ? c[k] : d; }; // definições do projeto: ficam no banco (projetos.painel_config), não no aparelho
+function ppSet(k, v) { // grava a definição no próprio projeto (só editor/admin); os demais veem o que foi definido
+  if (!proj || !canProj) return;
+  const cur = Object.assign({}, proj.painel_config || {}); cur[k] = v; proj.painel_config = cur;
+  return sb.from("projetos").update({ painel_config: cur }).eq("id", proj.id).then(({ error }) => { if (error) alert("Não foi possível salvar a definição no app: " + error.message); });
+}
+const prefUnit = () => ppGet("un", "l") === "p" ? "p" : "l"; // unidade escolhida na engrenagem do Painel (fica salva no projeto)
 let unit = prefUnit(); // "l" = linhas de projeto | "p" = pontos de adequação (soma das quantidades)
 const wt = r => unit === "p" ? (Number(r.qtd) > 0 ? Number(r.qtd) : 1) : 1;
 const wsum = a => a.reduce((t, r) => t + wt(r), 0);
@@ -1701,7 +1707,7 @@ async function abrirProjeto(id, tab, seq) {
     let p = projs.find(x => x.id === id);
     if (!p) { const { data, error } = await sb.from("projetos").select("*").eq("id", id).maybeSingle(); if (seq !== navSeq) return; if (error || !data) { alert(error ? "Erro ao abrir o projeto: " + error.message : "Projeto não encontrado ou sem acesso."); location.hash = "#/"; return; } p = data; }
     proj = p; const pe = periodo(p); PROJ = { ini: pe.ini, fim: pe.fim, fyM: fyMes(p) };
-    rows = []; hist = []; unit = prefUnit(); pLev = ""; pEq = false; ["dA", "fA", "fS", "rA"].forEach(i => { $("#" + i).value = ""; }); $("#fQ").value = ""; $("#evS").value = "tot";
+    rows = []; hist = []; unit = prefUnit(); try { if (typeof PAGES !== "undefined") Object.values(PAGES).forEach(applyBlocks); const an = document.getElementById("gxAn"); if (an) an.open = ppGet("cus", 1) !== 0; } catch (e) {} pLev = ""; pEq = false; ["dA", "fA", "fS", "rA"].forEach(i => { $("#" + i).value = ""; }); $("#fQ").value = ""; $("#evS").value = "tot";
     prefetchProjeto(id);
     mostrar(); document.body.classList.add("carregando"); // a tela do projeto aparece já; os dados entram em seguida
     try { evoOpts(); await load(); } finally { if (seq === navSeq) document.body.classList.remove("carregando"); }
@@ -2189,17 +2195,16 @@ function renderSup() {
   <div class="card tw"><table class="st"><thead><tr><th>Código SAP</th><th>Sphera</th><th>Descrição</th><th>Qtd</th><th>Valor unit.</th><th>Valor total</th><th>Situação</th><th>RC</th><th>Pedido</th><th>Prazo</th><th>Recebido</th>${xCampos().map(p => `<th>${esc(p.nome)}</th>`).join("")}</tr></thead><tbody id="sT"></tbody></table></div><small id="sC"></small>`;
   ["sFs:sit", "sFa:area"].forEach(x => { const [i, k] = x.split(":"); $("#" + i).onchange = e => { F[k] = e.target.value; pinta(); }; }); $("#sFq").oninput = e => { F.q = e.target.value; pinta(); };
   $("#sX").onchange = e => { X = Math.max(1, +e.target.value || 15); pinta(); }; if ($("#sRcs")) $("#sRcs").onclick = copiaRcs;
-  if (canProj) { $("#sNew").onclick = () => editaItem(null); $("#sBu").onchange = $("#sBc").onchange = salvaOrc; $("#sBauto").onchange = e => { if (!e.target.checked) { try { if (localStorage.getItem(cambManKey()) == null) localStorage.setItem(cambManKey(), $("#sBc").value); } catch (x) {} } cambSetAuto(e.target.checked); cambAplica().then(() => { if (canProj && !e.target.checked) salvaOrc(); }); }; } pinta(); pintaOrc(); cambAplica();
+  if (canProj) { $("#sNew").onclick = () => editaItem(null); $("#sBu").onchange = $("#sBc").onchange = salvaOrc; $("#sBauto").onchange = e => { if (!e.target.checked) { if (ppGet("cm") == null) ppSet("cm", $("#sBc").value); } cambSetAuto(e.target.checked); cambAplica().then(() => { if (canProj && !e.target.checked) salvaOrc(); }); }; } pinta(); pintaOrc(); cambAplica();
 }
 $("#sExp").onclick = exporta; $("#sImp").onclick = impOpen;
 const _renderSup = renderSup;
 renderSup = function () { _renderSup(); if (canProj && $("#gNew")) $("#gNew").onclick = () => editaGasto(null); pintaGas();
   const id = proj && proj.id; loadGas().then(() => { if (proj && proj.id === id && $("#c7")) { pintaOrc(); pintaGas(); } }); };
 // ---------- Câmbio USD→BRL automático (PTAX do Banco Central; reserva: AwesomeAPI) ----------
-const CAMB_KEY = "gs-cambio-auto", CAMB_CACHE = "gs-cambio-cache";
-const cambAuto = () => { try { return localStorage.getItem(CAMB_KEY) !== "0"; } catch (e) { return true; } };
-const cambSetAuto = v => { try { localStorage.setItem(CAMB_KEY, v ? "1" : "0"); } catch (e) {} };
-const cambManKey = () => "gs-cambio-man-" + (proj ? proj.id : "0");
+const CAMB_CACHE = "gs-cambio-cache"; // só o cache da cotação do dia fica no aparelho
+const cambAuto = () => ppGet("cam", "a") !== "m"; // modo do câmbio (automático/manual) é definição do projeto
+const cambSetAuto = v => ppSet("cam", v ? "a" : "m");
 const hojeISO = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
 async function fetchJ(url, ms = 8000) { const c = new AbortController(), t = setTimeout(() => c.abort(), ms); try { const r = await fetch(url, { signal: c.signal, cache: "no-store" }); if (!r.ok) throw new Error("HTTP " + r.status); return await r.json(); } finally { clearTimeout(t); } }
 async function buscaCambio() { // 1 consulta por dia (cache local); devolve { v, fonte, ref }
@@ -2222,7 +2227,7 @@ async function cambAplica() { // ajusta o campo conforme o botão ativar/desativ
   const inp = $("#sBc"), tg = $("#sBauto"), st = $("#sBcs"); if (!inp || !tg || !proj) return;
   const auto = cambAuto(); tg.checked = auto;
   if (!auto) { // manual: campo liberado com o último valor manual (ou o salvo no projeto)
-    let man = null; try { man = localStorage.getItem(cambManKey()); } catch (e) {}
+    let man = ppGet("cm", null);
     if (man != null && man !== "") { inp.value = man; proj.cambio_usd_brl = brNum(man); }
     else inp.value = proj.cambio_usd_brl ?? "";
     inp.disabled = !canProj; inp.readOnly = false; st.textContent = canProj ? "Digite o câmbio manualmente." : ""; pintaOrc(); return;
@@ -2241,7 +2246,7 @@ async function salvaOrc() {
   const u = brNum($("#sBu").value), c = brNum($("#sBc").value); $("#sBe").textContent = "";
   const { data, error } = await sb.from("projetos").update({ orcamento_usd: u, cambio_usd_brl: c }).eq("id", proj.id).select("id");
   if (error || !data?.length) { $("#sBe").textContent = error ? error.message + (/orcamento|cambio/.test(error.message) ? " — execute a migração fase3_03." : "") : "Sem permissão para alterar o orçamento."; return; }
-  proj.orcamento_usd = u; proj.cambio_usd_brl = c; if (!cambAuto()) { try { localStorage.setItem(cambManKey(), c == null ? "" : String(c)); } catch (e) {} } const pj = projs.find(x => x.id === proj.id); if (pj && pj !== proj) { pj.orcamento_usd = u; pj.cambio_usd_brl = c; }
+  proj.orcamento_usd = u; proj.cambio_usd_brl = c; if (!cambAuto()) ppSet("cm", c == null ? "" : String(c)); const pj = projs.find(x => x.id === proj.id); if (pj && pj !== proj) { pj.orcamento_usd = u; pj.cambio_usd_brl = c; }
   logP("Atualizou orçamento do projeto", `US$ ${u ?? "—"} · câmbio ${c ?? "—"}`); pintaOrc();
 }
 // ---- Outros gastos do orçamento (projeto, fiscal etc.) ----
@@ -2670,9 +2675,9 @@ if(nv){nv.querySelectorAll("button span").forEach(s=>{const t=s.textContent.trim
 const TT={t1:"Painel",t2:"Pontos (cadastro)",t3:"Importar e exportar",t4:"Usuários e histórico",t5:"Relatórios",t7:"Suprimentos"};
 /* personalização por página: blocos que podem ser ligados/desligados (a escolha fica salva neste aparelho) */
 const PAGES={
- t1:{sec:"t1",key:"gs-painel",title:"Personalizar painel",intro:"Escolha os blocos que aparecem no Painel.",
+ t1:{sec:"t1",key:"painel",title:"Personalizar painel",intro:"Escolha os blocos que aparecem no Painel.",
   blocks:[["al","Alerta de atraso"],["k","Indicadores-chave"],["et","Etapas e áreas"],["ind","Todos os indicadores"],["graf","Gráficos detalhados"],["evo","Evolução e andamento"],["doc","Desenhos no SAP"],["pend","Pendências"]]},
- t7:{sec:"t7",key:"gs-suprimentos",title:"Personalizar suprimentos",intro:"Escolha os blocos que aparecem na aba Resumo de Suprimentos.",
+ t7:{sec:"t7",key:"suprimentos",title:"Personalizar suprimentos",intro:"Escolha os blocos que aparecem na aba Resumo de Suprimentos.",
   blocks:[["orc","Orçamento e câmbio"],["kpi","Indicadores do orçamento"],["dst","Distribuição do orçamento"],["gas","Evolução dos gastos"],["out","Outros gastos"],["cus","Análise de custos"],["prz","Indicadores de prazo"],["fun","Funil RC → Pedido → Entrega"]]}};
 const GEAR='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
 const mn=$("main"),pgH=document.createElement("div"),h2=document.createElement("h2"),pgCfg=document.createElement("button");
@@ -2688,7 +2693,7 @@ pgCfg.onclick=()=>PAGES[pageId]&&blocksDialog(PAGES[pageId]);
 const fb=$("#t2 .bar");if(fb&&$("#fA")){const b=document.createElement("button");b.type="button";b.id="gxFb";b.textContent="Filtros";b.onclick=()=>fb.classList.toggle("gx-f");$("#fA").before(b);
  const ga=()=>$("#t2").classList.toggle("gx-area",!!$("#fA").value);$("#fA").addEventListener("change",ga);ga();}
 /* painel */
-const prefOf=key=>{try{return JSON.parse(localStorage.getItem(key)||"{}")}catch(e){return{}}};
+const prefOf=key=>{const b=ppGet("bl",{}),o=b&&b[key];return o&&typeof o==="object"?o:{}};
 const applyBlocks=pg=>{const sec=$("#"+pg.sec),o=prefOf(pg.key);if(!sec)return;pg.blocks.forEach(([k])=>sec.classList.toggle("gx-off-"+k,o[k]===false));rsz()};
 function gxInit(){const t1=$("#t1"),k=$("#kpis");if(!t1||!k)return;
  const top=document.createElement("div");top.id="gxTop";k.before(top);
@@ -2716,11 +2721,11 @@ function build(){const k=$("#kpis"),top=$("#gxTop");if(!k||!top||k.children.leng
 function blocksDialog(pg){let d=$("#gxDlg");if(!d){d=document.createElement("dialog");d.id="gxDlg";document.body.appendChild(d);d.addEventListener("click",e=>{if(e.target===d)d.close()})}
  const o=prefOf(pg.key);
  const pu=prefUnit(),un=pg.sec==="t1"?`<p class="l" style="margin:12px 0 6px"><b>Unidade dos indicadores</b></p><div class="seg" id="gxUn"><button type="button" data-un="l" class="${pu==="l"?"on":""}">Linhas</button><button type="button" data-un="p" class="${pu==="p"?"on":""}">Pontos</button></div><p class="l" style="margin:14px 0 4px"><b>Blocos do painel</b></p>`:"";
- d.innerHTML=`<h3>${pg.title}</h3><p class="l">${pg.intro} A escolha fica salva neste aparelho.</p>${un}${pg.blocks.map(([k,n])=>`<label><input type="checkbox" data-k="${k}" ${o[k]===false?"":"checked"}>${n}</label>`).join("")}<div class="bar" style="margin-top:12px"><button class="p" id="gxOk">Fechar</button><button id="gxRs" type="button">Restaurar padrão</button></div>`;
- d.querySelectorAll("[data-un]").forEach(b=>b.onclick=()=>{const v=b.dataset.un;try{localStorage.setItem("gs-unidade",v)}catch(e){}unit=v;d.querySelectorAll("[data-un]").forEach(x=>x.classList.toggle("on",x===b));try{dash();table()}catch(e){}});
- d.querySelectorAll("input").forEach(i=>i.onchange=()=>{const p=prefOf(pg.key);p[i.dataset.k]=i.checked;try{localStorage.setItem(pg.key,JSON.stringify(p))}catch(e){}applyBlocks(pg)});
+ d.innerHTML=`<h3>${pg.title}</h3><p class="l">${pg.intro} A escolha vale para este projeto e fica salva no app.${canProj?"":" Só editores e administradores podem alterar."}</p>${un}${pg.blocks.map(([k,n])=>`<label><input type="checkbox" data-k="${k}" ${o[k]===false?"":"checked"}${canProj?"":" disabled"}>${n}</label>`).join("")}<div class="bar" style="margin-top:12px"><button class="p" id="gxOk">Fechar</button><button id="gxRs" type="button"${canProj?"":" disabled"}>Restaurar padrão</button></div>`;
+ d.querySelectorAll("[data-un]").forEach(b=>b.onclick=()=>{if(!canProj)return;const v=b.dataset.un;ppSet("un",v);unit=v;d.querySelectorAll("[data-un]").forEach(x=>x.classList.toggle("on",x===b));try{dash();table()}catch(e){}});
+ d.querySelectorAll("input").forEach(i=>i.onchange=()=>{const p=Object.assign({},prefOf(pg.key));p[i.dataset.k]=i.checked;ppSet("bl",Object.assign({},ppGet("bl",{}),{[pg.key]:p}));applyBlocks(pg)});
  $("#gxOk").onclick=()=>d.close();
- $("#gxRs").onclick=()=>{try{localStorage.removeItem(pg.key)}catch(e){}applyBlocks(pg);d.querySelectorAll("input").forEach(i=>i.checked=true)};
+ $("#gxRs").onclick=()=>{ppSet("bl",Object.assign({},ppGet("bl",{}),{[pg.key]:{}}));applyBlocks(pg);d.querySelectorAll("input").forEach(i=>i.checked=true)};
  d.showModal()}
 /* suprimentos */
 let tab="r";
@@ -2738,7 +2743,7 @@ function sup(){const sec=$("#t7"),sB=$("#sB");if(!sec||!sB||sec.querySelector(".
  [["#sV","gx-kpi"],["#sVd","gx-kpi"],["#gxEv","gx-gas"],["#gxOut","gx-out"]].forEach(([q,c])=>{const e=$(q);e&&e.classList.add(c)});sB.insertBefore(cf,$("#sV"));sB.appendChild(dg);
  const mk=p=>{const d=document.createElement("div");d.className="sp";d.dataset.p=p;return d},pr=mk("r"),pi=mk("i"),pa=mk("a"),kd=det("Todos os indicadores de prazo","itens, RC, pedidos, entregas e atrasos");kd.appendChild(kk);kd.classList.add("gx-prz");
  const fd=det("Funil RC → Pedido → Entrega","");fd.classList.add("gx-fun");fd.appendChild(gr.children[0]);pa.appendChild(gr.children[0]);gr.remove();
- const a=det("Análise de custos","valor total dos itens, em todas as situações");a.className="gxd gx-cus";a.id="gxAn";a.insertAdjacentHTML("beforeend",'<div class="gx-cb"></div>');try{a.open=localStorage.getItem("gs-cus-open")!=="0"}catch(e){a.open=true}a.addEventListener("toggle",()=>{try{localStorage.setItem("gs-cus-open",a.open?"1":"0")}catch(e){}});pr.append(sB,a,kd,fd);pi.append(fil,tb,cn);
+ const a=det("Análise de custos","valor total dos itens, em todas as situações");a.className="gxd gx-cus";a.id="gxAn";a.insertAdjacentHTML("beforeend",'<div class="gx-cb"></div>');a.open=ppGet("cus",1)!==0;a.addEventListener("toggle",()=>{const v=a.open?1:0;if(v!==ppGet("cus",1))ppSet("cus",v)});pr.append(sB,a,kd,fd);pi.append(fil,tb,cn);
  const tabs=document.createElement("div");tabs.className="stb";tabs.innerHTML='<button data-p="r">Resumo</button><button data-p="i">Itens</button><button data-p="a">Atenção</button>';
  tabs.onclick=e=>{const b=e.target.closest("button");if(b){tab=b.dataset.p;show()}};sec.append(tabs,pr,pi,pa);an();show()}
 document.addEventListener("click",e=>{const c=e.target.closest("#sV .kpi,#sV2 .kpi");if(!c)return;const s=c.querySelector("[data-sit]");if(!s)return;tab="i";show();const f=$("#sFs");if(f){f.value=s.dataset.sit;f.dispatchEvent(new Event("change"))}});
@@ -3011,11 +3016,11 @@ const $=s=>document.querySelector(s),E=s=>String(s).replace(/[&<>"]/g,c=>({"&":"
 const ICO='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
 let CF={},CFid=null;
 function cfgLoad(){if(!proj||CFid===proj.id)return;CFid=proj.id;let o=proj.painel_config;
- if(!o||typeof o!=="object"||!Object.keys(o).length){try{o=JSON.parse(localStorage.getItem("gs-pc-"+proj.id)||"{}")}catch(e){o={}}}
  CF=JSON.parse(JSON.stringify(o||{}))}
-async function cfgSave(){if(!proj)return;try{localStorage.setItem("gs-pc-"+proj.id,JSON.stringify(CF))}catch(e){}
- if(!canProj)return;const{error}=await sb.from("projetos").update({painel_config:CF}).eq("id",proj.id);
- if(error)return alert("Salvo só neste aparelho: "+error.message);proj.painel_config=JSON.parse(JSON.stringify(CF))}
+async function cfgSave(){if(!proj||!canProj)return;
+ const full=JSON.parse(JSON.stringify(CF)),cur=proj.painel_config||{};["bl","un","cus","cam","cm"].forEach(k=>{if(cur[k]!==undefined)full[k]=cur[k]});
+ const{error}=await sb.from("projetos").update({painel_config:full}).eq("id",proj.id);
+ if(error)return alert("Não foi possível salvar no app: "+error.message);proj.painel_config=full}
 const cl=c=>{const x=c.cloneNode(true);x.querySelectorAll(".seg").forEach(s=>s.remove());x.style.display="";return x};
 function cat(){const o=[],add=(b,p,g)=>{b&&[...b.children].forEach((c,i)=>{if(c.classList.contains("hide"))return;const s=c.querySelector("span"),v=c.querySelector("b");
  o.push({key:p+i,g,el:c,l:s?s.textContent.trim():"Indicador",v:v?v.textContent.trim():""})})};add($("#kpis"),"k:","Indicadores do painel");add($("#evk"),"e:","Evolução e andamento");return o}
