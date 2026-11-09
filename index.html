@@ -2469,7 +2469,7 @@ function exAlvo(pl) { // registros do Exiros que pertencem a itens do projeto ab
   return exRegs().filter(x => meus.has(x.material_codigo)); }
 async function gravaExiros(pl) { // devolve { n, upd, ins, skip, erro }; nunca derruba a importação dos suprimentos
   let regs = exAlvo(pl); if (!regs.length) return null;
-  const res = { n: 0, upd: 0, ins: 0, skip: 0, erro: "" }, agora = new Date().toISOString();
+  const res = { n: 0, upd: 0, ins: 0, skip: 0, novo: 0, erro: "" }, agora = new Date().toISOString();
   try {
     const rcs = [...new Set(regs.map(x => x.rc_numero))], { data, error } = await sb.from("exiros_rc").select("*").in("rc_numero", rcs).limit(5000);
     if (error) { res.erro = error.message; return res; }
@@ -2478,8 +2478,13 @@ async function gravaExiros(pl) { // devolve { n, upd, ins, skip, erro }; nunca d
     regs.forEach(x => { const m = x._meta; delete x._meta; const e = ach(x);
       if (e) { const pt = { consultado_em: agora }; Object.keys(x).forEach(k => { if (k !== "rc_numero" && k !== "material_codigo" && String(e[k] ?? "") !== String(x[k])) pt[k] = x[k]; }); ups.push({ id: e.id, pt }); }
       else if (m && m.item && m.rcItem) news.push({ ...x, item: m.item, rc_item: m.rcItem, raw: { origem: "importacao_manual" }, consultado_em: agora }); else res.skip++; });
-    for (let i = 0; i < ups.length; i += 20) { const r = await Promise.all(ups.slice(i, i + 20).map(u => sb.from("exiros_rc").update(u.pt).eq("id", u.id).select("id"))), er = r.find(z => z.error);
-      if (er) { res.erro = er.error.message; return res; } if (r.some(z => !(z.data || []).length)) { res.erro = "o Supabase não permitiu gravar em exiros_rc (RLS). " + SQL_EXIROS; return res; } res.upd += r.length; }
+    for (let i = 0; i < ups.length; i += 20) { const lote = ups.slice(i, i + 20), r = await Promise.all(lote.map(u => sb.from("exiros_rc").update(u.pt).eq("id", u.id).select("id"))), er = r.find(z => z.error);
+      if (er) { res.erro = er.error.message; return res; }
+      const vz = lote.filter((u, k) => !(r[k].data || []).length); res.upd += lote.length - vz.length;
+      if (vz.length) { // 0 linhas: ou o banco recusou (RLS) ou a linha já tinha consulta mais recente (regra "a mais recente vale", que ignora a gravação mais antiga)
+        const { data: cur, error: e3 } = await sb.from("exiros_rc").select("id,consultado_em").in("id", vz.map(u => u.id)); if (e3) { res.erro = e3.message; return res; }
+        const mais = (cur || []).filter(c => new Date(c.consultado_em) > new Date(agora)).length; res.novo += mais;
+        if (mais < vz.length) { res.erro = "o Supabase não permitiu gravar em exiros_rc (RLS). " + SQL_EXIROS; return res; } } }
     if (news.length) { const { error: e2 } = await sb.from("exiros_rc").insert(news); if (e2) { res.erro = e2.message + (/row-level|policy|permission/i.test(e2.message) ? " — " + SQL_EXIROS : ""); return res; } res.ins = news.length; }
   } catch (x) { res.erro = x.message; }
   res.n = res.upd + res.ins; return res; }
@@ -2492,7 +2497,7 @@ async function aplica(pl) { // grava no Supabase; devolve texto de erro ou ""
 const dr = document.createElement("dialog"); dr.id = "spRes"; document.body.appendChild(dr);
 function resumo(pl, falt) { const ts = [...pl.rcs.values()].reduce((a, x) => a + x.s, 0);
   dr.innerHTML = `<h3>Importação concluída</h3><p><b>${pl.upd.length}</b> item(ns) atualizado(s) · <b>${pl.ins.length}</b> novo(s) · ${ts} sem alteração${pl.ign ? ` · ${pl.ign} linha(s) ignorada(s) (sem código)` : ""}</p>
-  <ul>${[...pl.rcs].map(([rc, x]) => `<li><b>RC ${esc(rc)}</b>: ${x.u} de ${x.t} item(ns) atualizado(s)${x.n ? `, ${x.n} novo(s)` : ""}</li>`).join("")}</ul>${pl.ex ? `<p><b>Exiros</b>: ${pl.ex.n} item(ns) atualizado(s) como pelo bot${pl.ex.skip ? ` · ${pl.ex.skip} sem linha no Exiros e sem o item da RC (não gravado)` : ""}</p>${pl.ex.erro ? `<p class="err">Não consegui gravar o Exiros: ${esc(pl.ex.erro)}</p>` : ""}` : ""}${falt && falt.length ? `<small>Colunas padrão não encontradas: ${esc(falt.join(", "))}</small>` : ""}
+  <ul>${[...pl.rcs].map(([rc, x]) => `<li><b>RC ${esc(rc)}</b>: ${x.u} de ${x.t} item(ns) atualizado(s)${x.n ? `, ${x.n} novo(s)` : ""}</li>`).join("")}</ul>${pl.ex ? `<p><b>Exiros</b>: ${pl.ex.n} item(ns) atualizado(s) como pelo bot${pl.ex.skip ? ` · ${pl.ex.skip} sem linha no Exiros e sem o item da RC (não gravado)` : ""}${pl.ex.novo ? ` · ${pl.ex.novo} já tinha(m) consulta mais recente do bot (mantida)` : ""}</p>${pl.ex.erro ? `<p class="err">Não consegui gravar o Exiros: ${esc(pl.ex.erro)}</p>` : ""}` : ""}${falt && falt.length ? `<small>Colunas padrão não encontradas: ${esc(falt.join(", "))}</small>` : ""}
   <div class="bar" style="margin-top:12px"><button class="p" id="rOk">OK</button></div>`; $("#rOk").onclick = () => dr.close(); dr.showModal(); }
 // ---- Leitura de prints (OCR no navegador, em português) ----
 const TESS = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js", TESS_LANG = "https://cdn.jsdelivr.net/npm/@tesseract.js-data/por/4.0.0_best_int";
