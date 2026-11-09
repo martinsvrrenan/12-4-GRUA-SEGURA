@@ -1307,7 +1307,7 @@ $("#rp").onclick = () => {
 <h2 style="margin-top:4mm">Histórico de gastos</h2>${sr.fin.hist.length ? tbl(["Data", "Descrição", "Origem", "Valor"], sr.fin.hist.slice(0, 8)) + (sr.fin.hist.length > 8 ? `<p class="note">Exibindo 8 de ${sr.fin.hist.length} lançamentos, do mais recente ao mais antigo. Consulte o aplicativo ou o Excel para a lista completa.</p>` : "") : `<p class="note">Nenhum gasto lançado.</p>`}` : `<p class="note">Nenhum orçamento ou gasto cadastrado neste projeto.</p>`}${ft(5)}</section>`,
     `<section class="page">${hd("Suprimentos · Prazos", `${proj.nome} · situação dos itens`)}${sr.t ? `<div class="kpis k5">${sr.kp.map(([v, l]) => `<div class="kpi"><strong>${esc2(v)}</strong><em>${esc2(l)}</em></div>`).join("")}</div><h2 style="margin-top:7mm">Itens em atenção (atrasados ou sem prazo)</h2>${sr.att.length ? tbl(["Código", "Descrição", "Situação", "Prazo"], sr.att.slice(0, 10)) + (sr.att.length > 10 ? `<p class="note">Exibindo 10 de ${sr.att.length}. Consulte o aplicativo para a lista completa.</p>` : "") : `<p class="ok" style="margin-top:12mm">Nenhum item atrasado ou sem prazo.</p>`}` : `<p class="note">Nenhum item de suprimentos cadastrado neste projeto.</p>`}${ft(6)}</section>`,
     ...lstPages("Pendências de ação", pd.map(([r, t]) => [r.area, r.equipamento, r.tipo_projeto || "—", pw(r), t]), ["Área", "Equipamento", "Tipo de projeto", "Pontos", "Situação"], [14, 24, 30, 8, 24], `${scope} · todas as pendências`, "Nenhuma pendência identificada com os critérios atuais."),
-    ...lstPages("Itens de suprimentos", sr.all || [], ["Código", "Descrição", "Qtd.", "Fornecedor", "Situação", "Prazo"], [12, 36, 10, 16, 14, 12], `${proj.nome} · todos os itens`, "Nenhum item de suprimentos cadastrado neste projeto.")
+    ...lstPages("Itens de suprimentos", sr.all || [], ["Código", "Descrição", "Qtd.", "Fornecedor", "Comprador", "Situação", "Prazo"], [10, 29, 8, 15, 15, 13, 10], `${proj.nome} · todos os itens`, "Nenhum item de suprimentos cadastrado neste projeto.")
   ];
   w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Relatório – ${esc2(proj.nome)}</title>
 <style>
@@ -2143,6 +2143,13 @@ const xTipo = p => { const t = String((p.config || {}).tipo || "texto").toLowerC
 const xVal = (i, p) => { const v = ((i && i.extras) || {})[String(p.id)]; return v == null ? "" : v; };
 const xFmt = (i, p) => { const v = xVal(i, p); if (v === "") return "—"; const t = xTipo(p); return t === "data" ? dtBR(parseD(v)) : t === "número" ? Number(v).toLocaleString("pt-BR") : String(v); };
 const xCol = p => (ORD.some(k => ff(k)[1] === p.nome) || p.nome === "Situação") ? p.nome + " (extra)" : p.nome;
+// Comprador nos relatórios: usa o dado do Exiros (se já carregado) e, na falta, o que veio na Observação ("Comprador: Nome")
+const compr = i => {
+  try { const g = window.gxComprador && window.gxComprador(i); if (g) return g; } catch (e) {}
+  const m = String((i && i.observacao) || "").match(/(?:^|[\]·\n])\s*Comprador\s*:\s*([^\n]*?)(?=\s+·\s+[^:·\n]{2,60}:|\n|$)/i), v = m ? m[1].trim() : "";
+  return v === "-" ? "" : v;
+};
+const CL = () => xCampos().some(p => p.nome === "Comprador") ? "Comprador (Exiros)" : "Comprador"; // evita colidir com um campo extra de mesmo nome
 
 // ---- Carga e migração automática ponto -> suprimento ----
 async function loadSup() {
@@ -2511,7 +2518,7 @@ function copiaRcs(soPend = true) {
   if (!dc.open) dc.showModal();
 }
 function exporta() {
-  const XC = xCampos(), H = [...ORD.map(k => ff(k)[1]), ...XC.map(xCol)], out = SUP.map(i => ({ ...Object.fromEntries(ORD.map(k => [ff(k)[1], i[k] ?? ""])), ...Object.fromEntries(XC.map(p => [xCol(p), xVal(i, p)])), "Situação": sitTxt(i) })), wb = XLSX.utils.book_new();
+  const XC = xCampos(), H = [...ORD.flatMap(k => k === "fornecedor" ? [ff(k)[1], CL()] : [ff(k)[1]]), ...XC.map(xCol)], out = SUP.map(i => ({ ...Object.fromEntries(ORD.flatMap(k => [[ff(k)[1], i[k] ?? ""], ...(k === "fornecedor" ? [[CL(), compr(i)]] : [])])), ...Object.fromEntries(XC.map(p => [xCol(p), xVal(i, p)])), "Situação": sitTxt(i) })), wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(out, { header: [...H, "Situação"] }), "Suprimentos"); XLSX.writeFile(wb, `suprimentos_${proj.nome.replace(/[^\w]+/g, "_")}_${stamp()}.xlsx`); logP("Exportou suprimentos", `${SUP.length} itens`);
 }
 // ---- Gastos para os relatórios (PDF, PowerPoint e Excel) ----
@@ -2565,8 +2572,8 @@ window.supSite = () => { // dados de suprimentos para o relatório interativo (s
 window.supRel = (img) => { const s = supStats(SUP), d = x => x ? dtBR(parseD(x)) : "—", okv = (cat, v) => !(window.inativo && v && window.inativo(cat, String(v))); // parâmetros inativos não aparecem nos relatórios; // dados de suprimentos para os relatórios
   return { t: s.t, fin: gastoFin(img), kp: [[s.t, "itens"], [pc3(s.rc, s.t), "com RC"], [pc3(s.pd, s.t), "com pedido"], [pc3(s.en, s.t), "entregues"], [`${s.at} (${pc3(s.at, s.t)})`, "atrasados"]],
     att: SUP.filter(i => atras(i) || semPrazo(i)).map(i => [i.codigo_sap || i.codigo_sphera || "—", i.descricao || "—", sitTxt(i), d(i.prazo_entrega)]),
-    all: SUP.map(i => [i.codigo_sap || i.codigo_sphera || "—", String(i.descricao || "—").slice(0, 110), [i.quantidade ?? "", okv("sup_unidade", i.unidade) ? i.unidade || "" : ""].join(" ").trim() || "—", okv("sup_fornecedor", i.fornecedor) && i.fornecedor ? i.fornecedor : "—", sitTxt(i), d(i.prazo_entrega)]),
-    rows: SUP.map(i => ({ ...Object.fromEntries(ORD.map(k => [ff(k)[1], (k === "fornecedor" && !okv("sup_fornecedor", i[k])) || (k === "unidade" && !okv("sup_unidade", i[k])) ? "" : i[k] ?? ""])), ...Object.fromEntries(xCampos().map(p => [xCol(p), xVal(i, p)])), "Situação": sitTxt(i) })) }; };
+    all: SUP.map(i => [i.codigo_sap || i.codigo_sphera || "—", String(i.descricao || "—").slice(0, 110), [i.quantidade ?? "", okv("sup_unidade", i.unidade) ? i.unidade || "" : ""].join(" ").trim() || "—", okv("sup_fornecedor", i.fornecedor) && i.fornecedor ? i.fornecedor : "—", compr(i) || "—", sitTxt(i), d(i.prazo_entrega)]),
+    rows: SUP.map(i => ({ ...Object.fromEntries(ORD.flatMap(k => [[ff(k)[1], (k === "fornecedor" && !okv("sup_fornecedor", i[k])) || (k === "unidade" && !okv("sup_unidade", i[k])) ? "" : i[k] ?? ""], ...(k === "fornecedor" ? [[CL(), compr(i)]] : [])])), ...Object.fromEntries(xCampos().map(p => [xCol(p), xVal(i, p)])), "Situação": sitTxt(i) })) }; };
 /* gancho para o bloco do Exiros (gx-exiros): expõe SUP e permite encaixar nas funções internas desta aba */
 window.gxSup = { get SUP() { return SUP; }, rerender() { renderSup(); }, copiar() { copiaRcs(); } };
 window.gxSupHook = h => {
@@ -2917,7 +2924,7 @@ btnGroup($("#evS"));btnGroup($("#evP"));btnGroup($("#dA"));
     } else $("#supAnalise").hidden = true;
     const itens = () => { const q = $("#itQ").value.toLowerCase(), l = S.itens.filter(r => r.join(" ").toLowerCase().includes(q));
       $("#itN").textContent = `${l.length} de ${S.itens.length} itens` + (l.length > 300 ? " (exibindo 300)" : "");
-      $("#itT").innerHTML = table(["Código", "Descrição", "Qtd.", "Fornecedor", "Situação", "Prazo"], l.slice(0, 300)); };
+      $("#itT").innerHTML = table(["Código", "Descrição", "Qtd.", "Fornecedor", "Comprador", "Situação", "Prazo"], l.slice(0, 300)); };
     $("#itQ").oninput = itens; itens();
     mostrar("p");
   }
@@ -3244,6 +3251,7 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
   const acaoBt = e => { const b = e.target.closest && e.target.closest("[data-ex]"); if (!b || b.disabled) return; const k = b.dataset.ex; if (k === "stop") parar(); else dispara(k === "loc" ? "local" : "remoto"); };
   const porRc = () => { const m = new Map(); EX.forEach(x => { const k = norm(x.rc_numero); if (!m.has(k)) m.set(k, []); m.get(k).push(x); }); return m; };
   const acha = it => { const l = it && IDX.get(norm(it.rc_numero)); if (!l) return null; const cod = String(it.codigo_sap || "").trim(); return cod ? l.find(x => String(x.material_codigo || "").trim() === cod) || null : null; };
+  window.gxComprador = it => { const x = acha(it); return x && x.comprador_nome ? String(x.comprador_nome).trim() : ""; }; // usado pelos relatórios de Suprimentos (PDF/Excel)
 
   function cel(it) {
     if (!it || !norm(it.rc_numero)) return "<small>—</small>";
