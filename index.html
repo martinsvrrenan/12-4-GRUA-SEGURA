@@ -1307,7 +1307,7 @@ $("#rp").onclick = () => {
 <h2 style="margin-top:4mm">Histórico de gastos</h2>${sr.fin.hist.length ? tbl(["Data", "Descrição", "Origem", "Valor"], sr.fin.hist.slice(0, 8)) + (sr.fin.hist.length > 8 ? `<p class="note">Exibindo 8 de ${sr.fin.hist.length} lançamentos, do mais recente ao mais antigo. Consulte o aplicativo ou o Excel para a lista completa.</p>` : "") : `<p class="note">Nenhum gasto lançado.</p>`}` : `<p class="note">Nenhum orçamento ou gasto cadastrado neste projeto.</p>`}${ft(5)}</section>`,
     `<section class="page">${hd("Suprimentos · Prazos", `${proj.nome} · situação dos itens`)}${sr.t ? `<div class="kpis k5">${sr.kp.map(([v, l]) => `<div class="kpi"><strong>${esc2(v)}</strong><em>${esc2(l)}</em></div>`).join("")}</div><h2 style="margin-top:7mm">Itens em atenção (atrasados ou sem prazo)</h2>${sr.att.length ? tbl(["Código", "Descrição", "Situação", "Prazo"], sr.att.slice(0, 10)) + (sr.att.length > 10 ? `<p class="note">Exibindo 10 de ${sr.att.length}. Consulte o aplicativo para a lista completa.</p>` : "") : `<p class="ok" style="margin-top:12mm">Nenhum item atrasado ou sem prazo.</p>`}` : `<p class="note">Nenhum item de suprimentos cadastrado neste projeto.</p>`}${ft(6)}</section>`,
     ...lstPages("Pendências de ação", pd.map(([r, t]) => [r.area, r.equipamento, r.tipo_projeto || "—", pw(r), t]), ["Área", "Equipamento", "Tipo de projeto", "Pontos", "Situação"], [14, 24, 30, 8, 24], `${scope} · todas as pendências`, "Nenhuma pendência identificada com os critérios atuais."),
-    ...lstPages("Itens de suprimentos", sr.all || [], ["Código", "Descrição", "Qtd.", "Fornecedor", "Comprador", "Situação", "Prazo"], [10, 29, 8, 15, 15, 13, 10], `${proj.nome} · todos os itens`, "Nenhum item de suprimentos cadastrado neste projeto.")
+    ...lstPages("Itens de suprimentos", sr.all || [], sr.cab || ["Código", "Descrição", "Qtd.", "Fornecedor", "Comprador", "Situação", "Prazo"], sr.w || [10, 29, 8, 15, 15, 13, 10], `${proj.nome} · todos os itens`, "Nenhum item de suprimentos cadastrado neste projeto.")
   ];
   w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Relatório – ${esc2(proj.nome)}</title>
 <style>
@@ -2189,7 +2189,7 @@ const pontoDe = i => i.ponto_id != null ? rows.find(r => String(r.id) === String
 const sitTxt = i => atras(i) ? "Atrasado" : semPrazo(i) ? "Sem prazo" : SIT[sitOf(i)];
 function renderSup() {
   const ar = [...new Set(rows.map(r => r.area).filter(Boolean))].sort(), tp = [...new Set(rows.map(r => r.tipo_projeto).filter(Boolean))].sort(), op = (a, f) => a.map(x => `<option ${x === f ? "selected" : ""}>${esc(x)}</option>`).join("");
-  sec.innerHTML = `<div class="card"><div class="bar"><select id="sFs"><option value="">Todas as situações</option>${op([...SIT, "Atrasado", "Sem prazo"], F.sit)}</select><select id="sFa"><option value="">Todas as áreas</option>${op(ar, F.area)}</select><input id="sFq" type="search" placeholder="Buscar código SAP, Sphera, reserva ou descrição…" value="${esc(F.q)}"></div>
+  sec.innerHTML = `<div class="card"><div class="bar"><select id="sFs"><option value="">Todas as situações</option>${op([...SIT, "Atrasado", "Sem prazo"], F.sit)}</select><select id="sFa"><option value="">Todas as áreas</option>${op(ar, F.area)}</select><input id="sFq" type="search" placeholder="Buscar SAP, Sphera, reserva, RC, pedido ou descrição…" value="${esc(F.q)}"></div>
   <div class="bar">${canProj ? '<button class="p" id="sNew">+ Item</button>' : ""}</div></div>
   <div class="card" id="sB"><div class="evh"><b>Orçamento e gasto do projeto</b><small>Valores dos itens em R$ (SAP) · orçamento liberado em US$</small></div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0 12px"><label>Orçamento disponível (US$)<input id="sBu" type="number" min="0" step="any" value="${proj.orcamento_usd ?? ""}" ${canProj ? "" : "disabled"}></label>
@@ -2340,8 +2340,9 @@ function editaGasto(g) {
     logP(g ? "Editou gasto do orçamento" : "Incluiu gasto do orçamento", `${row.descricao} · ${usd ? fU(val) : fR(val)}`); gd.close(); await loadGas(); pintaOrc(); pintaGas(); };
   gd.showModal();
 }
-function filtrados() { const q = F.q.toLowerCase(); return SUP.filter(i => { const p = pontoDe(i);
-  return (!F.sit || sitTxt(i) === F.sit || (F.sit === "Sem prazo" && semPrazo(i))) && (!F.area || (p && p.area === F.area)) && (!F.tipo || (p && p.tipo_projeto === F.tipo)) && (!F.exs || (window.gxExStatus && window.gxExStatus(i) === F.exs)) && (!q || [i.codigo_sap, i.codigo_sphera, i.descricao, i.reserva, ...xCampos().map(p => xVal(i, p))].join(" ").toLowerCase().includes(q)); }); }
+function filtrados() { const q = F.q.toLowerCase().trim(), qn = /^[\d\s-]+$/.test(q) ? q.replace(/\s+/g, "").split("-")[0].replace(/^0+(?=\d)/, "") : q; // número colado com zeros e/ou item ("0284000225-40", "0033983723-10") também acha
+  return SUP.filter(i => { const p = pontoDe(i);
+  return (!F.sit || sitTxt(i) === F.sit || (F.sit === "Sem prazo" && semPrazo(i))) && (!F.area || (p && p.area === F.area)) && (!F.tipo || (p && p.tipo_projeto === F.tipo)) && (!F.exs || (window.gxExStatus && window.gxExStatus(i) === F.exs)) && (!q || (h => h.includes(q) || (qn && h.includes(qn)))([i.codigo_sap, i.codigo_sphera, i.descricao, i.reserva, i.rc_numero, i.pedido_numero, ...xCampos().map(p => xVal(i, p))].join(" ").toLowerCase())); }); }
 const prazoKpis = s => [[s.t, "itens"], [pc3(s.rc, s.t), "com RC"], [pc3(s.pd, s.t), "com pedido"], [pc3(s.pz, s.t), "com prazo"], [pc3(s.en, s.t), "entregues"], [`${s.at} (${pc3(s.at, s.t)})`, "atrasados"], [s.sp, "pedidos sem prazo"], ...(s.cn ? [[s.cn, "cancelados"]] : []), [`${s.a7} / ${s.a15} / ${s.a30}`, "a vencer em 7 / 15 / 30 dias"], [s.pm == null ? "—" : s.pm + " d", "prazo médio (pedido → entrega)"]];
 const atencao = L => { L = L.filter(i => sitOf(i) !== 4); const hojeS = ymd(hj()), d = x => x ? dtBR(parseD(x)) : "—"; // itens que pedem ação: acima do previsto, aguardando aprovação, atrasados e sem RC há muito tempo
   return [...L.filter(i => i.valor_estimado != null && vTot(i) > Number(i.valor_estimado) + 0.005).map(i => [i, "Acima do previsto (+" + fR(vTot(i) - Number(i.valor_estimado)) + ")"]), ...L.filter(i => /aguard/i.test(i.aprovacao || "") && !i.pedido_numero).map(i => [i, "Aguardando aprovação"]), ...L.filter(atras).map(i => [i, "Atrasado desde " + d(i.prazo_entrega)]), ...L.filter(i => sitOf(i) === 0 && i.created_at && dias(i.created_at.slice(0, 10), hojeS) > X).map(i => [i, `Sem RC há ${dias(i.created_at.slice(0, 10), hojeS)} dias`])]; };
@@ -2625,11 +2626,11 @@ window.supSite = () => { // dados de suprimentos para o relatório interativo (s
     ...(cat ? [["Por categoria", top(grp(i => (i.extras || {})[String(cat.id)] || "Sem informação"))]] : []), ["Por mês (data da RC ou do pedido)", mes]].filter(a => a[1].length);
   const s = supStats(SUP), funil = [["Total", s.t, "#b0b7c3"], ["Com RC", s.rc, "#f2a93b"], ["Com pedido", s.pd, "#3b82c4"], ["Entregues", s.en, "#2e9e5b"]];
   return { kpis: prazoKpis(s), funil, fin: fin && { kp: fin.kp, parts: fin.parts, ser: fin.ser, orc: fin.orc },
-    att: atencao(SUP).map(([i, t]) => [i.codigo_sap || i.codigo_sphera || "—", i.descricao || "—", t]), analise, itens: window.supRel().all }; };
-window.supRel = (img) => { const s = supStats(SUP), d = x => x ? dtBR(parseD(x)) : "—", okv = (cat, v) => !(window.inativo && v && window.inativo(cat, String(v))); // parâmetros inativos não aparecem nos relatórios; // dados de suprimentos para os relatórios
-  return { t: s.t, fin: gastoFin(img), kp: [[s.t, "itens"], [pc3(s.rc, s.t), "com RC"], [pc3(s.pd, s.t), "com pedido"], [pc3(s.en, s.t), "entregues"], [`${s.at} (${pc3(s.at, s.t)})`, "atrasados"]],
+    att: atencao(SUP).map(([i, t]) => [i.codigo_sap || i.codigo_sphera || "—", i.descricao || "—", t]), analise, ...(r => ({ itens: r.all, itensCab: r.cab }))(window.supRel()) }; };
+window.supRel = (img) => { const rs = !!window.__reserva, s = supStats(SUP), d = x => x ? dtBR(parseD(x)) : "—", okv = (cat, v) => !(window.inativo && v && window.inativo(cat, String(v))); // parâmetros inativos não aparecem nos relatórios; // dados de suprimentos para os relatórios
+  return { t: s.t, cab: ["Código", ...(rs ? ["Reserva"] : []), "Descrição", "Qtd.", "Fornecedor", "Comprador", "Situação", "Prazo"], w: rs ? [9, 10, 23, 8, 13, 13, 13, 11] : [10, 29, 8, 15, 15, 13, 10], fin: gastoFin(img), kp: [[s.t, "itens"], [pc3(s.rc, s.t), "com RC"], [pc3(s.pd, s.t), "com pedido"], [pc3(s.en, s.t), "entregues"], [`${s.at} (${pc3(s.at, s.t)})`, "atrasados"]],
     att: SUP.filter(i => atras(i) || semPrazo(i)).map(i => [i.codigo_sap || i.codigo_sphera || "—", i.descricao || "—", sitTxt(i), d(i.prazo_entrega)]),
-    all: SUP.map(i => [i.codigo_sap || i.codigo_sphera || "—", String(i.descricao || "—").slice(0, 110), [i.quantidade ?? "", okv("sup_unidade", i.unidade) ? i.unidade || "" : ""].join(" ").trim() || "—", okv("sup_fornecedor", i.fornecedor) && i.fornecedor ? i.fornecedor : "—", compr(i) || "—", sitTxt(i), d(i.prazo_entrega)]),
+    all: SUP.map(i => [i.codigo_sap || i.codigo_sphera || "—", ...(rs ? [i.reserva || "—"] : []), String(i.descricao || "—").slice(0, 110), [i.quantidade ?? "", okv("sup_unidade", i.unidade) ? i.unidade || "" : ""].join(" ").trim() || "—", okv("sup_fornecedor", i.fornecedor) && i.fornecedor ? i.fornecedor : "—", compr(i) || "—", sitTxt(i), d(i.prazo_entrega)]),
     rows: SUP.map(i => ({ ...Object.fromEntries(ORD.flatMap(k => [[ff(k)[1], (k === "fornecedor" && !okv("sup_fornecedor", i[k])) || (k === "unidade" && !okv("sup_unidade", i[k])) ? "" : i[k] ?? ""], ...(k === "fornecedor" ? [[CL(), compr(i)]] : [])])), ...Object.fromEntries(xCampos().map(p => [xCol(p), xVal(i, p)])), "Situação": sitTxt(i) })) }; };
 /* gancho para o bloco do Exiros (gx-exiros): expõe SUP e permite encaixar nas funções internas desta aba */
 window.gxSup = { get SUP() { return SUP; }, get exs() { return F.exs; }, setExs(v) { F.exs = v || ""; pinta(); }, rerender() { renderSup(); }, copiar() { copiaRcs(); } }; // exs = filtro pelo status do Exiros (etiquetas do cartão Exiros)
@@ -2981,7 +2982,7 @@ btnGroup($("#evS"));btnGroup($("#evP"));btnGroup($("#dA"));
     } else $("#supAnalise").hidden = true;
     const itens = () => { const q = $("#itQ").value.toLowerCase(), l = S.itens.filter(r => r.join(" ").toLowerCase().includes(q));
       $("#itN").textContent = `${l.length} de ${S.itens.length} itens` + (l.length > 300 ? " (exibindo 300)" : "");
-      $("#itT").innerHTML = table(["Código", "Descrição", "Qtd.", "Fornecedor", "Comprador", "Situação", "Prazo"], l.slice(0, 300)); };
+      $("#itT").innerHTML = table(S.itensCab || ["Código", "Descrição", "Qtd.", "Fornecedor", "Comprador", "Situação", "Prazo"], l.slice(0, 300)); };
     $("#itQ").oninput = itens; itens();
     mostrar("p");
   }
