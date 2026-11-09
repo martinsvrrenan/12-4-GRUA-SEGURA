@@ -3331,8 +3331,11 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
   function resumo() { // etiquetas = filtros: contam os ITENS do projeto por status do Exiros; clicar filtra a lista, clicar de novo volta a mostrar todos
     const c = new Map(); supL().forEach(it => { const x = acha(it); if (!x) return; const k = x.status || "—"; c.set(k, (c.get(k) || 0) + 1); });
     const on = window.gxSup ? window.gxSup.exs : "";
-    return [...c.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => { const cl = cor(k), at = on === k, off = on && !at;
-      return `<button type="button" class="tag exf${at ? " on" : ""}${off ? " off" : ""}" data-exs="${E(k)}" aria-pressed="${at}" title="${at ? "Clique para mostrar todos" : "Clique para filtrar os itens"}" style="--c:${cl};${at ? `background:${cl};color:#fff` : `background:${cl}22;color:${cl}`}">${n} · ${E(k)}</button>`; }).join(" ");
+    const tot = supL().length, sem = tot - [...c.values()].reduce((a, b) => a + b, 0), cT = "#5d6d8a"; // total de itens do projeto + quantos ainda não têm dados do Exiros
+    const tTot = `<button type="button" class="tag exf${on ? "" : " on"}" data-exclr aria-pressed="${!on}" title="Mostrar todos os itens do projeto" style="--c:${cT};${on ? `background:${cT}22;color:${cT}` : `background:${cT};color:#fff`}">${tot} · Total de itens</button> `;
+    const tSem = sem > 0 ? ` <span class="tag" title="Itens sem consulta ao Exiros ou não localizados na RC" style="background:#9aa4b822;color:#7b879d">${sem} · Sem dados do Exiros</span>` : "";
+    return tTot + [...c.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => { const cl = cor(k), at = on === k, off = on && !at;
+      return `<button type="button" class="tag exf${at ? " on" : ""}${off ? " off" : ""}" data-exs="${E(k)}" aria-pressed="${at}" title="${at ? "Clique para mostrar todos" : "Clique para filtrar os itens"}" style="--c:${cl};${at ? `background:${cl};color:#fff` : `background:${cl}22;color:${cl}`}">${n} · ${E(k)}</button>`; }).join(" ") + tSem;
   }
   function cliqueCard(e) {
     const b = e.target.closest("[data-exs]"), g = window.gxSup; if (!g) return;
