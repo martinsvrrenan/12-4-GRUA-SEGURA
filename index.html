@@ -2446,6 +2446,7 @@ const EXC = { "status": "status", "rc exiros": "rc_exiros", "data de necessidade
   "requisicao de compra": "_rc", "material": "material_codigo", "texto breve": "material_descricao", "qtd solicitada": "quantidade", "unidade de medida": "unidade", "data da solicitacao": "data_criacao_rc" };
 const EX_TXT = ["status", "rc_exiros", "planejador", "licitacao_numero", "licitacao_status", "material_descricao", "unidade"], EX_DT = ["data_necessidade", "data_liberacao_rc", "data_criacao_rc", "licitacao_abertura", "licitacao_encerramento"];
 const exNorm = v => String(v == null ? "" : v).split("-")[0].replace(/\D/g, "").replace(/^0+/, ""); // mesma regra do bloco Exiros: sem item, sem zeros à esquerda
+const EXVER = "exiros-v4";
 const SQL_EXIROS = "Execute o script exiros_rc_escrita.sql no SQL Editor do Supabase (libera editores/admins a gravar em exiros_rc).";
 function exMeta(blocks) { // por RC+material: item, RC como impressa no chat (rc_item) e descrição do status (o que vem entre parênteses)
   const m = new Map(); (blocks || []).forEach(b => { const f = b.f || {}, raw = String(f.rc || "").replace(/[\s\u00a0]+/g, "").replace(/[\u2010-\u2015\u2212]/g, "-"), mt = String(f.material || "").match(/^\s*([A-Za-z0-9]+)/);
@@ -2463,10 +2464,11 @@ function exRegs() { // linhas do MyItems da prévia -> registros no formato de e
     if (o.comprador) { const m = o.comprador.match(/^(\S{1,10})\s+[-\u2013]\s+(.+)$/); if (m) { x.comprador_codigo = m[1]; x.comprador_nome = m[2].trim(); } else x.comprador_nome = o.comprador; }
     if (!(x.status || x.licitacao_numero || x.comprador_nome)) return; x._meta = g; out.push(x); });
   return out; }
-async function gravaExiros(pl) { // devolve { n, upd, ins, skip, erro }; nunca derruba a importação dos suprimentos
-  let regs = exRegs(); if (!regs.length) return null;
+function exAlvo(pl) { // registros do Exiros que pertencem a itens do projeto aberto (já cadastrados ou que serão criados agora)
   const meus = new Set([...SUP.map(i => String(i.codigo_sap || "").trim()), ...pl.ins.map(o => String(o.codigo_sap || "").trim())].filter(Boolean));
-  regs = regs.filter(x => meus.has(x.material_codigo)); if (!regs.length) return null; // só itens deste projeto
+  return exRegs().filter(x => meus.has(x.material_codigo)); }
+async function gravaExiros(pl) { // devolve { n, upd, ins, skip, erro }; nunca derruba a importação dos suprimentos
+  let regs = exAlvo(pl); if (!regs.length) return null;
   const res = { n: 0, upd: 0, ins: 0, skip: 0, erro: "" }, agora = new Date().toISOString();
   try {
     const rcs = [...new Set(regs.map(x => x.rc_numero))], { data, error } = await sb.from("exiros_rc").select("*").in("rc_numero", rcs).limit(5000);
@@ -2527,7 +2529,7 @@ function impOpen() {
     if (raw && deRaw()) { msg($("#iM").textContent + " (Veio de imagem: confira números e códigos, o OCR pode errar.)"); return; }
     if (tab) { const base = I.tsv ? tsv() : []; const cur = base.length ? [...base, ...tab.slice(1)] : tab; I.tsv = matTsv(cur); mostra(); msg(`Planilha lida do print: ${cur.length - 1} linha(s). Confira a prévia (o OCR pode errar números) e clique em Confirmar importação.`); } }
   $("#iCx").onclick = () => di.close();
-  $("#iT").oninput = e => { I.tsv = e.target.value; I.map = null; impMap(); };
+  $("#iT").oninput = e => { const v = e.target.value; if (!v.includes("\t") && ehMyItems(v)) { $("#iR").value = v; deRaw(); return; } I.tsv = v; I.map = null; impMap(); }; // texto cru do MyItems colado na prévia: reaproveita o leitor
   $("#iR").oninput = deRaw; $("#iSo").onchange = () => impMap();
   $("#iZ").onclick = () => $("#iZf").click(); $("#iZf").onchange = e => { const fs = [...e.target.files]; e.target.value = ""; lerImagens(fs); };
   $("#iZ").ondragover = e => { e.preventDefault(); }; $("#iZ").ondrop = e => { e.preventDefault(); lerImagens([...e.dataTransfer.files]); };
@@ -2539,7 +2541,12 @@ function impOpen() {
       if (m.rc_numero !== undefined && m.codigo_sap !== undefined) { const pl = plano(); msg("Aplicando…"); const er = await aplica(pl); if (er) { $("#iE").textContent = er; msg("Falhou ao gravar."); return; } di.close(); resumo(pl, falt); return; }
       msg(`${a.length} linhas lidas. Não achei as colunas Requisição de compra e Material: confira o mapeamento abaixo.`); impMap(); }
     catch (x) { msg("Não foi possível ler: " + x.message); } };
-  $("#iOk").onclick = async () => { const pl = planoU(); if (!pl.upd.length && !pl.ins.length) return $("#iE").textContent = "Nada para importar: mapeie a coluna de código SAP ou Sphera."; $("#iOk").disabled = true;
+  $("#iOk").onclick = async () => { if (!(I.tsv || "").trim()) { const raw = $("#iR").value || $("#iT").value; if (raw && ehMyItems(raw)) { $("#iR").value = raw; deRaw(); } } // colou e clicou sem o leitor ter rodado: lê agora
+    const pl = planoU(), temEx = exAlvo(pl).length > 0; // o Exiros pode mudar mesmo que os dados do item já estejam iguais
+    if (!pl.upd.length && !pl.ins.length && !temEx) { const m = I.map || {}, mapeado = (m.codigo_sap !== undefined && m.codigo_sap !== "") || (m.codigo_sphera !== undefined && m.codigo_sphera !== "");
+      const R = (I.tsv || "").trim() ? tab() : [], cods = new Set(SUP.map(x => String(x.codigo_sap || "").trim())), ci = mapeado && R.length ? +(m.codigo_sap ?? m.codigo_sphera) : -1, casados = ci >= 0 ? R.slice(1).filter(r => cods.has(String(r[ci] || "").trim())).length : 0;
+      const diag = ` [diagnóstico ${EXVER}: ${Math.max(R.length - 1, 0)} linha(s) lida(s) · ${SUP.length} item(ns) carregados no projeto · ${casados} casado(s) por código SAP]`;
+      return $("#iE").textContent = (!(I.tsv || "").trim() ? "Nenhum texto lido: cole o texto do MyItems no campo “Texto do MyItems” (precisa ter as linhas “RC:” e “Material:”)." : mapeado ? "Nada a atualizar: os itens deste texto não estão neste projeto (ou já estão iguais). Se “Só atualizar itens já cadastrados” está marcado, o material precisa já existir aqui com o mesmo código SAP." : "Nada para importar: mapeie a coluna de código SAP ou Sphera.") + diag; } $("#iOk").disabled = true;
     const er = await aplica(pl); if (er) { $("#iE").textContent = er; $("#iOk").disabled = false; return; } di.close(); resumo(pl, []); };
   di.showModal();
 }
