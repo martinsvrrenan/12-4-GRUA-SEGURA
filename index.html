@@ -2124,7 +2124,7 @@ function tabelaDePalavras(ws, achaCab) { ws = (ws || []).filter(w => w && String
   return out; }
 //#/PURE
 const pc3 = (x, n) => n ? Math.round(100 * x / n) + "%" : "0%";
-let SUP = [], F = { sit: "", area: "", tipo: "", q: "" }, X = 15, supOk = true;
+let SUP = [], F = { sit: "", area: "", tipo: "", q: "", exs: "" }, X = 15, supOk = true;
 const FLD = [["codigo_sap", "Código SAP", /^material$|sap/i], ["codigo_sphera", "Código Sphera", /sphera|mestre/i], ["descricao", "Descrição", /texto breve|descri|item/i, "w"], ["quantidade", "Quantidade", /qtd|quant/i, "n"], ["unidade", "Unidade", /unid|^un$/i],
   ["valor_unitario", "Valor unitário", /preco|valor.*unit|unit/i, "n"], ["valor_total", "Valor total", /valor.*total|total/i, "n"],
   ["rc_data", "RC (data)", /data.*solicit|solicit.*data|rc.*data/i, "d"], ["rc_numero", "RC (número)", /requisi|rc/i], ["pedido_data", "Pedido (data)", /pedido.*data/i, "d"], ["pedido_numero", "Pedido (número)", /pedido/i], ["fornecedor", "Fornecedor", /fornec/i],
@@ -2338,7 +2338,7 @@ function editaGasto(g) {
   gd.showModal();
 }
 function filtrados() { const q = F.q.toLowerCase(); return SUP.filter(i => { const p = pontoDe(i);
-  return (!F.sit || sitTxt(i) === F.sit || (F.sit === "Sem prazo" && semPrazo(i))) && (!F.area || (p && p.area === F.area)) && (!F.tipo || (p && p.tipo_projeto === F.tipo)) && (!q || [i.codigo_sap, i.codigo_sphera, i.descricao, ...xCampos().map(p => xVal(i, p))].join(" ").toLowerCase().includes(q)); }); }
+  return (!F.sit || sitTxt(i) === F.sit || (F.sit === "Sem prazo" && semPrazo(i))) && (!F.area || (p && p.area === F.area)) && (!F.tipo || (p && p.tipo_projeto === F.tipo)) && (!F.exs || (window.gxExStatus && window.gxExStatus(i) === F.exs)) && (!q || [i.codigo_sap, i.codigo_sphera, i.descricao, ...xCampos().map(p => xVal(i, p))].join(" ").toLowerCase().includes(q)); }); }
 const prazoKpis = s => [[s.t, "itens"], [pc3(s.rc, s.t), "com RC"], [pc3(s.pd, s.t), "com pedido"], [pc3(s.pz, s.t), "com prazo"], [pc3(s.en, s.t), "entregues"], [`${s.at} (${pc3(s.at, s.t)})`, "atrasados"], [s.sp, "pedidos sem prazo"], ...(s.cn ? [[s.cn, "cancelados"]] : []), [`${s.a7} / ${s.a15} / ${s.a30}`, "a vencer em 7 / 15 / 30 dias"], [s.pm == null ? "—" : s.pm + " d", "prazo médio (pedido → entrega)"]];
 const atencao = L => { L = L.filter(i => sitOf(i) !== 4); const hojeS = ymd(hj()), d = x => x ? dtBR(parseD(x)) : "—"; // itens que pedem ação: acima do previsto, aguardando aprovação, atrasados e sem RC há muito tempo
   return [...L.filter(i => i.valor_estimado != null && vTot(i) > Number(i.valor_estimado) + 0.005).map(i => [i, "Acima do previsto (+" + fR(vTot(i) - Number(i.valor_estimado)) + ")"]), ...L.filter(i => /aguard/i.test(i.aprovacao || "") && !i.pedido_numero).map(i => [i, "Aguardando aprovação"]), ...L.filter(atras).map(i => [i, "Atrasado desde " + d(i.prazo_entrega)]), ...L.filter(i => sitOf(i) === 0 && i.created_at && dias(i.created_at.slice(0, 10), hojeS) > X).map(i => [i, `Sem RC há ${dias(i.created_at.slice(0, 10), hojeS)} dias`])]; };
@@ -2575,7 +2575,7 @@ window.supRel = (img) => { const s = supStats(SUP), d = x => x ? dtBR(parseD(x))
     all: SUP.map(i => [i.codigo_sap || i.codigo_sphera || "—", String(i.descricao || "—").slice(0, 110), [i.quantidade ?? "", okv("sup_unidade", i.unidade) ? i.unidade || "" : ""].join(" ").trim() || "—", okv("sup_fornecedor", i.fornecedor) && i.fornecedor ? i.fornecedor : "—", compr(i) || "—", sitTxt(i), d(i.prazo_entrega)]),
     rows: SUP.map(i => ({ ...Object.fromEntries(ORD.flatMap(k => [[ff(k)[1], (k === "fornecedor" && !okv("sup_fornecedor", i[k])) || (k === "unidade" && !okv("sup_unidade", i[k])) ? "" : i[k] ?? ""], ...(k === "fornecedor" ? [[CL(), compr(i)]] : [])])), ...Object.fromEntries(xCampos().map(p => [xCol(p), xVal(i, p)])), "Situação": sitTxt(i) })) }; };
 /* gancho para o bloco do Exiros (gx-exiros): expõe SUP e permite encaixar nas funções internas desta aba */
-window.gxSup = { get SUP() { return SUP; }, rerender() { renderSup(); }, copiar() { copiaRcs(); } };
+window.gxSup = { get SUP() { return SUP; }, get exs() { return F.exs; }, setExs(v) { F.exs = v || ""; pinta(); }, rerender() { renderSup(); }, copiar() { copiaRcs(); } }; // exs = filtro pelo status do Exiros (etiquetas do cartão Exiros)
 window.gxSupHook = h => {
   const _rs = renderSup; renderSup = function () { _rs(); h.render(); };
   const _pt = pinta; pinta = function () { _pt(); h.pinta(); };
@@ -3253,6 +3253,8 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
   const acha = it => { const l = it && IDX.get(norm(it.rc_numero)); if (!l) return null; const cod = String(it.codigo_sap || "").trim(); return cod ? l.find(x => String(x.material_codigo || "").trim() === cod) || null : null; };
   window.gxComprador = it => { const x = acha(it); return x && x.comprador_nome ? String(x.comprador_nome).trim() : ""; }; // usado pelos relatórios de Suprimentos (PDF/Excel)
 
+  window.gxExStatus = it => { const x = acha(it); return x ? (x.status || "—") : null; }; // status do Exiros do item (usado pelo filtro da lista)
+
   function cel(it) {
     if (!it || !norm(it.rc_numero)) return "<small>—</small>";
     const x = acha(it);
@@ -3284,9 +3286,16 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
     if (LOK && LOK.id === LOG.id) return LOG.status === "parcial" ? "Última atualização terminou com falhas em alguns itens." : "";
     return LOG.status === "sessao_expirada" ? "A última tentativa falhou: a sessão do Teams expirou (é preciso refazer o login)." : "A última tentativa de atualização falhou" + (LOG.mensagem ? ": " + String(LOG.mensagem).slice(0, 700) : ".");
   }
-  function resumo() {
-    const c = {}; EX.forEach(x => { const k = x.status || "—"; c[k] = (c[k] || 0) + 1; });
-    return Object.entries(c).sort((a, b) => b[1] - a[1]).map(([k, n]) => tag(n + " · " + k, cor(k))).join(" ");
+  function resumo() { // etiquetas = filtros: contam os ITENS do projeto por status do Exiros; clicar filtra a lista, clicar de novo volta a mostrar todos
+    const c = new Map(); supL().forEach(it => { const x = acha(it); if (!x) return; const k = x.status || "—"; c.set(k, (c.get(k) || 0) + 1); });
+    const on = window.gxSup ? window.gxSup.exs : "";
+    return [...c.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => { const cl = cor(k), at = on === k, off = on && !at;
+      return `<button type="button" class="tag exf${at ? " on" : ""}${off ? " off" : ""}" data-exs="${E(k)}" aria-pressed="${at}" title="${at ? "Clique para mostrar todos" : "Clique para filtrar os itens"}" style="--c:${cl};${at ? `background:${cl};color:#fff` : `background:${cl}22;color:${cl}`}">${n} · ${E(k)}</button>`; }).join(" ");
+  }
+  function cliqueCard(e) {
+    const b = e.target.closest("[data-exs]"), g = window.gxSup; if (!g) return;
+    if (b) { const v = b.dataset.exs; g.setExs(g.exs === v ? "" : v); card(); if (g.exs) { const t = document.getElementById("sT"), w = t && t.closest(".tw"); if (w) w.scrollIntoView({ behavior: "smooth", block: "start" }); } return; }
+    if (e.target.closest("[data-exclr]")) { g.setExs(""); card(); }
   }
   function botao() { // só admin: dois botões de ícone ao lado de "+ Item"
     let c = document.getElementById("exBtns");
@@ -3308,7 +3317,9 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
     el.innerHTML = (aviso.length ? `<div style="margin:0 2px 10px">${aviso.map(t => `<small style="display:block;margin-top:4px">${E(t)}</small>`).join("")}</div>` : "")
       + `<details class="gxd" id="exDet" ${exOpen ? "open" : ""}><summary>Exiros · RCs<small>${OK ? E(statusLog()) : "Tabelas do Exiros não encontradas ou sem permissão no Supabase."}</small></summary>`
       + `<div style="padding:0 0 14px">${EX.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px">${resumo()}</div>` : "<small>Nenhuma RC consultada ainda.</small>"}`
+      + (window.gxSup && window.gxSup.exs ? `<div style="margin:10px 0 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><small>Lista filtrada pelo status “${E(window.gxSup.exs)}”.</small><button type="button" data-exclr style="min-height:0!important;padding:4px 12px!important;font-size:12px">Mostrar todos</button></div>` : "")
       + (canProj ? `<div class="bar" style="margin:12px 0 0"><button type="button" data-cp>Copiar RCs</button></div>` : "") + `</div></details>`;
+    el.onclick = cliqueCard;
     const d = el.querySelector("#exDet"); d.addEventListener("toggle", () => { exOpen = d.open; });
     const cp = el.querySelector("[data-cp]"); if (cp) cp.onclick = () => window.gxSup.copiar();
     botao();
@@ -3350,13 +3361,15 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
       sb.from("exiros_sync_log").select(SEL).in("status", ["ok", "parcial"]).or(`projeto_id.is.null,projeto_id.eq.${id}`).order("id", { ascending: false }).limit(1)]); // última atualização que cobre ESTE projeto
     if (!proj || proj.id !== id) return;
     OK = !(a.error || b.error || c.error); EX = a.error ? [] : (a.data || []); LOG = b.error ? null : ((b.data || [])[0] || null); LOK = c.error ? null : ((c.data || [])[0] || null); IDX = porRc();
+    if (window.gxSup && window.gxSup.exs && (lastProj !== id || !supL().some(it => window.gxExStatus(it) === window.gxSup.exs))) window.gxSup.setExs(""); // outro projeto, ou nenhum item tem mais esse status
+    lastProj = id;
     await aplicaSit(); card(); decora();
   }
   // Situação do item a partir do status do Exiros: "Material expedido ao usuário" → Entregue; "Req. excluída" → Cancelado.
   // Só mexe em itens que o usuário não alterou manualmente (extras._sit_src !== "manual"); o usuário pode mudar depois pelo formulário do item.
   const sem = t => String(t == null ? "" : t).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const mapSit = x => { const t = sem(x && x.status); return /material expedido/.test(t) ? "Entregue" : /exclu/.test(t) ? "Cancelado" : null; };
-  let aplicando = false;
+  let aplicando = false, lastProj = null, vSig = "", vProj = null, vBusy = false;
   async function aplicaSit() {
     if (aplicando || !IDX.size) return; aplicando = true;
     try {
@@ -3432,6 +3445,23 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
       if (LOG && LOG.id > antes && LOG.status !== "executando") { clearInterval(poll); busy = false; setMsg(""); refresh(); }
     }, 15000);
   }
+  // Vigia: a atualização manual pode rodar no PC (atualizar_agora) sem passar por esta tela. Confere de tempos em tempos (e ao voltar para o app)
+  // se há consulta nova no Supabase e, se houver, recarrega o campo Exiros de cada item e as etiquetas.
+  async function vigia() {
+    if (vBusy || !proj || document.hidden || !document.getElementById("exCard")) return; vBusy = true;
+    try {
+      const [l, r] = await Promise.all([
+        sb.from("exiros_sync_log").select("id,status,finalizado_em").order("id", { ascending: false }).limit(1),
+        sb.from("exiros_rc").select("consultado_em").order("consultado_em", { ascending: false }).limit(1)]);
+      if (l.error || r.error) return;
+      const a = (l.data || [])[0], b = (r.data || [])[0], sg = `${a ? a.id + "|" + a.status + "|" + (a.finalizado_em || "") : ""}#${b ? b.consultado_em : ""}`;
+      if (vProj !== proj.id || !vSig) { vProj = proj.id; vSig = sg; return; } // primeira leitura neste projeto: só marca o ponto de partida
+      if (sg !== vSig) { vSig = sg; await carrega(); }
+    } catch (e) { console.warn("Exiros: vigia:", e); } finally { vBusy = false; }
+  }
+  setInterval(vigia, 30000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) vigia(); });
+  window.addEventListener("focus", vigia);
   function bloco(x) {
     const l = (k, v) => v ? `<span style="display:block"><small>${k}:</small> ${E(v)}</span>` : "";
     return `<div id="exBloco" style="margin:12px 0 0;padding:10px 12px;border:1px solid var(--bd);border-radius:12px"><b>Exiros</b> <small>consultado em ${dhBR(x.consultado_em)}</small>`
@@ -3449,7 +3479,12 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
   else console.warn("Exiros: gancho da aba Suprimentos não encontrado.");
 })();
 </script>
-<style id="gx-exiros-css">@media(min-width:701px){#t7 th.exx,#t7 td.exx{min-width:200px;white-space:normal}}</style>
+<style id="gx-exiros-css">@media(min-width:701px){#t7 th.exx,#t7 td.exx{min-width:200px;white-space:normal}}
+#exCard .tag.exf{cursor:pointer;user-select:none;-webkit-user-select:none;font:inherit;font-size:13px;font-weight:700;min-height:0!important;padding:5px 12px!important;border-radius:999px!important;transition:opacity .15s,background .15s}
+#exCard .tag.exf.off{opacity:.45}
+#exCard .tag.exf.on{border-color:transparent}
+#exCard .tag.exf.on::before{background:#fff}
+#t7 .tw{scroll-margin-top:130px}</style>
 <style id="gx-pkf-css">
 #pKf{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 12px}
 #pKf .tag{cursor:pointer;user-select:none;-webkit-user-select:none;padding:5px 12px;font-size:13px;transition:opacity .15s,background .15s}
