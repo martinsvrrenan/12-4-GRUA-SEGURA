@@ -2440,15 +2440,57 @@ function impMap() { const R = tab(), b = $("#iMap"); if (R.length < 2) { b.inner
   const pl = planoU();
   b.innerHTML = "<b>Mapeamento de colunas</b>" + ORD.map(k => { const f = ff(k); return `<label>${f[1]}<select data-f="${k}"><option value="">— não usar —</option>${R[0].map((h, i) => `<option value="${i}" ${I.map[k] === String(i) ? "selected" : ""}>${esc(h || "Coluna " + (i + 1))}</option>`).join("")}</select></label>`; }).join("") + `<p><b>${pl.upd.length}</b> item(ns) serão atualizados (casando por RC + código do material) e <b>${pl.ins.length}</b> novo(s) serão criados. Campos vazios na planilha não apagam dados. As demais colunas vão para a Observação.</p>`;
   b.querySelectorAll("select").forEach(s => s.onchange = () => { I.map[s.dataset.f] = s.value; impMap(); }); }
+// ---- MyItems -> public.exiros_rc: a importação manual grava o campo "Exiros" do item como o bot automático faria ----
+const EXC = { "status": "status", "rc exiros": "rc_exiros", "data de necessidade": "data_necessidade", "data de liberacao da rc": "data_liberacao_rc", "comprador": "comprador", "planejador": "planejador",
+  "numero da licitacao": "licitacao_numero", "status da licitacao": "licitacao_status", "data de abertura da licitacao": "licitacao_abertura", "data de encerramento da licitacao": "licitacao_encerramento",
+  "requisicao de compra": "_rc", "material": "material_codigo", "texto breve": "material_descricao", "qtd solicitada": "quantidade", "unidade de medida": "unidade", "data da solicitacao": "data_criacao_rc" };
+const EX_TXT = ["status", "rc_exiros", "planejador", "licitacao_numero", "licitacao_status", "material_descricao", "unidade"], EX_DT = ["data_necessidade", "data_liberacao_rc", "data_criacao_rc", "licitacao_abertura", "licitacao_encerramento"];
+const exNorm = v => String(v == null ? "" : v).split("-")[0].replace(/\D/g, "").replace(/^0+/, ""); // mesma regra do bloco Exiros: sem item, sem zeros à esquerda
+const SQL_EXIROS = "Execute o script exiros_rc_escrita.sql no SQL Editor do Supabase (libera editores/admins a gravar em exiros_rc).";
+function exMeta(blocks) { // por RC+material: item, RC como impressa no chat (rc_item) e descrição do status (o que vem entre parênteses)
+  const m = new Map(); (blocks || []).forEach(b => { const f = b.f || {}, raw = String(f.rc || "").replace(/[\s\u00a0]+/g, "").replace(/[\u2010-\u2015\u2212]/g, "-"), mt = String(f.material || "").match(/^\s*([A-Za-z0-9]+)/);
+    if (!raw || !mt) return; const cod = /^[\dOo]+$/.test(mt[1]) ? mt[1].replace(/[Oo]/g, "0") : mt[1], it = raw.match(/-(\d+)$/), d = String(f.status || "").match(/\(([^)]*)\)?\s*$/);
+    m.set(exNorm(raw) + "|" + cod, { rcItem: raw, item: it ? it[1] : null, desc: d ? d[1].trim() : "" }); }); return m; }
+function exRegs() { // linhas do MyItems da prévia -> registros no formato de exiros_rc (só o que veio preenchido)
+  if (!I.tsv) return []; const R = tab(); if (R.length < 2) return []; const H = R[0].map(h => EXC[nh(h)] || null);
+  if (!H.includes("status") && !H.includes("licitacao_numero") && !H.includes("comprador")) return []; // planilha SAP/Word/PDF: sem dados do Exiros
+  const out = [];
+  R.slice(1).forEach(r => { const o = {}; H.forEach((k, j) => { const v = String(r[j] ?? "").trim(); if (k && v && !/^[-\u2010-\u2015\u2212]$/.test(v)) o[k] = v; });
+    const rc = exNorm(o._rc), cod = cl(o.material_codigo); if (!rc || !cod) return;
+    const g = (I.my && I.my.get(rc + "|" + cod)) || {}, x = { rc_numero: rc, material_codigo: cod };
+    EX_TXT.forEach(k => { if (o[k]) x[k] = o[k]; }); EX_DT.forEach(k => { const d = pdate(o[k]); if (d) x[k] = d; });
+    if (o.status && g.desc) x.status_descricao = g.desc; const q = brNum(o.quantidade); if (q != null) x.quantidade = q;
+    if (o.comprador) { const m = o.comprador.match(/^(\S{1,10})\s+[-\u2013]\s+(.+)$/); if (m) { x.comprador_codigo = m[1]; x.comprador_nome = m[2].trim(); } else x.comprador_nome = o.comprador; }
+    if (!(x.status || x.licitacao_numero || x.comprador_nome)) return; x._meta = g; out.push(x); });
+  return out; }
+async function gravaExiros(pl) { // devolve { n, upd, ins, skip, erro }; nunca derruba a importação dos suprimentos
+  let regs = exRegs(); if (!regs.length) return null;
+  const meus = new Set([...SUP.map(i => String(i.codigo_sap || "").trim()), ...pl.ins.map(o => String(o.codigo_sap || "").trim())].filter(Boolean));
+  regs = regs.filter(x => meus.has(x.material_codigo)); if (!regs.length) return null; // só itens deste projeto
+  const res = { n: 0, upd: 0, ins: 0, skip: 0, erro: "" }, agora = new Date().toISOString();
+  try {
+    const rcs = [...new Set(regs.map(x => x.rc_numero))], { data, error } = await sb.from("exiros_rc").select("*").in("rc_numero", rcs).limit(5000);
+    if (error) { res.erro = error.message; return res; }
+    const ach = x => (data || []).find(e => exNorm(e.rc_numero) === x.rc_numero && String(e.material_codigo || "").trim() === x.material_codigo);
+    const ups = [], news = [];
+    regs.forEach(x => { const m = x._meta; delete x._meta; const e = ach(x);
+      if (e) { const pt = { consultado_em: agora }; Object.keys(x).forEach(k => { if (k !== "rc_numero" && k !== "material_codigo" && String(e[k] ?? "") !== String(x[k])) pt[k] = x[k]; }); ups.push({ id: e.id, pt }); }
+      else if (m && m.item && m.rcItem) news.push({ ...x, item: m.item, rc_item: m.rcItem, raw: { origem: "importacao_manual" }, consultado_em: agora }); else res.skip++; });
+    for (let i = 0; i < ups.length; i += 20) { const r = await Promise.all(ups.slice(i, i + 20).map(u => sb.from("exiros_rc").update(u.pt).eq("id", u.id).select("id"))), er = r.find(z => z.error);
+      if (er) { res.erro = er.error.message; return res; } if (r.some(z => !(z.data || []).length)) { res.erro = "o Supabase não permitiu gravar em exiros_rc (RLS). " + SQL_EXIROS; return res; } res.upd += r.length; }
+    if (news.length) { const { error: e2 } = await sb.from("exiros_rc").insert(news); if (e2) { res.erro = e2.message + (/row-level|policy|permission/i.test(e2.message) ? " — " + SQL_EXIROS : ""); return res; } res.ins = news.length; }
+  } catch (x) { res.erro = x.message; }
+  res.n = res.upd + res.ins; return res; }
 async function aplica(pl) { // grava no Supabase; devolve texto de erro ou ""
   for (let i = 0; i < pl.upd.length; i += 20) { const r = await Promise.all(pl.upd.slice(i, i + 20).map(u => sb.from("suprimentos").update(u.p).eq("id", u.id))), er = r.find(x => x.error); if (er) return er.error.message; }
   const nv = pl.ins.map(o => ({ ...o, projeto_id: proj.id, origem: "importacao", unidade: o.unidade || "un" }));
   for (let i = 0; i < nv.length; i += 200) { const { error } = await sb.from("suprimentos").insert(nv.slice(i, i + 200)); if (error) return "Importação parou: " + error.message + (/duplicate|unique/i.test(error.message) ? " — o mesmo material em outra RC exige ajustar a regra de unicidade no banco (veja o SQL enviado)." : ""); }
-  logP("Importou suprimentos", `${pl.upd.length} atualizados, ${pl.ins.length} novos`); await loadSup(); renderSup(); return ""; }
+  pl.ex = await gravaExiros(pl); // campo Exiros (status, licitação, comprador) como o bot automático; o renderSup abaixo recarrega o card
+  logP("Importou suprimentos", `${pl.upd.length} atualizados, ${pl.ins.length} novos` + (pl.ex ? `, Exiros: ${pl.ex.n} item(ns)${pl.ex.erro ? " (com erro)" : ""}` : "")); await loadSup(); renderSup(); return ""; }
 const dr = document.createElement("dialog"); dr.id = "spRes"; document.body.appendChild(dr);
 function resumo(pl, falt) { const ts = [...pl.rcs.values()].reduce((a, x) => a + x.s, 0);
   dr.innerHTML = `<h3>Importação concluída</h3><p><b>${pl.upd.length}</b> item(ns) atualizado(s) · <b>${pl.ins.length}</b> novo(s) · ${ts} sem alteração${pl.ign ? ` · ${pl.ign} linha(s) ignorada(s) (sem código)` : ""}</p>
-  <ul>${[...pl.rcs].map(([rc, x]) => `<li><b>RC ${esc(rc)}</b>: ${x.u} de ${x.t} item(ns) atualizado(s)${x.n ? `, ${x.n} novo(s)` : ""}</li>`).join("")}</ul>${falt && falt.length ? `<small>Colunas padrão não encontradas: ${esc(falt.join(", "))}</small>` : ""}
+  <ul>${[...pl.rcs].map(([rc, x]) => `<li><b>RC ${esc(rc)}</b>: ${x.u} de ${x.t} item(ns) atualizado(s)${x.n ? `, ${x.n} novo(s)` : ""}</li>`).join("")}</ul>${pl.ex ? `<p><b>Exiros</b>: ${pl.ex.n} item(ns) atualizado(s) como pelo bot${pl.ex.skip ? ` · ${pl.ex.skip} sem linha no Exiros e sem o item da RC (não gravado)` : ""}</p>${pl.ex.erro ? `<p class="err">Não consegui gravar o Exiros: ${esc(pl.ex.erro)}</p>` : ""}` : ""}${falt && falt.length ? `<small>Colunas padrão não encontradas: ${esc(falt.join(", "))}</small>` : ""}
   <div class="bar" style="margin-top:12px"><button class="p" id="rOk">OK</button></div>`; $("#rOk").onclick = () => dr.close(); dr.showModal(); }
 // ---- Leitura de prints (OCR no navegador, em português) ----
 const TESS = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js", TESS_LANG = "https://cdn.jsdelivr.net/npm/@tesseract.js-data/por/4.0.0_best_int";
@@ -2472,7 +2514,7 @@ function impOpen() {
   const msg = t => { $("#iM").textContent = t; };
   const mostra = () => { $("#iT").value = I.tsv; I.map = null; $("#iE").textContent = ""; impMap(); };
   function deRaw() { const t = $("#iR").value; if (!t.trim()) return false;
-    if (ehMyItems(t)) { const p = parseMyItems(t); if (p.rows.length > 1) { I.tsv = matTsv(p.rows); mostra(); const rcs = new Set(p.rows.slice(1).map(r => r[0]).filter(Boolean)); msg(`Texto do MyItems reconhecido: ${p.rows.length - 1} item(ns), ${rcs.size} RC(s). Confira a prévia e o mapeamento e clique em Confirmar importação.`); return true; } }
+    if (ehMyItems(t)) { const p = parseMyItems(t); if (p.rows.length > 1) { I.tsv = matTsv(p.rows); I.my = exMeta(p.blocks); mostra(); const rcs = new Set(p.rows.slice(1).map(r => r[0]).filter(Boolean)); msg(`Texto do MyItems reconhecido: ${p.rows.length - 1} item(ns), ${rcs.size} RC(s). Confira a prévia e o mapeamento e clique em Confirmar importação.`); return true; } }
     if (t.includes("\t")) { I.tsv = t; mostra(); msg("Tabela colada reconhecida. Confira e clique em Confirmar importação."); return true; }
     msg("Não reconheci o padrão do MyItems (preciso das linhas “Material:” e “Reserva:”/“RC:”). Confira o texto colado."); return false; }
   async function lerImagens(fs) { fs = fs.filter(isImg); if (!fs.length) return; $("#iE").textContent = ""; let raw = false, tab = null;
