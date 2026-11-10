@@ -204,6 +204,7 @@ html[data-theme=dark] .bdg{background:#222d45;color:#c9d3e8;border-color:#34405c
 .utool{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}.utool input{flex:1 1 220px}
 .um hr{border:0;border-top:1px solid var(--line);margin:4px 0}
 .prow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line);margin:0;font-size:inherit;color:inherit}.prow input{width:22px;height:22px;min-height:0;flex:none}
+.dx{border:1px solid rgba(128,128,128,.35);border-radius:10px;padding:10px;margin-bottom:10px}.dx .g{margin:0}.dx .dxh{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-weight:700;font-size:13px}.dx .dxh button{padding:4px 10px}
 </style>
 </head>
 <body>
@@ -422,6 +423,7 @@ html[data-theme=dark] .bdg{background:#222d45;color:#c9d3e8;border-color:#34405c
  <label>Código SAP<input name="codigo_sap" autocomplete="off"></label>
  <label>Responsável<input name="responsavel"></label>
  <label class="w">Observações<textarea name="observacoes" rows="2"></textarea></label>
+ <div class="w sec hide" id="fDesT">Desenhos adicionais deste ponto</div><div class="w hide" id="fDes"></div><div class="w hide" id="fDesB"><button type="button" id="fDesAdd">+ Adicionar desenho</button></div>
  </div>
  <div class="bar" style="margin-top:14px"><button class="p">Salvar</button><button type="button" id="cx">Cancelar</button><button type="button" class="d hide" id="del">Excluir</button></div>
 </form></dialog>
@@ -812,9 +814,10 @@ function dash() {
   const eqOk = eqs.filter(g => g.every(isLev)).length, eqPar = eqs.filter(g => !g.every(isLev) && g.some(isLev)).length, eqP = eqT ? Math.round(100 * eqOk / eqT) : 0;
   const equip = `<div class="card kpi${on("lev") ? "" : " hide"}" style="margin:0"><b>${eqP}%</b><span>Equipamentos com levantamento</span><small><em>${eqOk} de ${eqT} equipamentos</em><br><i>${eqT - eqOk} faltam</i>${eqPar ? ` · ${eqPar} parciais` : ""}</small><div class="pb"><u style="width:${eqP}%"></u></div></div>`;
   // Desenhos: conta quem tem file_name preenchido (sem nome não conta); SAP = caixa \"Desenho no SAP\" marcada
-  const dw = d.filter(r => String(r.file_name || "").trim()), dwS = dw.filter(r => r.desenho_sap), dwN = dw.filter(r => !r.desenho_sap);
+  const dxp = new Map(d.map(r => [String(r.id), r])), dxr = DX.filter(x => dxp.has(String(x.ponto_id))).map(x => { const p = dxp.get(String(x.ponto_id)); return { ...x, id: "d" + x.id, area: p.area, equipamento: p.equipamento, tipo_projeto: x.descricao ? `${p.tipo_projeto} · ${x.descricao}` : p.tipo_projeto }; });
+  const dw = [...d, ...dxr].filter(r => String(r.file_name || "").trim()), dwS = dw.filter(r => r.desenho_sap), dwN = dw.filter(r => !r.desenho_sap);
   const fol = a => a.reduce((t, r) => t + Math.max(1, parseInt(r.folhas) || 1), 0), dT = dw.length, dS = dwS.length, dN = dwN.length, dd = dT || 1;
-  const dCards = `<div class="card kpi" style="margin:0"><b>${dT}</b><span>Desenhos cadastrados (com nome)</span><small><em>${fol(dw)} folhas no total</em><br>${d.length - dT} linhas ainda sem desenho</small></div>`
+  const dCards = `<div class="card kpi" style="margin:0"><b>${dT}</b><span>Desenhos cadastrados (com nome)</span><small><em>${fol(dw)} folhas no total</em><br>${d.filter(r => !String(r.file_name || "").trim()).length} linhas ainda sem desenho</small></div>`
     + `<div class="card kpi" style="margin:0"><b>${dS}</b><span>Desenhos cadastrados no SAP</span><small><em>${fol(dwS)} folhas · ${dT ? Math.round(100 * dS / dd) : 0}% dos ${dT} desenhos</em><br><i>${dN} faltam</i></small><div class="pb"><u style="width:${dT ? Math.round(100 * dS / dd) : 0}%"></u></div></div>`
     + `<div class="card kpi" style="margin:0"><b>${dN}</b><span>Desenhos não cadastrados no SAP</span><small><em>${fol(dwN)} folhas</em><br>${dT ? Math.round(100 * dN / dd) : 0}% dos desenhos</small><div class="pb"><u style="width:${dT ? Math.round(100 * dN / dd) : 0}%;background:#d9822b"></u></div></div>`;
   $("#kpis").innerHTML = first + andam + card(["Levantamento", lev], !on("lev")) + equip + [["Com desenho", c(2), "des"], ["Cadastrados no Sphera", c(3), "sph"], ["Cadastrados no SAP", c(4), "sap"], ["Em projeto", c(1), "proj"], ...cusList().map(x => [esc(x.nome), stv[x.k], x.k])].map(([l, x, k]) => card([l, x], !on(k))).join("") + dCards;
@@ -1045,7 +1048,7 @@ $("#dA").onchange = dash;
 const nzt = t => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
 const colsT = () => [...TIPOS.map(t => [t, t]), ["Outros", null]];
 const colOf = (r, C) => { const k = nzt(r.tipo_projeto), i = C.findIndex(c => c[1] !== null && nzt(c[1]) === k); return i < 0 ? C.length - 1 : i; };
-const cell = r => `<div class="ce" data-id="${r.id}" title="${esc(r.tipo_projeto)}"><b>${r.qtd ?? "•"}</b> <span class="tag" style="--c:${COL[si(r)]}">${esc(r.status_projeto)}</span>${r.status_levantamento === "Levantado" ? " ✓" : ""}${r.desenho_sap ? ' <span class="tag" style="--c:#0e9aa7">Desenho no SAP</span>' : ""}${fnHtml(r)}</div>`;
+const cell = r => `<div class="ce" data-id="${r.id}" title="${esc(r.tipo_projeto)}"><b>${r.qtd ?? "•"}</b> <span class="tag" style="--c:${COL[si(r)]}">${esc(r.status_projeto)}</span>${r.status_levantamento === "Levantado" ? " ✓" : ""}${r.desenho_sap ? ' <span class="tag" style="--c:#0e9aa7">Desenho no SAP</span>' : ""}${fnHtml(r)}${DXM.get(String(r.id)) ? ` <span class="tag" style="--c:#7a5cc7" title="Este ponto tem desenhos adicionais">+${DXM.get(String(r.id))} ${DXM.get(String(r.id)) > 1 ? "desenhos" : "desenho"}</span>` : ""}</div>`;
 let pEq = false; // contar por equipamentos (levantado = todas as linhas do equipamento levantadas, igual ao Painel)
 let pLev = ""; // filtro dos dois indicadores no topo de Pontos: "" = todos | "Levantado" | "Pendente"
 const pLevOk = r => r.status_levantamento === "Levantado";
@@ -1065,7 +1068,7 @@ function pKfDraw(nL, nP) { // indicadores clicáveis (mesmo molde das etiquetas 
 function table() {
   const C = colsT(), a = $("#fA").value, s = $("#fS").value, q = $("#fQ").value.toLowerCase();
   const base = rows.filter(r => (!a || r.area === a) && (!s || ST[si(r)] === s) &&
-    (!q || [r.equipamento, r.tipo_projeto, r.file_name, sheetNames(r.file_name, r.folhas).join(" "), r.sphera, r.codigo_sap, r.responsavel].join(" ").toLowerCase().includes(q)));
+    (!q || [r.equipamento, r.tipo_projeto, r.file_name, sheetNames(r.file_name, r.folhas).join(" "), r.sphera, r.codigo_sap, r.responsavel, DXT.get(String(r.id)) || ""].join(" ").toLowerCase().includes(q)));
   const eqK = r => `${r.area}|${String(r.equipamento || "").trim().toLowerCase()}`;
   let nL, nP, d;
   if (pEq) { // por equipamento: levantado = todas as linhas dele levantadas (parcial conta como pendente)
@@ -1105,6 +1108,61 @@ function table() {
   });
 }
 ["fA", "fS"].forEach(i => $("#" + i).onchange = table); $("#fQ").oninput = table;
+// ---- Desenhos adicionais do ponto (tabela ponto_desenhos): cada um com file_name, folhas, Sphera, SAP, desenho no SAP e status próprios ----
+let DX = [], hasDx = false, DES = [], DES0 = [], DXM = new Map(), DXT = new Map(); // DXM: nº de desenhos extras por ponto; DXT: texto para a busca
+const DXK = ["descricao", "file_name", "folhas", "sphera", "codigo_sap", "desenho_sap", "status_projeto", "observacoes"];
+function dxAuto(d) { // mesma regra do ponto principal
+  const sap = String(d.codigo_sap || "").trim(), sph = String(d.sphera || "").trim(), i = ST.indexOf(d.status_projeto); let t = d.status_projeto;
+  if (sap) { if (i < 4) t = ST[4]; } else if (sph) { if (i < 3 || i >= 4) t = ST[3]; } else if (i >= 3) t = String(d.file_name || "").trim() ? ST[2] : ST[1];
+  d.status_projeto = t;
+}
+function renderDes() {
+  const on = hasDx; ["fDesT", "fDes", "fDesB"].forEach(i => $("#" + i).classList.toggle("hide", !on)); if (!on) return;
+  $("#fDes").innerHTML = DES.map((d, i) => `<div class="dx" data-i="${i}"><div class="dxh"><span>Desenho ${i + 2}</span>${canDelete || !d.id ? '<button type="button" data-rm="' + i + '" class="d">Remover</button>' : ""}</div><div class="g">
+    <label class="w">Tipo de proteção / descrição<input data-k="descricao" value="${esc(d.descricao)}" placeholder="ex.: Proteção da correia, proteção do eixo"></label>
+    <label class="w">file_name (nome do desenho)<input data-k="file_name" autocomplete="off" value="${esc(d.file_name)}" placeholder="ex.: pr01-abc-002"></label>
+    <label>Quantidade de folhas<input data-k="folhas" type="number" min="1" step="1" inputmode="numeric" value="${esc(d.folhas ?? 1)}"></label>
+    <label>Desenho no SAP<span class="cbx"><input type="checkbox" data-k="desenho_sap"${d.desenho_sap ? " checked" : ""}><em>Desenho cadastrado no SAP</em></span></label>
+    <label>Nº mestre Sphera (SF)<input data-k="sphera" autocomplete="off" value="${esc(d.sphera)}"></label>
+    <label>Código SAP<input data-k="codigo_sap" autocomplete="off" value="${esc(d.codigo_sap)}"></label>
+    <label class="w">Status do projeto<select data-k="status_projeto">${ST.map(x => `<option${x === d.status_projeto ? " selected" : ""}>${x}</option>`).join("")}</select></label>
+    <label class="w">Observações<textarea data-k="observacoes" rows="2">${esc(d.observacoes)}</textarea></label></div></div>`).join("");
+}
+$("#fDes").addEventListener("input", e => {
+  const t = e.target, k = t.dataset.k, c = t.closest(".dx"); if (!k || !c) return; const d = DES[+c.dataset.i];
+  d[k] = t.type === "checkbox" ? t.checked : t.value;
+  if (["sphera", "codigo_sap", "file_name"].includes(k)) { dxAuto(d); const sel = c.querySelector('[data-k="status_projeto"]'); if (sel) sel.value = d.status_projeto; }
+});
+$("#fDes").addEventListener("click", e => { const b = e.target.closest("[data-rm]"); if (!b) return; DES.splice(+b.dataset.rm, 1); renderDes(); });
+$("#fDesAdd").onclick = () => { DES.push({ descricao: "", file_name: "", folhas: 1, sphera: "", codigo_sap: "", desenho_sap: false, status_projeto: ST[0], observacoes: "" }); renderDes(); };
+function validaDx() {
+  for (let i = 0; i < DES.length; i++) { const d = DES[i], n = `Desenho ${i + 2}: `, fn = String(d.file_name || "").trim(), fo = Math.max(1, parseInt(d.folhas) || 1);
+    if (d.desenho_sap && !fn) return n + 'informe o file_name para marcar "Desenho no SAP".';
+    if (fn && sheetNames(fn, fo).length < fo) return n + "para gerar mais de uma folha, o file_name precisa terminar em número (ex.: pr01-abc-002)."; }
+  return null;
+}
+const dxVazio = d => !d.id && !d.desenho_sap && !["descricao", "file_name", "sphera", "codigo_sap", "observacoes"].some(k => String(d[k] || "").trim());
+async function saveDx(pid) {
+  const keep = DES.filter(d => d.id || !dxVazio(d)), gone = DES0.filter(o => !keep.some(d => d.id === o.id)).map(o => o.id);
+  if (gone.length) { const { error } = await sb.from("ponto_desenhos").delete().in("id", gone); if (error) return error.message; }
+  const clean = d => { const o = { ponto_id: pid }; DXK.forEach(k => { const v = d[k]; o[k] = typeof v === "string" ? (v.trim() || null) : v; });
+    o.folhas = o.file_name ? Math.max(1, parseInt(d.folhas) || 1) : null; o.desenho_sap = !!d.desenho_sap; return o; };
+  const novos = keep.filter(d => !d.id).map(clean);
+  if (novos.length) { const { error } = await sb.from("ponto_desenhos").insert(novos); if (error) return error.message; }
+  for (const d of keep.filter(d => d.id)) { const o = DES0.find(x => x.id === d.id), c = clean(d); if (o && DXK.every(k => k === "desenho_sap" ? !!o[k] === !!c[k] : String(o[k] ?? "") === String(c[k] ?? ""))) continue;
+    const { error } = await sb.from("ponto_desenhos").update(c).eq("id", d.id); if (error) return error.message; }
+  return null;
+}
+async function loadDx() {
+  if (!proj) return; const { data, error } = await sb.from("ponto_desenhos").select("*").eq("projeto_id", proj.id).order("id").limit(5000);
+  hasDx = !error; DX = error ? [] : data; DXM = new Map(); DXT = new Map();
+  DX.forEach(x => { const k = String(x.ponto_id); DXM.set(k, (DXM.get(k) || 0) + 1); DXT.set(k, (DXT.get(k) || "") + " " + [x.descricao, x.file_name, sheetNames(x.file_name, x.folhas).join(" "), x.sphera, x.codigo_sap].join(" ")); });
+}
+// linhas dos desenhos adicionais para exportação/relatório (uma por desenho), a partir de uma lista de pontos
+const dxRows = pts => { const m = new Map(pts.map(p => [String(p.id), p]));
+  return DX.filter(x => m.has(String(x.ponto_id))).map(x => { const p = m.get(String(x.ponto_id)), n = Math.max(1, parseInt(x.folhas) || 1);
+    return { "Área": p.area, "Equipamento": p.equipamento, "Tipo de projeto": p.tipo_projeto, "Descrição do desenho": x.descricao || "", "file_name (desenho)": x.file_name || "", "Qtd. de folhas": x.file_name ? n : "",
+      "Nomes das folhas": x.file_name ? sheetNames(x.file_name, n).join(", ") : "", "Desenho no SAP": x.desenho_sap ? "Sim" : "Não", "Nº mestre Sphera": x.sphera || "", "Código SAP": x.codigo_sap || "", "Status do projeto": x.status_projeto }; }); };
 function edit(r, p) {
   if (!canEdit) return;
   const f = $("#f"); f.reset();
@@ -1116,6 +1174,7 @@ function edit(r, p) {
   if (!f.elements.folhas.value) f.elements.folhas.value = 1;
   { const cu = cusList(); $("#fEtxT").classList.toggle("hide", !cu.length); $("#fEtx").classList.toggle("hide", !cu.length);
     $("#fEtx").innerHTML = cu.map(x => `<label>${esc(x.nome)}<span class="cbx"><input type="checkbox" data-xk="${esc(x.k)}"${cusOk(r, x.k) ? " checked" : ""}><em>Etapa concluída neste ponto</em></span></label>`).join(""); }
+  DES = r ? DX.filter(d => String(d.ponto_id) === String(r.id)).map(d => ({ ...d })) : []; DES0 = DES.map(d => ({ ...d })); renderDes();
   prev(); $("#dlg").showModal();
 }
 function prev() {
@@ -1148,11 +1207,13 @@ $("#f").onsubmit = async e => {
   if (!hasF) { if (o.folhas > 1) return alert(SQLF); delete o.folhas; }
   if (!hasS) { if (o.codigo_sap) return alert(SQLS); delete o.codigo_sap; }
   if (!hasD) { if (o.desenho_sap) return alert(SQLD); delete o.desenho_sap; }
+  { const ev = hasDx ? validaDx() : null; if (ev) return alert(ev); }
   const id = o.id; delete o.id; if (!id) o.projeto_id = proj.id; // ponto novo nasce no projeto aberto
   { const bx = [...document.querySelectorAll("#fEtx input[data-xk]")]; if (bx.length) { const ex = { ...(id ? ((rows.find(r => String(r.id) === String(id)) || {}).etapas_extra || {}) : {}) }; bx.forEach(b => { if (b.checked) ex[b.dataset.xk] = true; else delete ex[b.dataset.xk]; }); o.etapas_extra = ex; } } // etapas personalizadas marcadas
-  const { error } = await (id ? sb.from("pontos").update(o).eq("id", id) : sb.from("pontos").insert(o));
+  const { data: sv, error } = await (id ? sb.from("pontos").update(o).eq("id", id).select("id") : sb.from("pontos").insert(o).select("id"));
   if (error) return alert("Erro ao salvar: " + error.message + (/folhas/.test(error.message) ? "\n\n" + SQLF : /codigo_sap/.test(error.message) ? "\n\n" + SQLS : /desenho_sap/.test(error.message) ? "\n\n" + SQLD : ""));
   logP(id ? "Editou ponto" : "Criou ponto", `${o.area} · ${o.equipamento} · ${o.tipo_projeto}`);
+  if (hasDx) { const pid = id || (sv && sv[0] && sv[0].id); const e2 = pid ? await saveDx(pid) : null; if (e2) { $("#dlg").close(); await load(); return alert("O ponto foi salvo, mas houve erro nos desenhos adicionais: " + e2); } }
   $("#dlg").close(); load();
 };
 $("#del").onclick = async () => {
@@ -1222,7 +1283,7 @@ $("#rx").onclick = () => {
   add("Pendências", ["Área", "Equipamento", "Tipo de projeto", "Pontos (qtd.)", "Pendência"], pendList(d).map(([r, t]) => [r.area, r.equipamento, r.tipo_projeto, pw(r), t]));
   add("Evolução semanal", EHr(), evoLinesR(evo(d, "w")));
   add("Evolução mensal", EHr(), evoLinesR(evo(d, "m")));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(d.map(expRowRep)), "Dados");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(d.map(expRowRep)), "Dados"); { const dxr = dxRows(d); if (dxr.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dxr), "Desenhos adicionais"); }
   const sr = window.supRel ? window.supRel() : null; if (sr && sr.t) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sr.rows), "Suprimentos"); if (sr && sr.fin && sr.fin.hrows.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sr.fin.hrows), "Gastos");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Projeto", proj.nome], ["Cliente", proj.cliente || ""], ["Local", proj.localidade || ""], ["Período", perLabel()], ["Gerado em", today()]]), "Projeto");
   wb.SheetNames.unshift(wb.SheetNames.pop());
@@ -1536,7 +1597,7 @@ $("#imp").onclick = async () => {
 $("#exp").onclick = () => {
   logP("Exportou pontos (Excel)");
   const out = rows.map(expRow);
-  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(out), "Pontos");
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(out), "Pontos"); { const dxr = dxRows(rows); if (dxr.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dxr), "Desenhos adicionais"); }
   XLSX.writeFile(wb, `pontos_${slug()}.xlsx`);
 };
 
@@ -2162,11 +2223,13 @@ async function loadSup() {
 async function sync(ask) {
   const byP = new Map(SUP.filter(i => i.ponto_id != null).map(i => [String(i.ponto_id), i])), byK = new Map(SUP.map(i => [kk(i.codigo_sap, i.codigo_sphera), i]).filter(x => x[0]));
   const ins = [], upd = [], seen = new Set();
-  rows.forEach(r => { const sap = cl(r.codigo_sap), sph = cl(r.sphera); if (!sap && !sph) return; const key = kk(sap, sph), pid = String(r.id); seen.add(pid);
+  const fontes = rows.map(r => ({ r, pid: String(r.id), sap: cl(r.codigo_sap), sph: cl(r.sphera), desc: [r.equipamento, r.tipo_projeto] }));
+  DX.forEach(d => { const r = rows.find(x => String(x.id) === String(d.ponto_id)); if (r) fontes.push({ r, pid: "d" + d.id, sap: cl(d.codigo_sap), sph: cl(d.sphera), desc: [r.equipamento, d.descricao || r.tipo_projeto] }); });
+  fontes.forEach(({ r, pid, sap, sph, desc }) => { if (!sap && !sph) return; const key = kk(sap, sph); seen.add(pid);
     const it = byP.get(pid);
     if (it) { if (it.codigo_sap !== sap || it.codigo_sphera !== sph) upd.push({ id: it.id, p: { codigo_sap: sap, codigo_sphera: sph } }); return; } // código mudou: atualiza
     const ex = byK.get(key); if (ex) { if (ex.ponto_id == null && ex.id) { upd.push({ id: ex.id, p: { ponto_id: pid } }); ex.ponto_id = pid; } return; } // sem duplicar
-    const n = { projeto_id: proj.id, ponto_id: pid, origem: "ponto", codigo_sap: sap, codigo_sphera: sph, descricao: [r.equipamento, r.tipo_projeto].filter(Boolean).join(" · "), quantidade: r.qtd, unidade: "un" };
+    const n = { projeto_id: proj.id, ponto_id: pid, origem: "ponto", codigo_sap: sap, codigo_sphera: sph, descricao: desc.filter(Boolean).join(" · "), quantidade: r.qtd, unidade: "un" };
     ins.push(n); byK.set(key, n); });
   const orf = ask ? SUP.filter(i => i.origem === "ponto" && i.ponto_id != null && !seen.has(String(i.ponto_id))) : [];
   let ch = false;
@@ -2177,7 +2240,7 @@ async function sync(ask) {
     if (!error) { ch = true; logP(rm ? "Removeu itens de suprimentos" : "Manteve itens de suprimentos como manuais", `${orf.length} item(ns)`); } }
   if (ch) { const { data } = await sb.from("suprimentos").select("*").eq("projeto_id", proj.id).order("id").limit(5000); if (data) SUP = data; if (ins.length) logP("Migrou pontos para suprimentos", `${ins.length} novo(s)`); }
 }
-const _load = load; load = async function () { await _load(); if (proj) await Promise.all([loadSup(), loadGas()]); };
+const _load = load; load = async function () { await _load(); if (proj) { await loadDx(); await Promise.all([loadSup(), loadGas()]); } };
 
 // ---- Aba Suprimentos ----
 const sec = document.createElement("section"); sec.id = "t7"; sec.className = "hide"; $("main").appendChild(sec); SEC.push("t7"); TABS.suprimentos = "t7";
