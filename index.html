@@ -2423,20 +2423,22 @@ const mapa = R => { if (!I.map) I.map = autoMap(R[0]); return I.map; };
 function plano() { const out = { upd: [], ins: [], rcs: new Map(), ign: 0 }, R = tab(); if (R.length < 2) return out; mapa(R);
   const g = (r, f) => I.map[f] === undefined || I.map[f] === "" ? "" : (r[+I.map[f]] || ""), usados = new Set(Object.values(I.map).filter(v => v !== "").map(Number));
   const byKey = new Map(); SUP.forEach(i => { const k = kk(i.codigo_sap, i.codigo_sphera); if (k) (byKey.get(k) || byKey.set(k, []).get(k)).push(i); });
+  const rIdx = R[0].findIndex(h => nh(h) === "reserva"), resDe = i => zn(i.reserva) || ((m => m ? zn(m[1]) : null)(String(i.observacao || "").match(/Reserva:\s*(\d+)/i))); // reserva do item (coluna ou, sem a coluna, o que foi para a Observação)
   const claim = new Map(), upd = new Map(), ins = new Map(), diff = (n, o) => typeof n === "number" ? Number(o) !== n || o == null : String(o ?? "") !== String(n);
   const st = rc => out.rcs.get(rc) || out.rcs.set(rc, { t: 0, u: 0, n: 0, s: 0, ch: new Set() }).get(rc);
   R.slice(1).forEach(r => { const sap = cl(g(r, "codigo_sap")), sph = cl(g(r, "codigo_sphera")); if (!sap && !sph) { out.ign++; return; }
-    const rc = cl(g(r, "rc_numero")), q = {}; ORD.slice(2).forEach(k => { const f = ff(k), raw = g(r, k); let v = f[3] === "d" ? (k === "prazo_entrega" ? pdateLast(raw) : pdate(raw)) : f[3] === "n" ? brNum(raw) : k === "reserva" ? cl(resLimpa(raw)) : cl(raw); if (v != null) q[k] = v; });
+    const rc = cl(g(r, "rc_numero")), res = rc || rIdx < 0 ? null : zn(cl(resLimpa(r[rIdx]))), ck = rc || (res ? "R" + res : ""), q = {}; ORD.slice(2).forEach(k => { const f = ff(k), raw = g(r, k); let v = f[3] === "d" ? (k === "prazo_entrega" ? pdateLast(raw) : pdate(raw)) : f[3] === "n" ? brNum(raw) : k === "reserva" ? cl(resLimpa(raw)) : cl(raw); if (v != null) q[k] = v; });
     const ex = R[0].map((h, j) => usados.has(j) || !r[j] ? null : `${h}: ${r[j]}`).filter(Boolean).join(" · "), blk = ex ? "[Importado] " + ex : null; // demais colunas -> Observação (você decide se usa)
-    const key = kk(sap, sph), arr = byKey.get(key) || [], livre = i => !claim.has(i.id) || claim.get(i.id) === (rc || "");
-    const it = rc ? (arr.find(i => zn(i.rc_numero) === zn(rc)) || arr.find(i => !cl(i.rc_numero) && livre(i))) : arr[0], S = st(rc || "(sem RC)"); S.t++;
-    if (it) { claim.set(it.id, rc || ""); const pt = upd.get(it.id) || {};
+    const key = kk(sap, sph), arr = byKey.get(key) || [], livre = i => !claim.has(i.id) || claim.get(i.id) === ck;
+    // RC: casa por RC (ou assume item sem RC e sem reserva). Reserva (sem RC): casa por reserva + material (ou assume item sem RC e sem reserva). Reservas diferentes do mesmo material são itens diferentes.
+    const it = rc ? (arr.find(i => zn(i.rc_numero) === zn(rc)) || arr.find(i => !cl(i.rc_numero) && !resDe(i) && livre(i))) : res ? (arr.find(i => !cl(i.rc_numero) && resDe(i) === res) || arr.find(i => !cl(i.rc_numero) && !resDe(i) && livre(i))) : arr[0], S = st(rc || (res ? "Reserva " + res : "(sem RC)")); S.t++;
+    if (it) { claim.set(it.id, ck); const pt = upd.get(it.id) || {};
       Object.assign(pt, q);
       Object.keys(pt).forEach(k => { if (!diff(pt[k], it[k]) || ((k === "rc_numero" || k === "pedido_numero") && zn(pt[k]) === zn(it[k]))) delete pt[k]; });
       if (sph && !it.codigo_sphera) pt.codigo_sphera = sph; if (sap && !it.codigo_sap) pt.codigo_sap = sap;
       if (blk) { const base = String(it.observacao || "").replace(/\s*\[Importado\][^\n]*/g, "").trim(), nv = (base ? base + "\n" : "") + blk; if (nv !== String(it.observacao || "")) pt.observacao = nv; }
       upd.set(it.id, pt); S.ch.add(it.id); }
-    else { const k = (rc || "") + "|" + key, o = { ...(ins.get(k) || {}), ...q, codigo_sap: sap, codigo_sphera: sph }; if (blk) o.observacao = blk; ins.set(k, o); S.n++; } });
+    else { const k = ck + "|" + key, o = { ...(ins.get(k) || {}), ...q, codigo_sap: sap, codigo_sphera: sph }; if (blk) o.observacao = blk; ins.set(k, o); S.n++; } });
   out.upd = [...upd].filter(([id, pt]) => Object.keys(pt).length).map(([id, p]) => ({ id, p })); const ids = new Set(out.upd.map(u => u.id));
   out.rcs.forEach(S => { S.u = [...S.ch].filter(id => ids.has(id)).length; S.s = S.ch.size - S.u; }); out.ins = [...ins.values()]; return out; }
 const planoU = () => { const pl = plano(); if (I.so !== false && document.getElementById("iSo") && document.getElementById("iSo").checked) pl.ins = []; return pl; }; // "só atualizar": descarta itens novos
