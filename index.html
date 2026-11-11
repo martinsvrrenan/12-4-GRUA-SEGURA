@@ -298,6 +298,7 @@ html[data-theme=dark] .bdg{background:#222d45;color:#c9d3e8;border-color:#34405c
    <div class="card"><b>Por área e status</b><div class="ch"><canvas id="c1"></canvas></div></div>
    <div class="card"><b>Funil do projeto</b><div class="ch"><canvas id="c2"></canvas></div></div>
    <div class="card" style="grid-column:1/-1"><b>Por tipo de projeto e status</b><div class="ch tall"><canvas id="c3"></canvas></div></div>
+   <div class="card" style="grid-column:1/-1"><b>Total de pontos por tipo de projeto</b><small style="display:block;margin:2px 0 8px">Linhas = quantas linhas do Cadastro · Pontos = soma da coluna “Qtd. no escopo” (linha sem quantidade conta 1). Respeita o filtro de área acima.</small><div class="tw" id="tpTab"></div></div>
   </div>
   <div class="card">
    <div class="evh"><b>Evolução e andamento</b>
@@ -775,6 +776,10 @@ document.querySelectorAll("nav button").forEach(b => b.onclick = () => { const i
 // ---------- Dashboard ----------
 const pct = (x, n) => `${Math.round(100 * x / n)}%`;
 const tk = { callback(v) { const l = this.getLabelForValue(v); return l.length > 26 ? l.slice(0, 25) + "…" : l; } };
+function tipTab(d) { const el = $("#tpTab"); if (!el) return;
+  const keys = [...new Set(d.map(r => r.tipo_projeto || "—"))].sort(), por = k => d.filter(r => (r.tipo_projeto || "—") === k), mp = matrix(d, "tipo_projeto", true), I = STI();
+  const lin = keys.map((k, i) => `<tr><td class="h"><b>${esc(k)}</b></td><td data-l="Linhas"><div class="v">${por(k).length}</div></td><td data-l="Pontos"><div class="v"><b>${fmt(psum(por(k)))}</b></div></td>${mp.m[i].map((x, j) => `<td data-l="${esc(ST[I[j]])}"><div class="v">${fmt(x)}</div></td>`).join("")}</tr>`).join("");
+  el.innerHTML = d.length ? `<table class="st" style="min-width:560px"><thead><tr><th>Tipo de projeto</th><th>Linhas</th><th>Pontos</th>${I.map(i => `<th>${esc(ST[i])}</th>`).join("")}</tr></thead><tbody>${lin}<tr><td class="h"><b>Total</b></td><td data-l="Linhas"><div class="v"><b>${d.length}</b></div></td><td data-l="Pontos"><div class="v"><b>${fmt(psum(d))}</b></div></td>${I.map((i, j) => `<td data-l="${esc(ST[i])}"><div class="v"><b>${fmt(mp.m.reduce((t, r) => t + r[j], 0))}</b></div></td>`).join("")}</tr></tbody></table>` : "<small>Sem pontos no filtro atual.</small>"; }
 function stack(id, field, d, horiz) {
   const keys = [...new Set(d.map(r => r[field] || "—"))].sort();
   const ds = ST.slice(0, 5).map((s, i) => ({ label: s, backgroundColor: COL[i], data: keys.map(k => wsum(d.filter(r => (r[field] || "—") === k && (i === 4 ? si(r) >= 4 : si(r) === i)))) })); // "Comprado" fica agrupado em "Cadastrado no SAP"
@@ -825,7 +830,7 @@ function dash() {
   $("#dsapCnt").textContent = dT; $("#dsapN").textContent = `${dS} no SAP · ${dN} fora do SAP · clique para ver a lista`;
   $("#dsapL").innerHTML = dTab("Cadastrados no SAP", dwS, "#2e9e5b") + dTab("Não cadastrados no SAP", dwN, "#d9822b");
   document.querySelectorAll("#kpis .seg button").forEach(b => b.onclick = () => { unit = b.dataset.u; dash(); });
-  stack("c1", "area", d); stack("c3", "tipo_projeto", d, true); evoDash(d);
+  stack("c1", "area", d); stack("c3", "tipo_projeto", d, true); tipTab(d); evoDash(d);
   charts.c2?.destroy();
   const FN = [["Levantamento", lev, "#f2a93b", "lev"], ["Em projeto", c(1), "#d9822b", "proj"], ["Desenho concluído+", c(2), "#3b82c4", "des"], ["No Sphera+", c(3), "#7a5cc7", "sph"], ["No SAP+", c(4), "#0e9aa7", "sap"], ...cusList().map(x => [x.nome, stv[x.k], x.cor, x.k])].filter(x => on(x[3]));
   charts.c2 = new Chart($("#c2"), { type: "bar", data: { labels: ["Total", ...FN.map(x => x[0])],
@@ -2157,9 +2162,10 @@ function parseMyItems(txt) { // devolve { blocks:[{kind,f}], rows:[cabeçalho, .
     if (/^Solicitar a[cç][aã]o/i.test(ln)) { b = null; last = null; return; }
     if (/^(Card\s*-|Perfeito|Qual tipo|A consulta ser|Digite|Para alter)/i.test(ln)) { if (/^(Perfeito|Qual tipo|A consulta|Digite)/i.test(ln)) { b = null; last = null; } return; }
     const m = ln.match(/^([A-Za-zÀ-ÿ][^:]{1,50}?)\s*:\s*(.*)$/), k = m ? ky(m[1]) : null, val = m ? m[2].replace(/\s*Ver\s+Requerimento.*$/i, "").trim() : "";
-    if (k === "reserva") { b = { kind: "reserva", f: {} }; blocks.push(b); b.f.reserva = val; last = "reserva"; return; }
-    if (k === "rc" && (!b || b.kind === "rc")) { b = { kind: "rc", f: {} }; blocks.push(b); b.f.rc = val; last = "rc"; return; }  // "RC: 0033983723-10 Ver Requerimento..." abre um item
+    if (k === "reserva") { b = { kind: "reserva", f: {}, txt: [ln] }; blocks.push(b); b.f.reserva = val; last = "reserva"; return; }
+    if (k === "rc" && (!b || b.kind === "rc")) { b = { kind: "rc", f: {}, txt: [ln] }; blocks.push(b); b.f.rc = val; last = "rc"; return; }  // "RC: 0033983723-10 Ver Requerimento..." abre um item
     if (!b) return;
+    b.txt.push(ln);
     if (m && k && ky(m[1]).split(" ").length <= 8) { b.f[k] = val; last = k; return; }
     if (last) b.f[last] = (b.f[last] + " " + ln).trim(); }); // linha quebrada: continua o valor anterior
   const CONHECIDOS = ["material", "quantidade requerida", "data de criacao da rc", "data de liberacao da rc", "pedido", "fornecedor", "data prevista de entrega do pedido", "data real de entrega do pedido", ...MY_EXTRAS.map(e => e[0])];
@@ -2490,11 +2496,11 @@ function plano() { const out = { upd: [], ins: [], rcs: new Map(), ign: 0 }, R =
   const claim = new Map(), upd = new Map(), ins = new Map(), diff = (n, o) => typeof n === "number" ? Number(o) !== n || o == null : String(o ?? "") !== String(n);
   const st = rc => out.rcs.get(rc) || out.rcs.set(rc, { t: 0, u: 0, n: 0, s: 0, ch: new Set() }).get(rc);
   R.slice(1).forEach(r => { const sap = cl(g(r, "codigo_sap")), sph = cl(g(r, "codigo_sphera")); if (!sap && !sph) { out.ign++; return; }
-    const rc = cl(g(r, "rc_numero")), res = rc || rIdx < 0 ? null : zn(cl(resLimpa(r[rIdx]))), ck = rc || (res ? "R" + res : ""), q = {}; ORD.slice(2).forEach(k => { const f = ff(k), raw = g(r, k); let v = f[3] === "d" ? (k === "prazo_entrega" ? pdateLast(raw) : pdate(raw)) : f[3] === "n" ? brNum(raw) : k === "reserva" ? cl(resLimpa(raw)) : cl(raw); if (v != null) q[k] = v; });
+    const rc = cl(g(r, "rc_numero")), res = rc || rIdx < 0 ? null : zn(cl(resLimpa(r[rIdx]))), ped = rc || res ? "" : zn(cl(g(r, "pedido_numero"))), ck = rc || (res ? "R" + res : ped ? "P" + ped : ""), q = {}; ORD.slice(2).forEach(k => { const f = ff(k), raw = g(r, k); let v = f[3] === "d" ? (k === "prazo_entrega" ? pdateLast(raw) : pdate(raw)) : f[3] === "n" ? brNum(raw) : k === "reserva" ? cl(resLimpa(raw)) : cl(raw); if (v != null) q[k] = v; });
     const ex = R[0].map((h, j) => usados.has(j) || !r[j] ? null : `${h}: ${r[j]}`).filter(Boolean).join(" · "), blk = ex ? "[Importado] " + ex : null; // demais colunas -> Observação (você decide se usa)
     const key = kk(sap, sph), arr = byKey.get(key) || [], livre = i => !claim.has(i.id) || claim.get(i.id) === ck;
     // RC: casa por RC (ou assume item sem RC e sem reserva). Reserva (sem RC): casa por reserva + material (ou assume item sem RC e sem reserva). Reservas diferentes do mesmo material são itens diferentes.
-    const it = rc ? (arr.find(i => zn(i.rc_numero) === zn(rc)) || arr.find(i => !cl(i.rc_numero) && !resDe(i) && livre(i))) : res ? (arr.find(i => !cl(i.rc_numero) && resDe(i) === res) || arr.find(i => !cl(i.rc_numero) && !resDe(i) && livre(i))) : arr[0], S = st(rc || (res ? "Reserva " + res : "(sem RC)")); S.t++;
+    const it = rc ? (arr.find(i => zn(i.rc_numero) === zn(rc)) || arr.find(i => !cl(i.rc_numero) && !resDe(i) && livre(i))) : res ? (arr.find(i => !cl(i.rc_numero) && resDe(i) === res) || arr.find(i => !cl(i.rc_numero) && !resDe(i) && livre(i))) : ped ? (arr.find(i => zn(i.pedido_numero) === ped) || arr.find(i => !cl(i.rc_numero) && !resDe(i) && !cl(i.pedido_numero) && livre(i))) : arr[0], S = st(rc || (res ? "Reserva " + res : ped ? "Pedido " + ped : "(sem RC)")); S.t++;
     if (it) { claim.set(it.id, ck); const pt = upd.get(it.id) || {};
       Object.assign(pt, q);
       Object.keys(pt).forEach(k => { if (!diff(pt[k], it[k]) || ((k === "rc_numero" || k === "pedido_numero") && zn(pt[k]) === zn(it[k]))) delete pt[k]; });
@@ -2520,7 +2526,7 @@ const SQL_EXIROS = "Execute o script exiros_rc_escrita.sql no SQL Editor do Supa
 function exMeta(blocks) { // por RC+material: item, RC como impressa no chat (rc_item) e descrição do status (o que vem entre parênteses)
   const m = new Map(); (blocks || []).forEach(b => { const f = b.f || {}, raw = String(f.rc || "").replace(/[\s\u00a0]+/g, "").replace(/[\u2010-\u2015\u2212]/g, "-"), mt = String(f.material || "").match(/^\s*([A-Za-z0-9]+)/);
     if (!raw || !mt) return; const cod = /^[\dOo]+$/.test(mt[1]) ? mt[1].replace(/[Oo]/g, "0") : mt[1], it = raw.match(/-(\d+)$/), d = String(f.status || "").match(/\(([^)]*)\)?\s*$/);
-    m.set(exNorm(raw) + "|" + cod, { rcItem: raw, item: it ? it[1] : null, desc: d ? d[1].trim() : "" }); }); return m; }
+    m.set(exNorm(raw) + "|" + cod, { rcItem: raw, item: it ? it[1] : null, desc: d ? d[1].trim() : "", texto: (b.txt || []).join("\n"), real: dTxt(f["data real de entrega do pedido"]) }); }); return m; }
 function exRegs() { // linhas do MyItems da prévia -> registros no formato de exiros_rc (só o que veio preenchido)
   if (!I.tsv) return []; const R = tab(); if (R.length < 2) return []; const H = R[0].map(h => EXC[nh(h)] || null);
   if (!H.includes("status") && !H.includes("licitacao_numero") && !H.includes("comprador")) return []; // planilha SAP/Word/PDF: sem dados do Exiros
@@ -2545,8 +2551,10 @@ async function gravaExiros(pl) { // devolve { n, upd, ins, skip, erro }; nunca d
     const ach = x => (data || []).find(e => exNorm(e.rc_numero) === x.rc_numero && String(e.material_codigo || "").trim() === x.material_codigo);
     const ups = [], news = [];
     regs.forEach(x => { const m = x._meta; delete x._meta; const e = ach(x);
-      if (e) { const pt = { consultado_em: agora }; Object.keys(x).forEach(k => { if (k !== "rc_numero" && k !== "material_codigo" && String(e[k] ?? "") !== String(x[k])) pt[k] = x[k]; }); ups.push({ id: e.id, pt }); }
-      else if (m && m.item && m.rcItem) news.push({ ...x, item: m.item, rc_item: m.rcItem, raw: { origem: "importacao_manual" }, consultado_em: agora }); else res.skip++; });
+      if (e) { const pt = { consultado_em: agora }; Object.keys(x).forEach(k => { if (k !== "rc_numero" && k !== "material_codigo" && String(e[k] ?? "") !== String(x[k])) pt[k] = x[k]; });
+        if (m && m.texto) { const rw = e.raw && typeof e.raw === "object" ? e.raw : {}; if (rw.texto !== m.texto || (m.real && rw.data_real_entrega !== m.real)) pt.raw = { ...rw, texto: m.texto, ...(m.real ? { data_real_entrega: m.real } : {}) }; } // texto colado do MyItems (inclui a data real de entrega)
+        ups.push({ id: e.id, pt }); }
+      else if (m && m.item && m.rcItem) news.push({ ...x, item: m.item, rc_item: m.rcItem, raw: { origem: "importacao_manual", ...(m.texto ? { texto: m.texto } : {}), ...(m.real ? { data_real_entrega: m.real } : {}) }, consultado_em: agora }); else res.skip++; });
     for (let i = 0; i < ups.length; i += 20) { const lote = ups.slice(i, i + 20), r = await Promise.all(lote.map(u => sb.from("exiros_rc").update(u.pt).eq("id", u.id).select("id"))), er = r.find(z => z.error);
       if (er) { res.erro = er.error.message; return res; }
       const vz = lote.filter((u, k) => !(r[k].data || []).length); res.upd += lote.length - vz.length;
