@@ -2118,6 +2118,7 @@ window.lerArq = lerArq; window.etapasAtivas = () => keysFor(proj.id); window.eta
 //#PURE
 const SIT = ["Sem RC", "RC emitida", "Pedido emitido", "Entregue", "Cancelado"];
 const ovr = i => { const v = i && i.extras && i.extras._sit; return v === "Entregue" || v === "Cancelado" ? v : null; }; // situação definida pelo Exiros ou manualmente (extras._sit)
+const oculto = i => !!(i && i.extras && i.extras._sit === "Cancelado" && i.extras._sit_src === "exiros"); // RC excluída no Exiros: não aparece no app (o registro fica no banco só para importação e bot não recriarem)
 const sitOf = i => { const o = ovr(i); return o === "Cancelado" ? 4 : o === "Entregue" ? 3 : i.data_recebimento ? 3 : i.pedido_numero ? 2 : i.rc_numero ? 1 : 0; };
 const hj = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
 const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -2242,8 +2243,12 @@ function gateExtras(it, q, pt, base) {
     if (!(k in sn) || !mesmoV(sn[k], nv)) { sn[k] = nv; mud = true; } });
   return mud ? { ...ex, _ex: sn, _ed: ed } : null; }
 
+// Filtros da tela de Suprimentos são individuais por projeto: mexer num não muda nos outros
+const FPJ = new Map(); let FPid = null;
+const fSwitch = () => { if (!proj || FPid === proj.id) return; if (FPid != null) FPJ.set(FPid, F); F = FPJ.get(proj.id) || { sit: "", area: "", tipo: "", q: "", exs: "" }; FPid = proj.id; };
+
 // ---- Carga e migração automática ponto -> suprimento ----
-async function loadSup() {
+async function loadSup() { fSwitch();
   const id = proj.id, [, { data, error }] = await Promise.all([probeNovos(), pfTake(id, "sup", () => qSup(id))]);
   supOk = !error; SUP = error ? [] : data; await loadExcl(); if (supOk && canProj) await sync(false);
 }
@@ -2280,6 +2285,7 @@ abrirProjeto = async function (id, tab, seq) { await _ap(id, tab, seq); { const 
 const pontoDe = i => i.ponto_id != null ? rows.find(r => String(r.id) === String(i.ponto_id)) : null;
 const sitTxt = i => atras(i) ? "Atrasado" : semPrazo(i) ? "Sem prazo" : SIT[sitOf(i)];
 function renderSup() {
+  fSwitch();
   const ar = [...new Set(rows.map(r => r.area).filter(Boolean))].sort(), tp = [...new Set(rows.map(r => r.tipo_projeto).filter(Boolean))].sort(), op = (a, f) => a.map(x => `<option ${x === f ? "selected" : ""}>${esc(x)}</option>`).join("");
   sec.innerHTML = `<div class="card"><div class="bar"><select id="sFs"><option value="">Todas as situações</option>${op([...SIT, "Atrasado", "Sem prazo"], F.sit)}</select><select id="sFa"><option value="">Todas as áreas</option>${op(ar, F.area)}</select><input id="sFq" type="search" placeholder="Buscar SAP, Sphera, reserva, RC, pedido ou descrição…" value="${esc(F.q)}"></div>
   <div class="bar">${canProj ? '<button class="p" id="sNew">+ Item</button>' : ""}</div></div>
@@ -2360,7 +2366,7 @@ function pintaOrc() {
   const u = proj.orcamento_usd != null ? Number(proj.orcamento_usd) : null, c = proj.cambio_usd_brl > 0 ? Number(proj.cambio_usd_brl) : null, orc = u != null && c ? u * c : null, v = supValores(SUP), og = gasTot(), comp = v.comp + og;
   const toU = r => c ? r / c : null, sal = orc != null ? orc - comp : null, pct = orc ? Math.round(100 * comp / orc) + "%" : "—";
   $("#sBr").value = orc != null ? fR(orc) : (u != null ? "Informe o câmbio" : "");
-  const sm = k => SUP.reduce((a, i) => a + (Number(i[k]) || 0), 0);
+  const sm = k => SUP.reduce((a, i) => sitOf(i) === 4 ? a : a + (Number(i[k]) || 0), 0); // item cancelado (Req. excluída) não entra em cotado/pago
   const kp = (r, l, extra) => `<div class="card kpi" style="margin:0"><b class="sm"${extra || ""}>${fR(r)}</b><span>${l}</span><small>${c || r == null ? fU(r == null ? null : toU(r)) : "US$ — (informe o câmbio)"}</small></div>`;
   // Resumo: só orçamento disponível, saldo livre e utilizado; o resto fica no "Detalhamento" (expansível)
   $("#sV").innerHTML = (orc != null ? kp(orc, "Orçamento disponível") : `<div class="card kpi" style="margin:0"><b class="sm">${u != null ? fU(u) : "—"}</b><span>Orçamento disponível</span><small>${u != null ? "informe o câmbio para ver em R$" : "informe o valor acima"}</small></div>`)
@@ -2433,7 +2439,7 @@ function editaGasto(g) {
   gd.showModal();
 }
 function filtrados() { const q = F.q.toLowerCase().trim(), qn = /^[\d\s-]+$/.test(q) ? q.replace(/\s+/g, "").split("-")[0].replace(/^0+(?=\d)/, "") : q; // número colado com zeros e/ou item ("0284000225-40", "0033983723-10") também acha
-  return SUP.filter(i => { const p = pontoDe(i);
+  return SUP.filter(i => { if (oculto(i) && !F.exs) return false; const p = pontoDe(i);
   return (!F.sit || sitTxt(i) === F.sit || (F.sit === "Sem prazo" && semPrazo(i))) && (!F.area || (p && p.area === F.area)) && (!F.tipo || (p && p.tipo_projeto === F.tipo)) && (!F.exs || (window.gxExStatus && window.gxExStatus(i) === F.exs)) && (!q || (h => h.includes(q) || (qn && h.includes(qn)))([i.codigo_sap, i.codigo_sphera, i.descricao, i.reserva, i.rc_numero, i.pedido_numero, ...xCampos().map(p => xVal(i, p))].join(" ").toLowerCase())); }); }
 const prazoKpis = s => [[s.t, "itens"], [pc3(s.rc, s.t), "com RC"], [pc3(s.pd, s.t), "com pedido"], [pc3(s.pz, s.t), "com prazo"], [pc3(s.en, s.t), "entregues"], [`${s.at} (${pc3(s.at, s.t)})`, "atrasados"], [s.sp, "pedidos sem prazo"], ...(s.cn ? [[s.cn, "cancelados"]] : []), [`${s.a7} / ${s.a15} / ${s.a30}`, "a vencer em 7 / 15 / 30 dias"], [s.pm == null ? "—" : s.pm + " d", "prazo médio (pedido → entrega)"]];
 const atencao = L => { L = L.filter(i => sitOf(i) !== 4); const hojeS = ymd(hj()), d = x => x ? dtBR(parseD(x)) : "—"; // itens que pedem ação: acima do previsto, aguardando aprovação, atrasados e sem RC há muito tempo
@@ -2446,7 +2452,7 @@ function pinta() {
   $("#sA").innerHTML = at.length ? at.slice(0, 15).map(([i, t]) => `<div class="sl"><div><b>${esc(i.codigo_sap || i.codigo_sphera || "—")}</b> <small>${esc(i.descricao || "")}</small></div><span class="tag" style="--c:#d64545">${t}</span></div>`).join("") + (at.length > 15 ? `<small>+${at.length - 15} itens</small>` : "") : "Nenhum item em atenção.";
   const cor = i => atras(i) ? "#d64545" : semPrazo(i) ? "#d9822b" : ["#b0b7c3", "#f2a93b", "#3b82c4", "#2e9e5b", "#7a828f"][sitOf(i)];
   $("#sT").innerHTML = L.map(i => `<tr data-id="${i.id}" style="${canProj ? "cursor:pointer" : ""}"><td class="h"><b>${esc(i.codigo_sap || "—")}</b></td><td data-l="Sphera"><div class="v">${esc(i.codigo_sphera || "—")}</div></td><td data-l="Descrição"><div class="v">${esc(i.descricao || "—")}</div></td><td data-l="Qtd"><div class="v">${i.quantidade ?? "—"} ${esc(i.unidade || "")}</div></td><td data-l="Valor unit."><div class="v">${fR(i.valor_unitario)}</div></td><td data-l="Valor total"><div class="v">${i.valor_total != null || i.valor_unitario != null ? fR(vTot(i)) : "—"}</div></td><td data-l="Situação"><div class="v"><span class="tag" style="--c:${cor(i)}">${sitTxt(i)}</span></div></td>${window.__reserva ? `<td data-l="Reserva"><div class="v">${esc(i.reserva || "—")}</div></td>` : ""}<td data-l="RC"><div class="v">${esc(i.rc_numero || "—")} <small>${i.rc_data ? d(i.rc_data) : ""}</small></div></td><td data-l="Pedido"><div class="v">${esc(i.pedido_numero || "—")} <small>${esc(i.fornecedor || "")}</small></div></td><td data-l="Prazo"><div class="v">${d(i.prazo_entrega)}</div></td><td data-l="Recebido"><div class="v">${d(i.data_recebimento)}</div></td>${xCampos().map(p => `<td data-l="${esc(p.nome)}"><div class="v">${esc(xFmt(i, p))}</div></td>`).join("")}</tr>`).join("");
-  $("#sC").textContent = `${L.length} de ${SUP.length} itens · valor total listado: ${fR(L.reduce((a, i) => a + (vTot(i) || 0), 0))}`; if (canProj) document.querySelectorAll("#sT tr").forEach(tr => tr.onclick = () => editaItem(SUP.find(i => i.id == tr.dataset.id)));
+  $("#sC").textContent = `${L.length} de ${SUP.filter(i => !oculto(i)).length} itens · valor total listado: ${fR(L.reduce((a, i) => a + (vTot(i) || 0), 0))}`; if (canProj) document.querySelectorAll("#sT tr").forEach(tr => tr.onclick = () => editaItem(SUP.find(i => i.id == tr.dataset.id)));
 }
 
 // ---- Item manual (inserir / editar / excluir) ----
@@ -2738,7 +2744,7 @@ function gastoFin(img) {
 window.supSite = () => { // dados de suprimentos para o relatório interativo (site HTML)
   const fin = gastoFin(); if (!SUP.length && !fin) return null;
   const ok = (cat, v, fb) => v && !(window.inativo && window.inativo(cat, String(v))) ? v : fb; // parâmetro inativo não aparece
-  const grp = f => { const m = new Map(); SUP.forEach(i => { const v = vTot(i) || 0, k = f(i); if (v && k) m.set(k, (m.get(k) || 0) + v); }); return [...m]; };
+  const grp = f => { const m = new Map(); SUP.forEach(i => { if (sitOf(i) === 4) return; const v = vTot(i) || 0, k = f(i); if (v && k) m.set(k, (m.get(k) || 0) + v); }); return [...m]; };
   const top = l => l.sort((a, b) => b[1] - a[1]), cat = (window.parSup ? window.parSup("sup_campo") : []).find(p => /categoria/i.test(p.nome));
   const mes = grp(i => String(i.rc_data || i.pedido_data || "").slice(0, 7)).sort((a, b) => a[0].localeCompare(b[0])).map(([k, v]) => [k.split("-").reverse().join("/"), v]);
   const analise = [["Por fornecedor", top(grp(i => ok("sup_fornecedor", i.fornecedor, "Sem informação")))],
@@ -2754,7 +2760,7 @@ window.supRel = (img) => { const rs = !!window.__reserva, s = supStats(SUP), d =
     all: SUP.map(i => [i.codigo_sap || i.codigo_sphera || "—", ...(rs ? [i.reserva || "—"] : []), String(i.descricao || "—").slice(0, 110), [i.quantidade ?? "", okv("sup_unidade", i.unidade) ? i.unidade || "" : ""].join(" ").trim() || "—", okv("sup_fornecedor", i.fornecedor) && i.fornecedor ? i.fornecedor : "—", compr(i) || "—", sitTxt(i), d(i.prazo_entrega)]),
     rows: SUP.map(i => ({ ...Object.fromEntries(ORD.flatMap(k => [[ff(k)[1], (k === "fornecedor" && !okv("sup_fornecedor", i[k])) || (k === "unidade" && !okv("sup_unidade", i[k])) ? "" : i[k] ?? ""], ...(k === "fornecedor" ? [[CL(), compr(i)]] : [])])), ...Object.fromEntries(xCampos().map(p => [xCol(p), xVal(i, p)])), "Situação": sitTxt(i) })) }; };
 /* gancho para o bloco do Exiros (gx-exiros): expõe SUP e permite encaixar nas funções internas desta aba */
-window.gxSup = { get SUP() { return SUP; }, get exs() { return F.exs; }, setExs(v) { F.exs = v || ""; pinta(); }, rerender() { renderSup(); }, copiar() { copiaRcs(); } }; // exs = filtro pelo status do Exiros (etiquetas do cartão Exiros)
+window.gxSup = { get SUP() { return SUP; }, oculto, valido: i => sitOf(i) !== 4, get exs() { return F.exs; }, setExs(v) { F.exs = v || ""; pinta(); }, rerender() { renderSup(); }, copiar() { copiaRcs(); } }; // exs = filtro pelo status do Exiros (etiquetas do cartão Exiros)
 window.gxSupHook = h => {
   const _rs = renderSup; renderSup = function () { _rs(); h.render(); };
   const _pt = pinta; pinta = function () { _pt(); h.pinta(); };
@@ -2916,8 +2922,8 @@ function blocksDialog(pg){let d=$("#gxDlg");if(!d){d=document.createElement("dia
 /* suprimentos */
 let tab="r";
 const show=()=>{$$("#t7 .sp").forEach(p=>p.classList.toggle("on",p.dataset.p===tab));$$("#t7 .stb button").forEach(b=>b.classList.toggle("on",b.dataset.p===tab));rsz()};
-function an(){const el=$("#gxAn"),D=window.supData&&window.supData();if(!el||!D)return;const{SUP,vTot,pontoDe,fR}=D;
- const grp=f=>{const m=new Map();SUP.forEach(i=>{const v=vTot(i)||0;if(!v)return;const k=f(i)||"Sem informação";m.set(k,(m.get(k)||0)+v)});return[...m]};
+function an(){const el=$("#gxAn"),D=window.supData&&window.supData();if(!el||!D)return;const{SUP,vTot,sitOf,pontoDe,fR}=D;
+ const grp=f=>{const m=new Map();SUP.forEach(i=>{if(sitOf(i)===4)return;const v=vTot(i)||0;if(!v)return;const k=f(i)||"Sem informação";m.set(k,(m.get(k)||0)+v)});return[...m]};
  const blk=(t,l,n)=>{if(!l.length)return"";const mx=Math.max(...l.map(x=>x[1]))||1;return`<div class="gx-an"><b>${t}</b>${l.slice(0,n||6).map(([k,v])=>`<div class="r"><span>${esc(k)}</span><span class="gx-t"><i style="width:${Math.round(100*v/mx)}%;background:#2456b8"></i></span><em>${fR(v)}</em></div>`).join("")}</div>`};
  const srt=l=>l.sort((a,b)=>b[1]-a[1]),cat=(window.parSup?window.parSup("sup_campo"):[]).find(p=>/categoria/i.test(p.nome));
  const mes=grp(i=>{const d=i.rc_data||i.pedido_data;return d?String(d).slice(0,7):""}).sort((a,b)=>a[0].localeCompare(b[0])).map(([k,v])=>[k.split("-").reverse().join("/"),v]);
@@ -3466,12 +3472,13 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
     return LOG.status === "sessao_expirada" ? "A última tentativa falhou: a sessão do Teams expirou (é preciso refazer o login)." : "A última tentativa de atualização falhou" + (LOG.mensagem ? ": " + String(LOG.mensagem).slice(0, 700) : ".");
   }
   function resumo() { // etiquetas = filtros: contam os ITENS do projeto por status do Exiros; clicar filtra a lista, clicar de novo volta a mostrar todos
-    const c = new Map(); supL().forEach(it => { const x = acha(it); if (!x) return; const k = x.status || "—"; c.set(k, (c.get(k) || 0) + 1); });
+    const all = supL(), c = new Map(); all.forEach(it => { const x = acha(it); if (!x) return; const k = x.status || "—"; c.set(k, (c.get(k) || 0) + 1); });
     const on = window.gxSup ? window.gxSup.exs : "";
-    const tot = supL().length, sem = tot - [...c.values()].reduce((a, b) => a + b, 0), cT = "#5d6d8a"; // total de itens do projeto + quantos ainda não têm dados do Exiros
-    const tTot = `<button type="button" class="tag exf${on ? "" : " on"}" data-exclr aria-pressed="${!on}" title="Mostrar todos os itens do projeto" style="--c:${cT};${on ? `background:${cT}22;color:${cT}` : `background:${cT};color:#fff`}">${tot} · Total de itens</button> `;
+    const tot = all.length, nVal = window.gxSup && window.gxSup.valido ? all.filter(window.gxSup.valido).length : tot, sem = tot - [...c.values()].reduce((a, b) => a + b, 0), cT = "#5d6d8a"; // total de itens do projeto + quantos ainda não têm dados do Exiros
+    const tTot = `<button type="button" class="tag exf${on ? "" : " on"}" data-exclr aria-pressed="${!on}" title="Limpar o filtro e mostrar os itens válidos" style="--c:${cT};${on ? `background:${cT}22;color:${cT}` : `background:${cT};color:#fff`}">${tot} · Total de itens</button> `;
+    const tVal = nVal !== tot ? `<span class="tag" title="Itens do projeto sem os cancelados (Req. excluída)" style="background:#2e9e5b22;color:#2e9e5b">${nVal} · Itens válidos (sem cancelados)</span> ` : "";
     const tSem = sem > 0 ? ` <span class="tag" title="Itens sem consulta ao Exiros ou não localizados na RC" style="background:#9aa4b822;color:#7b879d">${sem} · Sem dados do Exiros</span>` : "";
-    return tTot + [...c.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => { const cl = cor(k), at = on === k, off = on && !at;
+    return tTot + tVal + [...c.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => { const cl = cor(k), at = on === k, off = on && !at;
       return `<button type="button" class="tag exf${at ? " on" : ""}${off ? " off" : ""}" data-exs="${E(k)}" aria-pressed="${at}" title="${at ? "Clique para mostrar todos" : "Clique para filtrar os itens"}" style="--c:${cl};${at ? `background:${cl};color:#fff` : `background:${cl}22;color:${cl}`}">${n} · ${E(k)}</button>`; }).join(" ") + tSem;
   }
   function cliqueCard(e) {
