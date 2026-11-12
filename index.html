@@ -1437,6 +1437,8 @@ $("#rpp").onclick = async () => {
     sl.addText(label, { x: x + 0.05, y: y + 0.76, w: w - 0.1, h: 0.24, fontFace: FT, fontSize: 11, bold: true, color: TC.gray, align: "center", margin: 0, fit: "shrink", isTextBox: true });
     sl.addText(sub, { x: x + 0.08, y: y + 1.05, w: w - 0.16, h: 0.62, fontFace: FT, fontSize: 8, color: TC.mid, align: "center", valign: "top", margin: 0, fit: "shrink", isTextBox: true });
   };
+  // Ajusta o tamanho da fonte ao comprimento do texto: o PowerPoint não aplica "shrink" sozinho ao abrir o arquivo, então valores longos (ex.: R$ 12.345.678,90) vazavam do card.
+  const fitFs = (txt, max, wIn, min = 10) => Math.max(min, Math.min(max, Math.floor(wIn * 72 * 0.94 / (String(txt).length * 0.58))));
   const cell = (t, o = {}) => ({ text: tdash(t), options: { fontFace: FT, fontSize: 10, color: TC.gray, margin: 0.06, valign: "middle", ...o } });
   const table = (sl, head, body, x, y, w, colW, rowH, firstBold) => sl.addTable([
     head.map((t, i) => cell(t, { bold: true, color: "FFFFFF", fill: { color: TC.gray }, align: i ? "right" : "left" })),
@@ -1522,8 +1524,8 @@ $("#rpp").onclick = async () => {
     fn.kp.forEach(([v, l], i) => { const x = 0.527 + i * 2.47;
       sl.addShape(P.ShapeType.rect, { x, y: 1.3, w: 2.3, h: 1.05, fill: { color: "FFFFFF" }, line: { color: TC.light, width: 0.75 } });
       sl.addShape(P.ShapeType.rect, { x, y: 1.3, w: 2.3, h: 0.07, fill: { color: TC.orange }, line: { color: TC.orange, transparency: 100 } });
-      sl.addText(String(v), { x: x + 0.05, y: 1.42, w: 2.2, h: 0.45, fontFace: FT, fontSize: 18, bold: true, color: TC.gray, align: "center", margin: 0, fit: "shrink", isTextBox: true });
-      sl.addText(l, { x: x + 0.08, y: 1.88, w: 2.14, h: 0.4, fontFace: FT, fontSize: 9, color: TC.mid, align: "center", valign: "top", margin: 0, fit: "shrink", isTextBox: true }); });
+      sl.addText(String(v), { x: x + 0.05, y: 1.42, w: 2.2, h: 0.45, fontFace: FT, fontSize: fitFs(v, 18, 2.2), bold: true, color: TC.gray, align: "center", margin: 0, fit: "shrink", isTextBox: true });
+      sl.addText(l, { x: x + 0.08, y: 1.88, w: 2.14, h: 0.4, fontFace: FT, fontSize: l.length > 34 ? 8 : 9, color: TC.mid, align: "center", valign: "top", margin: 0, fit: "shrink", isTextBox: true }); });
     if (fn.img1) sl.addImage({ data: U(fn.img1), x: 0.527, y: 2.5, w: 7.2, h: 2.2, altText: "Evolução acumulada dos gastos do orçamento por mês" });
     if (fn.img2) sl.addImage({ data: U(fn.img2), x: 7.9, y: 2.5, w: 4.85, h: 2.2, altText: "Composição do orçamento" });
     h2(sl, "Histórico de gastos", 0.527, 4.75, 8);
@@ -1539,7 +1541,7 @@ $("#rpp").onclick = async () => {
     sr.kp.forEach(([v, l], i) => { const x = 0.527 + i * 2.47;
       sl.addShape(P.ShapeType.rect, { x, y: 1.35, w: 2.3, h: 1.15, fill: { color: "FFFFFF" }, line: { color: TC.light, width: 0.75 } });
       sl.addShape(P.ShapeType.rect, { x, y: 1.35, w: 2.3, h: 0.07, fill: { color: TC.orange }, line: { color: TC.orange, transparency: 100 } });
-      sl.addText(String(v), { x: x + 0.05, y: 1.5, w: 2.2, h: 0.45, fontFace: FT, fontSize: 22, bold: true, color: TC.gray, align: "center", margin: 0, fit: "shrink", isTextBox: true });
+      sl.addText(String(v), { x: x + 0.05, y: 1.5, w: 2.2, h: 0.45, fontFace: FT, fontSize: fitFs(v, 22, 2.2), bold: true, color: TC.gray, align: "center", margin: 0, fit: "shrink", isTextBox: true });
       sl.addText(l, { x: x + 0.08, y: 1.97, w: 2.14, h: 0.45, fontFace: FT, fontSize: 9, color: TC.mid, align: "center", valign: "top", margin: 0, fit: "shrink", isTextBox: true }); });
     h2(sl, "Itens em atenção (atrasados ou sem prazo)", 0.527, 2.75, 8);
     if (sr.att.length) sl.addTable([["Código", "Descrição", "Situação", "Prazo"].map(t => cell(t, { bold: true, color: "FFFFFF", fill: { color: TC.gray } })), ...sr.att.slice(0, 8).map(r => r.map(t => cell(t, { fill: { color: "FFFFFF" } })))], { x: 0.527, y: 3.15, w: 12.25, colW: [2.2, 5.2, 2.4, 2.45], rowH: 0.42, border: { type: "solid", color: TC.light, pt: 0.75 }, autoPage: false });
