@@ -4351,6 +4351,19 @@ header #back.gs-home .bl{width:40px;height:40px;display:block;flex:none;transiti
 header #back.gs-home:hover,html[data-theme] header #back.gs-home:hover{background:#ffffff14}
 header #back.gs-home:active .bl{transform:scale(.92)}
 body.v-users .brand>.logo{display:none}
+/* Lista de Pontos (desktop): cabeçalho fixo ao rolar e Área/Equipamento fixos ao rolar para o lado */
+@media(min-width:761px){
+ #t2>.card.tw{padding:0;overflow:auto;max-height:calc(100vh - var(--top) - 28px);max-height:calc(100dvh - var(--top) - 28px)}
+ #t2 table.st thead th{position:sticky;top:0;z-index:5}
+ #t2 table.st th:nth-child(-n+2),#t2 table.st td:nth-child(-n+2){position:sticky;z-index:2}
+ #t2 table.st td:nth-child(-n+2){background:var(--s,#fff)}
+ #t2 table.st th:nth-child(1),#t2 table.st td:nth-child(1){left:0}
+ #t2 table.st th:nth-child(2),#t2 table.st td:nth-child(2){left:var(--w1,130px);box-shadow:1px 0 0 var(--bd,var(--line))}
+ #t2 table.st thead th:nth-child(-n+2){z-index:6}
+ #t2 table.st thead th:nth-child(n+3){min-width:108px}
+ #t2 table.st tbody tr:hover td:nth-child(-n+2){background:var(--s2,#fafbfd)}
+ #t2 table.st tbody tr.pend td:nth-child(-n+2){background:linear-gradient(#f7b9281c,#f7b9281c),var(--s,#fff)}
+}
 </style>
 <script id="gs-v4-js">
 (function(){
@@ -4368,6 +4381,19 @@ body.v-users .brand>.logo{display:none}
  labels();new MutationObserver(labels).observe(nav,{childList:true,subtree:true});
  var m=false;try{m=localStorage.getItem(K)==="1"}catch(e){}
  b.classList.toggle("nav-min",m);t.title=m?"Expandir menu":"Recolher menu";
+})();
+</script>
+<script id="gs-pontos-fixo">
+(function(){
+ // mede a largura da coluna "Área" para a coluna "Equipamento" ficar colada logo ao lado dela
+ function fix(){var t=document.querySelector("#t2 table.st");if(!t)return;
+  var th=t.querySelector("thead th:first-child");if(!th)return;
+  var w=th.getBoundingClientRect().width;if(w>0)t.style.setProperty("--w1",w+"px")}
+ var t=document.querySelector("#t2 table.st"),h=document.getElementById("th");
+ if(!t||!h)return;
+ if(window.ResizeObserver)new ResizeObserver(fix).observe(t);
+ new MutationObserver(fix).observe(h,{childList:true});
+ window.addEventListener("resize",fix);fix();
 })();
 </script>
 </body>
