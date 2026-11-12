@@ -2192,7 +2192,7 @@ function tabelaDePalavras(ws, achaCab) { ws = (ws || []).filter(w => w && String
   return out; }
 //#/PURE
 const pc3 = (x, n) => n ? Math.round(100 * x / n) + "%" : "0%";
-let SUP = [], F = { sit: "", area: "", tipo: "", q: "", exs: "" }, X = 15, supOk = true;
+let SUP = [], SUPX = [], F = { sit: "", area: "", tipo: "", q: "", exs: "" }, X = 15, supOk = true;
 const FLD = [["codigo_sap", "Código SAP", /^material$|sap/i], ["codigo_sphera", "Código Sphera", /sphera|mestre/i], ["descricao", "Descrição", /texto breve|descri|item/i, "w"], ["quantidade", "Quantidade", /qtd|quant/i, "n"], ["unidade", "Unidade", /unid|^un$/i],
   ["valor_unitario", "Valor unitário", /preco|valor.*unit|unit/i, "n"], ["valor_total", "Valor total", /valor.*total|total/i, "n"],
   ["rc_data", "RC (data)", /data.*solicit|solicit.*data|rc.*data/i, "d"], ["rc_numero", "RC (número)", /requisi|rc/i], ["pedido_data", "Pedido (data)", /pedido.*data/i, "d"], ["pedido_numero", "Pedido (número)", /pedido/i], ["fornecedor", "Fornecedor", /fornec/i],
@@ -2221,10 +2221,31 @@ const compr = i => {
 };
 const CL = () => xCampos().some(p => p.nome === "Comprador") ? "Comprador (Exiros)" : "Comprador"; // evita colidir com um campo extra de mesmo nome
 
+// ---- Regras de conflito: vale a informação mais recente, e a exclusão feita por você também vale ----
+const EXF = ["quantidade", "unidade", "pedido_numero", "prazo_entrega", "rc_data", "fornecedor", "data_recebimento"]; // campos que o Exiros (texto do MyItems ou bot) preenche no item
+const mesmoV = (a, b) => { const va = a == null || a === "", vb = b == null || b === ""; return va || vb ? va === vb : (isNaN(a) || isNaN(b)) ? String(a) === String(b) : Number(a) === Number(b); };
+const excMatch = (key, rc, res) => !!key && SUPX.some(t => t.chave === key && (rc ? zn(t.rc_numero) === zn(rc) : res ? !t.rc_numero && zn(t.reserva) === zn(res) : !t.rc_numero && !t.reserva));
+const excLinha = i => { const chave = kk(cl(i.codigo_sap), cl(i.codigo_sphera)); return chave ? { projeto_id: proj.id, chave, rc_numero: zn(i.rc_numero) || "", reserva: zn(i.reserva) || "", ponto_id: i.ponto_id != null ? String(i.ponto_id) : null, codigo_sap: cl(i.codigo_sap), codigo_sphera: cl(i.codigo_sphera), descricao: cl(i.descricao) } : null; };
+const excIgual = (t, r) => t.chave === r.chave && (t.rc_numero || "") === r.rc_numero && (t.reserva || "") === r.reserva;
+async function loadExcl() { const { data, error } = await sb.from("suprimentos_excluidos").select("*").eq("projeto_id", proj.id).limit(5000); window.__excl = !error; SUPX = error ? [] : data || []; } // sem a tabela (SQL fase4 ainda não rodou) tudo segue como antes
+async function marcaExcluido(its) { if (!window.__excl) return; const rs = its.map(excLinha).filter(Boolean); if (!rs.length) return;
+  const { data, error } = await sb.from("suprimentos_excluidos").upsert(rs, { onConflict: "projeto_id,chave,rc_numero,reserva" }).select("*"); if (error) return console.warn("exclusão não registrada:", error.message);
+  SUPX = SUPX.filter(t => !rs.some(r => excIgual(t, r))).concat(data || rs); }
+async function desmarcaExcluido(its) { if (!window.__excl) return; const rs = its.map(excLinha).filter(Boolean).filter(r => SUPX.some(t => excIgual(t, r)));
+  for (const r of rs) { const { error } = await sb.from("suprimentos_excluidos").delete().eq("projeto_id", r.projeto_id).eq("chave", r.chave).eq("rc_numero", r.rc_numero).eq("reserva", r.reserva); if (!error) SUPX = SUPX.filter(t => !excIgual(t, r)); } }
+// Campos do Exiros no item: vazio é preenchido; campo editado por você (extras._ed) só muda se o valor do Exiros mudou depois (extras._ex guarda o último valor do Exiros aplicado)
+function gateExtras(it, q, pt, base) {
+  const ex = base || it.extras || {}, ed = { ...(ex._ed || {}) }, sn = { ...(ex._ex || {}) }; let mud = false;
+  EXF.forEach(k => { if (!(k in q)) return; const nv = q[k], vazio = it[k] == null || it[k] === "", mudouEx = (k in sn) && !mesmoV(sn[k], nv);
+    if (!vazio && ed[k] && !mudouEx) delete pt[k]; // sua edição é mais recente que a informação do Exiros
+    else if (k in pt && ed[k]) { delete ed[k]; mud = true; } // o Exiros trouxe informação mais nova: ela passa a valer
+    if (!(k in sn) || !mesmoV(sn[k], nv)) { sn[k] = nv; mud = true; } });
+  return mud ? { ...ex, _ex: sn, _ed: ed } : null; }
+
 // ---- Carga e migração automática ponto -> suprimento ----
 async function loadSup() {
   const id = proj.id, [, { data, error }] = await Promise.all([probeNovos(), pfTake(id, "sup", () => qSup(id))]);
-  supOk = !error; SUP = error ? [] : data; if (supOk && canProj) await sync(false);
+  supOk = !error; SUP = error ? [] : data; await loadExcl(); if (supOk && canProj) await sync(false);
 }
 async function sync(ask) {
   const byP = new Map(SUP.filter(i => i.ponto_id != null).map(i => [String(i.ponto_id), i])), byK = new Map(SUP.map(i => [kk(i.codigo_sap, i.codigo_sphera), i]).filter(x => x[0]));
@@ -2235,6 +2256,7 @@ async function sync(ask) {
     const it = byP.get(pid);
     if (it) { if (it.codigo_sap !== sap || it.codigo_sphera !== sph) upd.push({ id: it.id, p: { codigo_sap: sap, codigo_sphera: sph } }); return; } // código mudou: atualiza
     const ex = byK.get(key); if (ex) { if (ex.ponto_id == null && ex.id) { upd.push({ id: ex.id, p: { ponto_id: pid } }); ex.ponto_id = pid; } return; } // sem duplicar
+    if (SUPX.some(t => t.ponto_id === pid && t.chave === key)) return; // você excluiu este item: a exclusão vale
     const n = { projeto_id: proj.id, ponto_id: pid, origem: "ponto", codigo_sap: sap, codigo_sphera: sph, descricao: desc.filter(Boolean).join(" · "), quantidade: r.qtd, unidade: "un" };
     ins.push(n); byK.set(key, n); });
   const orf = ask ? SUP.filter(i => i.origem === "ponto" && i.ponto_id != null && !seen.has(String(i.ponto_id))) : [];
@@ -2242,6 +2264,7 @@ async function sync(ask) {
   for (let i = 0; i < ins.length; i += 200) { const { error } = await sb.from("suprimentos").insert(ins.slice(i, i + 200)); if (error) { console.warn(error.message); break; } ch = true; }
   for (const u of upd) { const { error } = await sb.from("suprimentos").update(u.p).eq("id", u.id); if (error) console.warn(error.message); else ch = true; }
   if (orf.length) { const rm = confirm(`${orf.length} item(ns) de suprimentos perderam o código no ponto de origem (código apagado ou ponto excluído).\n\nOK = remover da lista de suprimentos\nCancelar = manter como item manual`);
+    if (rm) await marcaExcluido(orf);
     const ids = orf.map(i => i.id), { error } = rm ? await sb.from("suprimentos").delete().in("id", ids) : await sb.from("suprimentos").update({ ponto_id: null, origem: "manual" }).in("id", ids);
     if (!error) { ch = true; logP(rm ? "Removeu itens de suprimentos" : "Manteve itens de suprimentos como manuais", `${orf.length} item(ns)`); } }
   if (ch) { const { data } = await sb.from("suprimentos").select("*").eq("projeto_id", proj.id).order("id").limit(5000); if (data) SUP = data; if (ins.length) logP("Migrou pontos para suprimentos", `${ins.length} novo(s)`); }
@@ -2450,9 +2473,10 @@ function editaItem(it) {
   dl.innerHTML = `<form id="spF"><h3>${it ? "Editar item" : "Novo item de suprimento"}</h3><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0 12px">${itemCampos(it)}</div>
   <p class="err" id="spE"></p><div class="bar" style="margin-top:12px"><button class="p">Salvar</button><button type="button" id="spCx">Cancelar</button>${it && canDelete ? '<button type="button" class="d" id="spDel">Excluir</button>' : ""}</div></form>`;
   $("#spCx").onclick = () => dl.close();
-  if ($("#spDel")) $("#spDel").onclick = async () => { if (!confirm("Excluir este item de suprimentos?")) return; const { error } = await sb.from("suprimentos").delete().eq("id", it.id); if (error) return alert(error.message); logP("Excluiu item de suprimentos", it.codigo_sap || it.codigo_sphera || it.descricao || ""); dl.close(); await loadSup(); renderSup(); };
-  $("#spF").onsubmit = async e => { e.preventDefault(); const o = {}, ex = Object.assign({}, it && it.extras); let sm = null; new FormData(e.target).forEach((v, k) => { if (k === "sit_manual") sm = v; else if (k.startsWith("x_")) { const id = k.slice(2), p = xCampos().find(q => String(q.id) === id); let z = cl(v); if (z != null && p && xTipo(p) === "número") z = brNum(z); if (z == null) delete ex[id]; else ex[id] = z; } else o[k] = cl(v); }); if (sm !== null && sm !== sitCod(it)) { delete ex._sit; delete ex._sit_src; if (sm === "Entregue" || sm === "Cancelado") { ex._sit = sm; ex._sit_src = "manual"; } else if (sm === "dados") ex._sit_src = "manual"; } // mudança manual: o Exiros deixa de sobrescrever
+  if ($("#spDel")) $("#spDel").onclick = async () => { if (!confirm("Excluir este item de suprimentos? A exclusão vale: importações e o Exiros não vão recriá-lo.")) return; await marcaExcluido([it]); const { error } = await sb.from("suprimentos").delete().eq("id", it.id); if (error) { await desmarcaExcluido([it]); return alert(error.message); } logP("Excluiu item de suprimentos", it.codigo_sap || it.codigo_sphera || it.descricao || ""); dl.close(); await loadSup(); renderSup(); };
+  $("#spF").onsubmit = async e => { e.preventDefault(); const o = {}, ex = Object.assign({}, it && it.extras); let sm = null; new FormData(e.target).forEach((v, k) => { if (k === "sit_manual") sm = v; else if (k.startsWith("x_")) { const id = k.slice(2), p = xCampos().find(q => String(q.id) === id); let z = cl(v); if (z != null && p && xTipo(p) === "número") z = brNum(z); if (z == null) delete ex[id]; else ex[id] = z; } else o[k] = cl(v); }); if (sm !== null && sm !== sitCod(it)) { delete ex._sit; delete ex._sit_src; delete ex._sit_ex; if (sm === "Entregue" || sm === "Cancelado") { ex._sit = sm; ex._sit_src = "manual"; const sx = window.gxExStatus && it ? window.gxExStatus(it) : null; ex._sit_ex = sx && sx !== "—" ? String(sx) : ""; } else if (sm === "dados") ex._sit_src = "manual"; } // mudança manual: o Exiros deixa de sobrescrever
     o.extras = ex; if (o.reserva != null) o.reserva = cl(resLimpa(o.reserva)); ["quantidade", "valor_unitario", "valor_total", "valor_cotado", "valor_estimado", "valor_pago", "qtd_recebida"].forEach(k => { if (o[k] != null) o[k] = brNum(o[k]); });
+    if (it) { const ed = Object.assign({}, ex._ed), agora = new Date().toISOString(); EXF.forEach(k => { if (k in o && !mesmoV(o[k], it[k])) ed[k] = agora; }); if (Object.keys(ed).length) ex._ed = ed; } // campos do Exiros que você alterou: valem até o Exiros mudar de novo
     if (!o.codigo_sap && !o.codigo_sphera) return $("#spE").textContent = "Informe o código SAP ou o código Sphera.";
     // Item vinculado ao Cadastro: o código vem do ponto e a sincronização (sync) devolvia o código antigo ao recarregar.
     // Por isso, se o código mudou aqui, grava também no ponto de origem (com o mesmo status automático do Cadastro).
@@ -2469,7 +2493,7 @@ function editaItem(it) {
     const { data: sv, error } = await (it ? sb.from("suprimentos").update(o).eq("id", it.id).select("id") : sb.from("suprimentos").insert({ ...o, projeto_id: proj.id, origem: "manual" }).select("id"));
     if (error) return $("#spE").textContent = /duplicate|unique/i.test(error.message) ? "Já existe um item com esse código neste projeto." : error.message + (/suprimentos/.test(error.message) ? " — " + "execute fase3_01 e fase3_02." : "");
     if (!(sv && sv.length)) return $("#spE").textContent = "Não foi possível salvar: o banco não aplicou a alteração (sem permissão ou item não encontrado). Recarregue a página e tente de novo.";
-    logP(it ? "Editou item de suprimentos" : "Criou item de suprimentos", o.codigo_sap || o.codigo_sphera); dl.close(); if (lig) await load(); else await loadSup(); renderSup(); };
+    if (!it) await desmarcaExcluido([o]); logP(it ? "Editou item de suprimentos" : "Criou item de suprimentos", o.codigo_sap || o.codigo_sphera); dl.close(); if (lig) await load(); else await loadSup(); renderSup(); };
   dl.showModal();
 }
 
@@ -2489,11 +2513,11 @@ function autoMap(H) { const map = {}, used = new Set(), hn = H.map(nh);
   return map; }
 const mapa = R => { if (!I.map) I.map = autoMap(R[0]); return I.map; };
 // Casamento: RC + código do material. Item já existente é atualizado (só o que mudou); senão é criado.
-function plano() { const out = { upd: [], ins: [], rcs: new Map(), ign: 0 }, R = tab(); if (R.length < 2) return out; mapa(R);
+function plano() { const out = { upd: [], ins: [], rcs: new Map(), ign: 0, exc: 0, snap: [] }, R = tab(); if (R.length < 2) return out; mapa(R);
   const g = (r, f) => I.map[f] === undefined || I.map[f] === "" ? "" : (r[+I.map[f]] || ""), usados = new Set(Object.values(I.map).filter(v => v !== "").map(Number));
   const byKey = new Map(); SUP.forEach(i => { const k = kk(i.codigo_sap, i.codigo_sphera); if (k) (byKey.get(k) || byKey.set(k, []).get(k)).push(i); });
   const rIdx = R[0].findIndex(h => nh(h) === "reserva"), resDe = i => zn(i.reserva) || ((m => m ? zn(m[1]) : null)(String(i.observacao || "").match(/Reserva:\s*(\d+)/i))); // reserva do item (coluna ou, sem a coluna, o que foi para a Observação)
-  const claim = new Map(), upd = new Map(), ins = new Map(), diff = (n, o) => typeof n === "number" ? Number(o) !== n || o == null : String(o ?? "") !== String(n);
+  const claim = new Map(), upd = new Map(), ins = new Map(), snapM = new Map(), diff = (n, o) => typeof n === "number" ? Number(o) !== n || o == null : String(o ?? "") !== String(n);
   const st = rc => out.rcs.get(rc) || out.rcs.set(rc, { t: 0, u: 0, n: 0, s: 0, ch: new Set() }).get(rc);
   R.slice(1).forEach(r => { const sap = cl(g(r, "codigo_sap")), sph = cl(g(r, "codigo_sphera")); if (!sap && !sph) { out.ign++; return; }
     const rc = cl(g(r, "rc_numero")), res = rc || rIdx < 0 ? null : zn(cl(resLimpa(r[rIdx]))), ped = rc || res ? "" : zn(cl(g(r, "pedido_numero"))), ck = rc || (res ? "R" + res : ped ? "P" + ped : ""), q = {}; ORD.slice(2).forEach(k => { const f = ff(k), raw = g(r, k); let v = f[3] === "d" ? (k === "prazo_entrega" ? pdateLast(raw) : pdate(raw)) : f[3] === "n" ? brNum(raw) : k === "reserva" ? cl(resLimpa(raw)) : cl(raw); if (v != null) q[k] = v; });
@@ -2504,16 +2528,19 @@ function plano() { const out = { upd: [], ins: [], rcs: new Map(), ign: 0 }, R =
     if (it) { claim.set(it.id, ck); const pt = upd.get(it.id) || {};
       Object.assign(pt, q);
       Object.keys(pt).forEach(k => { if (!diff(pt[k], it[k]) || ((k === "rc_numero" || k === "pedido_numero") && zn(pt[k]) === zn(it[k]))) delete pt[k]; });
+      if (I.my) { const g = gateExtras(it, q, pt, snapM.get(it.id)); if (g) snapM.set(it.id, g); } // texto do MyItems/bot: a informação mais recente vale
       if (sph && !it.codigo_sphera) pt.codigo_sphera = sph; if (sap && !it.codigo_sap) pt.codigo_sap = sap;
       if (blk) { const base = String(it.observacao || "").replace(/\s*\[Importado\][^\n]*/g, "").trim(), nv = (base ? base + "\n" : "") + blk; if (nv !== String(it.observacao || "")) pt.observacao = nv; }
       upd.set(it.id, pt); S.ch.add(it.id); }
-    else { const k = ck + "|" + key, o = { ...(ins.get(k) || {}), ...q, codigo_sap: sap, codigo_sphera: sph }; if (blk) o.observacao = blk; ins.set(k, o); S.n++; } });
-  out.upd = [...upd].filter(([id, pt]) => Object.keys(pt).length).map(([id, p]) => ({ id, p })); const ids = new Set(out.upd.map(u => u.id));
+    else { if (excMatch(key, rc, res)) { out.exc++; if (!I.rec) return; } const k = ck + "|" + key, o = { ...(ins.get(k) || {}), ...q, codigo_sap: sap, codigo_sphera: sph }; if (blk) o.observacao = blk; ins.set(k, o); S.n++; } });
+  out.upd = [...upd].filter(([id, pt]) => Object.keys(pt).length).map(([id, p]) => ({ id, p: snapM.has(id) ? { ...p, extras: snapM.get(id) } : p })); const ids = new Set(out.upd.map(u => u.id));
+  out.snap = [...snapM].filter(([id]) => !ids.has(id)).map(([id, extras]) => ({ id, p: { extras } })); // só registra o último valor do Exiros (não conta como atualização)
   out.rcs.forEach(S => { S.u = [...S.ch].filter(id => ids.has(id)).length; S.s = S.ch.size - S.u; }); out.ins = [...ins.values()]; return out; }
 const planoU = () => { const pl = plano(); if (I.so !== false && document.getElementById("iSo") && document.getElementById("iSo").checked) pl.ins = []; return pl; }; // "só atualizar": descarta itens novos
 function impMap() { const R = tab(), b = $("#iMap"); if (R.length < 2) { b.innerHTML = ""; return; } mapa(R);
   const pl = planoU();
-  b.innerHTML = "<b>Mapeamento de colunas</b>" + ORD.map(k => { const f = ff(k); return `<label>${f[1]}<select data-f="${k}"><option value="">— não usar —</option>${R[0].map((h, i) => `<option value="${i}" ${I.map[k] === String(i) ? "selected" : ""}>${esc(h || "Coluna " + (i + 1))}</option>`).join("")}</select></label>`; }).join("") + `<p><b>${pl.upd.length}</b> item(ns) serão atualizados (casando por RC + código do material) e <b>${pl.ins.length}</b> novo(s) serão criados. Campos vazios na planilha não apagam dados. As demais colunas vão para a Observação.</p>`;
+  b.innerHTML = "<b>Mapeamento de colunas</b>" + ORD.map(k => { const f = ff(k); return `<label>${f[1]}<select data-f="${k}"><option value="">— não usar —</option>${R[0].map((h, i) => `<option value="${i}" ${I.map[k] === String(i) ? "selected" : ""}>${esc(h || "Coluna " + (i + 1))}</option>`).join("")}</select></label>`; }).join("") + `<p><b>${pl.upd.length}</b> item(ns) serão atualizados (casando por RC + código do material) e <b>${pl.ins.length}</b> novo(s) serão criados. Campos vazios na planilha não apagam dados. As demais colunas vão para a Observação.</p>${pl.exc && !(document.getElementById("iSo") && document.getElementById("iSo").checked) ? `<label class="sw" style="margin:8px 0"><input type="checkbox" id="iRe"${I.rec ? " checked" : ""}><span class="tr"></span><span class="lb">${pl.exc} item(ns) deste texto foram excluídos por você e ficam de fora (a exclusão vale). Marque para recriar.</span></label>` : ""}`;
+  { const re = b.querySelector("#iRe"); if (re) re.onchange = () => { I.rec = re.checked; impMap(); }; }
   b.querySelectorAll("select").forEach(s => s.onchange = () => { I.map[s.dataset.f] = s.value; impMap(); }); }
 // ---- MyItems -> public.exiros_rc: a importação manual grava o campo "Exiros" do item como o bot automático faria ----
 const EXC = { "status": "status", "rc exiros": "rc_exiros", "data de necessidade": "data_necessidade", "data de liberacao da rc": "data_liberacao_rc", "comprador": "comprador", "planejador": "planejador",
@@ -2566,16 +2593,37 @@ async function gravaExiros(pl) { // devolve { n, upd, ins, skip, erro }; nunca d
   } catch (x) { res.erro = x.message; }
   res.n = res.upd + res.ins; return res; }
 async function aplica(pl) { // grava no Supabase; devolve texto de erro ou ""
-  for (let i = 0; i < pl.upd.length; i += 20) { const r = await Promise.all(pl.upd.slice(i, i + 20).map(u => sb.from("suprimentos").update(u.p).eq("id", u.id))), er = r.find(x => x.error); if (er) return er.error.message; }
+  const lista = pl.upd.concat(pl.snap || []);
+  for (let i = 0; i < lista.length; i += 20) { const r = await Promise.all(lista.slice(i, i + 20).map(u => sb.from("suprimentos").update(u.p).eq("id", u.id))), er = r.find(x => x.error); if (er) return er.error.message; }
   const nv = pl.ins.map(o => ({ ...o, projeto_id: proj.id, origem: "importacao", unidade: o.unidade || "un" }));
   for (let i = 0; i < nv.length; i += 200) { const { error } = await sb.from("suprimentos").insert(nv.slice(i, i + 200)); if (error) return "Importação parou: " + error.message + (/duplicate|unique/i.test(error.message) ? " — o mesmo material em outra RC exige ajustar a regra de unicidade no banco (veja o SQL enviado)." : ""); }
+  if (nv.length && I.rec) await desmarcaExcluido(nv); // recriou de propósito: some da lista de excluídos
   pl.ex = await gravaExiros(pl); // campo Exiros (status, licitação, comprador) como o bot automático; o renderSup abaixo recarrega o card
   logP("Importou suprimentos", `${pl.upd.length} atualizados, ${pl.ins.length} novos` + (pl.ex ? `, Exiros: ${pl.ex.n} item(ns)${pl.ex.erro ? " (com erro)" : ""}` : "")); await loadSup(); renderSup(); return ""; }
 const dr = document.createElement("dialog"); dr.id = "spRes"; document.body.appendChild(dr);
 function resumo(pl, falt) { const ts = [...pl.rcs.values()].reduce((a, x) => a + x.s, 0);
-  dr.innerHTML = `<h3>Importação concluída</h3><p><b>${pl.upd.length}</b> item(ns) atualizado(s) · <b>${pl.ins.length}</b> novo(s) · ${ts} sem alteração${pl.ign ? ` · ${pl.ign} linha(s) ignorada(s) (sem código)` : ""}</p>
+  dr.innerHTML = `<h3>Importação concluída</h3><p><b>${pl.upd.length}</b> item(ns) atualizado(s) · <b>${pl.ins.length}</b> novo(s) · ${ts} sem alteração${pl.ign ? ` · ${pl.ign} linha(s) ignorada(s) (sem código)` : ""}${pl.exc && !I.rec ? ` · ${pl.exc} excluído(s) por você (mantido(s) fora)` : ""}</p>
   <ul>${[...pl.rcs].map(([rc, x]) => `<li><b>RC ${esc(rc)}</b>: ${x.u} de ${x.t} item(ns) atualizado(s)${x.n ? `, ${x.n} novo(s)` : ""}</li>`).join("")}</ul>${pl.ex ? `<p><b>Exiros</b>: ${pl.ex.n} item(ns) atualizado(s) como pelo bot${pl.ex.skip ? ` · ${pl.ex.skip} sem linha no Exiros e sem o item da RC (não gravado)` : ""}${pl.ex.novo ? ` · ${pl.ex.novo} já tinha(m) consulta mais recente do bot (mantida)` : ""}</p>${pl.ex.erro ? `<p class="err">Não consegui gravar o Exiros: ${esc(pl.ex.erro)}</p>` : ""}` : ""}${falt && falt.length ? `<small>Colunas padrão não encontradas: ${esc(falt.join(", "))}</small>` : ""}
   <div class="bar" style="margin-top:12px"><button class="p" id="rOk">OK</button></div>`; $("#rOk").onclick = () => dr.close(); dr.showModal(); }
+// ---- Bot = colar o texto: as consultas do bot (exiros_rc.raw.texto) passam pelo mesmo leitor e pela mesma regra do MyItems ----
+let exAplicando = false, exSig = "";
+window.gxApplyEx = async function () {
+  if (exAplicando || !canProj || !proj || !SUP.length || di.open) return; exAplicando = true; const salvo = I;
+  try {
+    const rcs = [...new Set(SUP.map(i => zn(i.rc_numero)).filter(Boolean))]; if (!rcs.length) return;
+    const { data, error } = await sb.from("exiros_rc").select("rc_numero,material_codigo,material_descricao,unidade,quantidade,consultado_em,raw").in("rc_numero", rcs).limit(5000);
+    if (error || !(data || []).length) return;
+    const sig = proj.id + "|" + data.map(r => r.consultado_em).sort().slice(-1)[0] + "|" + data.length + "|" + SUP.length; if (sig === exSig) return;
+    const blocos = data.filter(r => r.raw && typeof r.raw.texto === "string" && /^\s*(RC|Reserva)\s*:/i.test(r.raw.texto)).map(r => { const L = r.raw.texto.split(/\r?\n/); // leitura parcial (sem a linha Material): completa com as colunas do próprio exiros_rc
+      if (!/(^|\n)\s*Material\s*:/i.test(r.raw.texto) && r.material_codigo) L.splice(1, 0, `Material: ${r.material_codigo} – ${r.material_descricao || ""}${r.unidade ? ` (${r.unidade})` : ""}`, ...(r.quantidade != null ? [`Quantidade requerida: ${r.quantidade}`] : []));
+      return L.join("\n"); });
+    const p = parseMyItems(blocos.join("\n")); if (p.rows.length < 2) { exSig = sig; return; }
+    I = { tsv: matTsv(p.rows), map: null, my: exMeta(p.blocks) }; const pl = plano(); pl.ins = []; // o bot nunca cria item: só atualiza os que você já tem
+    const lista = pl.upd.concat(pl.snap || []);
+    for (let i = 0; i < lista.length; i += 20) { const r = await Promise.all(lista.slice(i, i + 20).map(u => sb.from("suprimentos").update(u.p).eq("id", u.id))), er = r.find(x => x.error); if (er) { console.warn("Exiros → itens:", er.error.message); return; } }
+    exSig = sig;
+    if (lista.length) { if (pl.upd.length) logP("Aplicou dados do Exiros nos itens", `${pl.upd.length} item(ns)`); await loadSup(); if (pl.upd.length) renderSup(); }
+  } catch (x) { console.warn("Exiros → itens:", x); } finally { I = salvo; exAplicando = false; } };
 // ---- Leitura de prints (OCR no navegador, em português) ----
 const TESS = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js", TESS_LANG = "https://cdn.jsdelivr.net/npm/@tesseract.js-data/por/4.0.0_best_int";
 const libJS = u => new Promise((ok, no) => { if (document.querySelector(`script[src="${u}"]`)) return ok(); const x = document.createElement("script"); x.src = u; x.onload = ok; x.onerror = () => no(new Error("não consegui carregar o leitor de imagens (rede da empresa bloqueando cdn.jsdelivr.net?)")); document.head.appendChild(x); });
@@ -3497,7 +3545,7 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
     OK = !(a.error || b.error || c.error); EX = a.error ? [] : (a.data || []); LOG = b.error ? null : ((b.data || [])[0] || null); LOK = c.error ? null : ((c.data || [])[0] || null); IDX = porRc();
     if (window.gxSup && window.gxSup.exs && (lastProj !== id || !supL().some(it => window.gxExStatus(it) === window.gxSup.exs))) window.gxSup.setExs(""); // outro projeto, ou nenhum item tem mais esse status
     lastProj = id;
-    await aplicaSit(); card(); decora();
+    await aplicaSit(); if (window.gxApplyEx) await window.gxApplyEx(); card(); decora();
   }
   // Situação do item a partir do status do Exiros: "Material expedido ao usuário" → Entregue; "Req. excluída" → Cancelado.
   // Só mexe em itens que o usuário não alterou manualmente (extras._sit_src !== "manual"); o usuário pode mudar depois pelo formulário do item.
@@ -3509,12 +3557,20 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
     try {
       let n = 0;
       for (const it of supL()) {
-        const ex = it.extras || {}; if (ex._sit_src === "manual") continue;
-        const x = acha(it), d = x ? mapSit(x) : null, atual = ex._sit || null;
-        if (d === atual || (!d && ex._sit_src !== "exiros")) continue;
-        const nx = Object.assign({}, ex); delete nx._sit; delete nx._sit_src; if (d) { nx._sit = d; nx._sit_src = "exiros"; }
+        const ex = it.extras || {}, x = acha(it), d = x ? mapSit(x) : null, atual = ex._sit || null, st = x ? String(x.status || "") : "";
+        let nx = null;
+        if (ex._sit_src === "manual") { // edição sua: vale até o Exiros trazer um status novo que defina Entregue/Cancelado (a informação mais recente vale)
+          if (!ex._sit || !x) continue; // "ignorar Exiros" foi escolha deliberada
+          if (ex._sit_ex === undefined) nx = { ...ex, _sit_ex: st }; // edição antiga: o status de hoje vira o ponto de partida
+          else if (st === ex._sit_ex) continue;
+          else if (!d || d === ex._sit) nx = { ...ex, _sit_ex: st };
+          else { nx = { ...ex }; delete nx._sit_ex; nx._sit = d; nx._sit_src = "exiros"; }
+        } else {
+          if (d === atual || (!d && ex._sit_src !== "exiros")) continue;
+          nx = Object.assign({}, ex); delete nx._sit; delete nx._sit_src; if (d) { nx._sit = d; nx._sit_src = "exiros"; }
+        }
         if (canProj) { const r = await sb.from("suprimentos").update({ extras: nx }).eq("id", it.id).select("id"); if (r.error || !(r.data && r.data.length)) continue; }
-        it.extras = nx; n++; // quem não edita vê o resultado na tela, sem gravar
+        it.extras = nx; if ((nx._sit || null) !== atual) n++; // quem não edita vê o resultado na tela, sem gravar
       }
       if (n) { if (canProj && typeof logP === "function") logP("Atualizou a situação de itens pelo Exiros", n + " item(ns)"); window.gxSup.rerender(); }
     } catch (e) { console.warn("Exiros: situação dos itens:", e); }
