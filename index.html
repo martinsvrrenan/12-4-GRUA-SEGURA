@@ -2207,7 +2207,7 @@ const NOV = [["valor_cotado", "Valor cotado", /(?!)/, "n"], ["valor_estimado", "
 async function probeNovos() { if (window.__novos !== undefined) return; const [r1, r2] = await Promise.all([sb.from("suprimentos").select("valor_cotado,valor_estimado,valor_pago,qtd_recebida,aprovacao").limit(1), sb.from("suprimentos").select("reserva").limit(1)]);
   window.__novos = !r1.error; if (!r1.error) NOV.forEach(f => { if (!FLD.some(x => x[0] === f[0])) { FLD.push(f); ORD.push(f[0]); } });
   window.__reserva = !r2.error; if (!r2.error && !FLD.some(x => x[0] === "reserva")) { FLD.push(["reserva", "Reserva", /reserva/i]); ORD.splice(Math.max(0, ORD.indexOf("rc_numero")), 0, "reserva"); } } // coluna "reserva": só aparece depois do SQL fase3_reserva.sql
-window.supData = () => ({ SUP, L: filtrados(), vTot, sitOf, pontoDe, fR });
+window.supData = () => ({ SUP, L: filtrados(), vTot, sitOf, pontoDe, fR, sitTxt, oculto });
 // Parâmetros customizados de suprimentos (aba Parâmetros): campos extras, unidades e fornecedores
 const xCampos = () => (window.parSup ? window.parSup("sup_campo") : []);
 const xLista = c => (window.parSup ? window.parSup(c).map(p => p.nome) : []);
@@ -2439,9 +2439,12 @@ function editaGasto(g) {
     logP(g ? "Editou gasto do orçamento" : "Incluiu gasto do orçamento", `${row.descricao} · ${usd ? fU(val) : fR(val)}`); gd.close(); await loadGas(); pintaOrc(); pintaGas(); };
   gd.showModal();
 }
+const EXS_VAL = "::valido", EXS_SEM = "::sem"; // filtros especiais dos cartões do Exiros: itens válidos (sem cancelados) e itens sem dados do Exiros
+const exsEsp = e => e === EXS_VAL || e === EXS_SEM;
+const exsCasa = i => { const e = F.exs; if (!e) return true; if (e === EXS_VAL) return sitOf(i) !== 4 && !oculto(i); const st = window.gxExStatus ? window.gxExStatus(i) : null; return e === EXS_SEM ? st === null : st === e; };
 function filtrados() { const q = F.q.toLowerCase().trim(), qn = /^[\d\s-]+$/.test(q) ? q.replace(/\s+/g, "").split("-")[0].replace(/^0+(?=\d)/, "") : q; // número colado com zeros e/ou item ("0284000225-40", "0033983723-10") também acha
-  return SUP.filter(i => { if (oculto(i) && !F.exs) return false; const p = pontoDe(i);
-  return (!F.sit || sitTxt(i) === F.sit || (F.sit === "Sem prazo" && semPrazo(i))) && (!F.area || (p && p.area === F.area)) && (!F.tipo || (p && p.tipo_projeto === F.tipo)) && (!F.exs || (window.gxExStatus && window.gxExStatus(i) === F.exs)) && (!q || (h => h.includes(q) || (qn && h.includes(qn)))([i.codigo_sap, i.codigo_sphera, i.descricao, i.reserva, i.rc_numero, i.pedido_numero, ...xCampos().map(p => xVal(i, p))].join(" ").toLowerCase())); }); }
+  return SUP.filter(i => { if (oculto(i) && (!F.exs || exsEsp(F.exs))) return false; const p = pontoDe(i);
+  return (!F.sit || sitTxt(i) === F.sit || (F.sit === "Sem prazo" && semPrazo(i))) && (!F.area || (p && p.area === F.area)) && (!F.tipo || (p && p.tipo_projeto === F.tipo)) && exsCasa(i) && (!q || (h => h.includes(q) || (qn && h.includes(qn)))([i.codigo_sap, i.codigo_sphera, i.descricao, i.reserva, i.rc_numero, i.pedido_numero, ...xCampos().map(p => xVal(i, p))].join(" ").toLowerCase())); }); }
 const prazoKpis = s => [[s.t, "itens"], [pc3(s.rc, s.t), "com RC"], [pc3(s.pd, s.t), "com pedido"], [pc3(s.pz, s.t), "com prazo"], [pc3(s.en, s.t), "entregues"], [`${s.at} (${pc3(s.at, s.t)})`, "atrasados"], [s.sp, "pedidos sem prazo"], ...(s.cn ? [[s.cn, "cancelados"]] : []), [`${s.a7} / ${s.a15} / ${s.a30}`, "a vencer em 7 / 15 / 30 dias"], [s.pm == null ? "—" : s.pm + " d", "prazo médio (pedido → entrega)"]];
 const atencao = L => { L = L.filter(i => sitOf(i) !== 4); const hojeS = ymd(hj()), d = x => x ? dtBR(parseD(x)) : "—"; // itens que pedem ação: acima do previsto, aguardando aprovação, atrasados e sem RC há muito tempo
   return [...L.filter(i => i.valor_estimado != null && vTot(i) > Number(i.valor_estimado) + 0.005).map(i => [i, "Acima do previsto (+" + fR(vTot(i) - Number(i.valor_estimado)) + ")"]), ...L.filter(i => /aguard/i.test(i.aprovacao || "") && !i.pedido_numero).map(i => [i, "Aguardando aprovação"]), ...L.filter(atras).map(i => [i, "Atrasado desde " + d(i.prazo_entrega)]), ...L.filter(i => sitOf(i) === 0 && i.created_at && dias(i.created_at.slice(0, 10), hojeS) > X).map(i => [i, `Sem RC há ${dias(i.created_at.slice(0, 10), hojeS)} dias`])]; };
@@ -2764,7 +2767,7 @@ window.supRel = (img) => { const rs = !!window.__reserva, s = supStats(SUP), d =
     all: SUP.map(i => [i.codigo_sap || i.codigo_sphera || "—", ...(rs ? [i.reserva || "—"] : []), String(i.descricao || "—").slice(0, 110), [i.quantidade ?? "", okv("sup_unidade", i.unidade) ? i.unidade || "" : ""].join(" ").trim() || "—", okv("sup_fornecedor", i.fornecedor) && i.fornecedor ? i.fornecedor : "—", compr(i) || "—", sitTxt(i), d(i.prazo_entrega)]),
     rows: SUP.map(i => ({ ...Object.fromEntries(ORD.flatMap(k => [[ff(k)[1], (k === "fornecedor" && !okv("sup_fornecedor", i[k])) || (k === "unidade" && !okv("sup_unidade", i[k])) ? "" : i[k] ?? ""], ...(k === "fornecedor" ? [[CL(), compr(i)]] : [])])), ...Object.fromEntries(xCampos().map(p => [xCol(p), xVal(i, p)])), "Situação": sitTxt(i) })) }; };
 /* gancho para o bloco do Exiros (gx-exiros): expõe SUP e permite encaixar nas funções internas desta aba */
-window.gxSup = { get SUP() { return SUP; }, oculto, valido: i => sitOf(i) !== 4, get exs() { return F.exs; }, setExs(v) { F.exs = v || ""; pinta(); }, rerender() { renderSup(); }, copiar() { copiaRcs(); } }; // exs = filtro pelo status do Exiros (etiquetas do cartão Exiros)
+window.gxSup = { get SUP() { return SUP; }, oculto, valido: i => sitOf(i) !== 4, EXS_VAL, EXS_SEM, casa: exsCasa, get exs() { return F.exs; }, setExs(v) { F.exs = v || ""; pinta(); }, rerender() { renderSup(); }, copiar() { copiaRcs(); } }; // exs = filtro pelo status do Exiros (etiquetas do cartão Exiros)
 window.gxSupHook = h => {
   const _rs = renderSup; renderSup = function () { _rs(); h.render(); };
   const _pt = pinta; pinta = function () { _pt(); h.pinta(); };
@@ -3286,16 +3289,11 @@ function filtrosItens(){const sa=$("#sFa"),ss=$("#sFs");if(!sa||!ss)return;const
   const draw=()=>{g.innerHTML=[...sa.options].map(o=>`<button type="button" data-v="${E(o.value)}" class="${o.value===sa.value?"on":""}" aria-pressed="${o.value===sa.value}">${E(o.value?o.textContent:"Todas")}</button>`).join("")};
   g.onclick=e=>{const b=e.target.closest("button[data-v]");if(!b||b.dataset.v===sa.value)return;sa.value=b.dataset.v;sa.dispatchEvent(new Event("change",{bubbles:true}))};
   sa.addEventListener("change",draw);draw();card.prepend(g)}
- if(!ss.previousElementSibling||!ss.previousElementSibling.classList.contains("gx-dd")){const w=document.createElement("div");w.className="gx-dd";
-  const lab=()=>{const o=ss.selectedOptions[0];return o?o.textContent:""},dot=v=>DOT[v]?`<i style="background:${DOT[v]}"></i>`:"";
-  w.innerHTML=`<button type="button" class="gx-ddb" aria-haspopup="listbox" aria-expanded="false"></button><div class="gx-ddl" role="listbox"></div>`;
-  const bt=w.firstChild,ls=w.lastChild,paint=()=>{bt.innerHTML=`${dot(ss.value)}<span>${E(lab())}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`;
-   ls.innerHTML=[...ss.options].map(o=>`<button type="button" role="option" data-v="${E(o.value)}" class="${o.value===ss.value?"on":""}" aria-selected="${o.value===ss.value}">${dot(o.value)}<span>${E(o.textContent)}</span></button>`).join("")};
-  const fecha=()=>{w.classList.remove("open");bt.setAttribute("aria-expanded","false")};
-  bt.onclick=e=>{e.stopPropagation();const a=!w.classList.contains("open");document.querySelectorAll(".gx-dd.open").forEach(x=>x.classList.remove("open"));w.classList.toggle("open",a);bt.setAttribute("aria-expanded",String(a))};
-  ls.onclick=e=>{const o=e.target.closest("button[data-v]");if(!o)return;ss.value=o.dataset.v;ss.dispatchEvent(new Event("change",{bubbles:true}));fecha()};
-  w.addEventListener("keydown",e=>{if(e.key==="Escape"){fecha();bt.focus()}});
-  ss.addEventListener("change",paint);paint();ss.before(w)}}
+ if(card&&!card.querySelector(".gxsit")){const g=document.createElement("div");g.className="gxsit";g.setAttribute("role","group");g.setAttribute("aria-label","Situação");
+  const draw=()=>{const D=window.supData&&window.supData(),vis=D?D.SUP.filter(i=>!D.oculto(i)):[],cnt=v=>D?(v?vis.filter(i=>D.sitTxt(i)===v).length:vis.length):null; /* conta os itens do projeto por situação (ocultos/excluídos não entram) */
+  g.innerHTML=[...ss.options].map(o=>{const v=o.value,cl=DOT[v]||"#5d6d8a",at=v===ss.value,off=ss.value&&!at,n=cnt(v);return `<button type="button" data-v="${E(v)}" class="tag exf${at?" on":""}${off?" off":""}" aria-pressed="${at}" style="--c:${cl};${at?`background:${cl};color:#fff`:`background:${cl}22;color:${cl}`}">${n==null?"":n+" · "}${E(v?o.textContent:"Todas as situações")}</button>`}).join("")};
+  g.onclick=e=>{const b=e.target.closest("button[data-v]");if(!b)return;ss.value=b.dataset.v===ss.value?"":b.dataset.v;ss.dispatchEvent(new Event("change",{bubbles:true}))};
+  ss.addEventListener("change",draw);draw();const ga=card.querySelector(".gxar");ga?ga.after(g):card.prepend(g)}}
 document.addEventListener("click",e=>{if(!e.target.closest(".gx-dd"))document.querySelectorAll(".gx-dd.open").forEach(x=>{x.classList.remove("open");const b=x.querySelector(".gx-ddb");b&&b.setAttribute("aria-expanded","false")})});
 function hookSup(){const t=$("#t7");if(!t||!t.querySelector(".stb"))return;const sv=$("#sV"),sv2=$("#sV2");if(!sv||!sv2)return;
  const hd=$("#sB>.evh");if(hd&&!hd.querySelector('[data-gm="orc"]'))hd.insertAdjacentHTML("beforeend",gxMb("orc"));
@@ -3476,14 +3474,16 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
     return LOG.status === "sessao_expirada" ? "A última tentativa falhou: a sessão do Teams expirou (é preciso refazer o login)." : "A última tentativa de atualização falhou" + (LOG.mensagem ? ": " + String(LOG.mensagem).slice(0, 700) : ".");
   }
   function resumo() { // etiquetas = filtros: contam os ITENS do projeto por status do Exiros; clicar filtra a lista, clicar de novo volta a mostrar todos
-    const all = supL(), c = new Map(); all.forEach(it => { const x = acha(it); if (!x) return; const k = x.status || "—"; c.set(k, (c.get(k) || 0) + 1); });
-    const on = window.gxSup ? window.gxSup.exs : "";
-    const tot = all.length, nVal = window.gxSup && window.gxSup.valido ? all.filter(window.gxSup.valido).length : tot, sem = tot - [...c.values()].reduce((a, b) => a + b, 0), cT = "#5d6d8a"; // total de itens do projeto + quantos ainda não têm dados do Exiros
+    const g = window.gxSup, all = supL().filter(it => !(g && g.oculto && g.oculto(it))), c = new Map(); // item excluído/oculto não conta no total nem nos status
+    all.forEach(it => { const x = acha(it); if (!x) return; const k = x.status || "—"; c.set(k, (c.get(k) || 0) + 1); });
+    const on = g ? g.exs : "", VAL = g ? g.EXS_VAL : "::valido", SEM = g ? g.EXS_SEM : "::sem";
+    const tot = all.length, nVal = g && g.valido ? all.filter(g.valido).length : tot, sem = tot - [...c.values()].reduce((a, b) => a + b, 0), cT = "#5d6d8a";
+    const bt = (k, n, rot, cl, tit) => { const at = on === k, off = on && !at; // botão-filtro: clicar filtra a lista, clicar de novo volta
+      return `<button type="button" class="tag exf${at ? " on" : ""}${off ? " off" : ""}" data-exs="${E(k)}" aria-pressed="${at}" title="${E(tit || (at ? "Clique para mostrar todos" : "Clique para filtrar os itens"))}" style="--c:${cl};${at ? `background:${cl};color:#fff` : `background:${cl}22;color:${cl}`}">${n} · ${E(rot)}</button>`; };
     const tTot = `<button type="button" class="tag exf${on ? "" : " on"}" data-exclr aria-pressed="${!on}" title="Limpar o filtro e mostrar os itens válidos" style="--c:${cT};${on ? `background:${cT}22;color:${cT}` : `background:${cT};color:#fff`}">${tot} · Total de itens</button> `;
-    const tVal = nVal !== tot ? `<span class="tag" title="Itens do projeto sem os cancelados (Req. excluída)" style="background:#2e9e5b22;color:#2e9e5b">${nVal} · Itens válidos (sem cancelados)</span> ` : "";
-    const tSem = sem > 0 ? ` <span class="tag" title="Itens sem consulta ao Exiros ou não localizados na RC" style="background:#9aa4b822;color:#7b879d">${sem} · Sem dados do Exiros</span>` : "";
-    return tTot + tVal + [...c.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => { const cl = cor(k), at = on === k, off = on && !at;
-      return `<button type="button" class="tag exf${at ? " on" : ""}${off ? " off" : ""}" data-exs="${E(k)}" aria-pressed="${at}" title="${at ? "Clique para mostrar todos" : "Clique para filtrar os itens"}" style="--c:${cl};${at ? `background:${cl};color:#fff` : `background:${cl}22;color:${cl}`}">${n} · ${E(k)}</button>`; }).join(" ") + tSem;
+    const tVal = nVal !== tot ? bt(VAL, nVal, "Itens válidos (sem cancelados)", "#2e9e5b", on === VAL ? "Clique para mostrar todos" : "Clique para listar só os itens válidos (sem cancelados)") + " " : "";
+    const tSem = sem > 0 ? " " + bt(SEM, sem, "Sem dados do Exiros", "#7b879d", on === SEM ? "Clique para mostrar todos" : "Clique para listar os itens sem consulta ao Exiros ou não localizados na RC") : "";
+    return tTot + tVal + [...c.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => bt(k, n, k, cor(k))).join(" ") + tSem;
   }
   function cliqueCard(e) {
     const b = e.target.closest("[data-exs]"), g = window.gxSup; if (!g) return;
@@ -3510,7 +3510,7 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
     el.innerHTML = (aviso.length ? `<div style="margin:0 2px 10px">${aviso.map(t => `<small style="display:block;margin-top:4px">${E(t)}</small>`).join("")}</div>` : "")
       + `<details class="gxd" id="exDet" ${exOpen ? "open" : ""}><summary>Exiros · RCs<small>${OK ? E(statusLog()) : "Tabelas do Exiros não encontradas ou sem permissão no Supabase."}</small></summary>`
       + `<div style="padding:0 0 14px">${EX.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px">${resumo()}</div>` : "<small>Nenhuma RC consultada ainda.</small>"}`
-      + (window.gxSup && window.gxSup.exs ? `<div style="margin:10px 0 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><small>Lista filtrada pelo status “${E(window.gxSup.exs)}”.</small><button type="button" data-exclr style="min-height:0!important;padding:4px 12px!important;font-size:12px">Mostrar todos</button></div>` : "")
+      + (window.gxSup && window.gxSup.exs ? `<div style="margin:10px 0 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><small>${window.gxSup.exs === window.gxSup.EXS_VAL ? "Lista filtrada: só os itens válidos (sem cancelados)." : window.gxSup.exs === window.gxSup.EXS_SEM ? "Lista filtrada: itens sem dados do Exiros." : `Lista filtrada pelo status “${E(window.gxSup.exs)}”.`}</small><button type="button" data-exclr style="min-height:0!important;padding:4px 12px!important;font-size:12px">Mostrar todos</button></div>` : "")
       + (canProj ? `<div class="bar" style="margin:12px 0 0"><button type="button" data-cp>Copiar RCs</button></div>` : "") + `</div></details>`;
     el.onclick = cliqueCard;
     const d = el.querySelector("#exDet"); d.addEventListener("toggle", () => { exOpen = d.open; });
@@ -3554,7 +3554,7 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
       sb.from("exiros_sync_log").select(SEL).in("status", ["ok", "parcial"]).or(`projeto_id.is.null,projeto_id.eq.${id}`).order("id", { ascending: false }).limit(1)]); // última atualização que cobre ESTE projeto
     if (!proj || proj.id !== id) return;
     OK = !(a.error || b.error || c.error); EX = a.error ? [] : (a.data || []); LOG = b.error ? null : ((b.data || [])[0] || null); LOK = c.error ? null : ((c.data || [])[0] || null); IDX = porRc();
-    if (window.gxSup && window.gxSup.exs && (lastProj !== id || !supL().some(it => window.gxExStatus(it) === window.gxSup.exs))) window.gxSup.setExs(""); // outro projeto, ou nenhum item tem mais esse status
+    if (window.gxSup && window.gxSup.exs && (lastProj !== id || !supL().some(window.gxSup.casa))) window.gxSup.setExs(""); // outro projeto, ou nenhum item tem mais esse status
     lastProj = id;
     await aplicaSit(); if (window.gxApplyEx) await window.gxApplyEx(); card(); decora();
   }
@@ -3683,6 +3683,9 @@ const mm=$("#mMenu"),hr=mm&&mm.querySelector("hr");if(mm){const b=document.creat
 <style id="gx-exiros-css">@media(min-width:701px){#t7 th.exx,#t7 td.exx{min-width:200px;white-space:normal}}
 #exCard .tag.exf{cursor:pointer;user-select:none;-webkit-user-select:none;font:inherit;font-size:13px;font-weight:700;min-height:0!important;padding:5px 12px!important;border-radius:999px!important;transition:opacity .15s,background .15s}
 #exCard .tag.exf.off{opacity:.45}
+.gxsit{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.gxsit .tag.exf{cursor:pointer;user-select:none;-webkit-user-select:none;font:inherit;font-size:13px;font-weight:700;min-height:0!important;padding:5px 12px!important;border-radius:999px!important;border:0;transition:opacity .15s,background .15s}
+.gxsit .tag.exf.off{opacity:.45}
 #exCard .tag.exf.on{border-color:transparent}
 #exCard .tag.exf.on::before{background:#fff}
 #t7 .tw{scroll-margin-top:130px}</style>
