@@ -2599,7 +2599,19 @@ async function gravaExiros(pl) { // devolve { n, upd, ins, skip, erro }; nunca d
         const { data: cur, error: e3 } = await sb.from("exiros_rc").select("id,consultado_em").in("id", vz.map(u => u.id)); if (e3) { res.erro = e3.message; return res; }
         const mais = (cur || []).filter(c => new Date(c.consultado_em) > new Date(agora)).length; res.novo += mais;
         if (mais < vz.length) { res.erro = "o Supabase não permitiu gravar em exiros_rc (RLS). " + SQL_EXIROS; return res; } } }
-    if (news.length) { const { error: e2 } = await sb.from("exiros_rc").insert(news); if (e2) { res.erro = e2.message + (/row-level|policy|permission/i.test(e2.message) ? " — " + SQL_EXIROS : ""); return res; } res.ins = news.length; }
+    if (news.length) { let { error: e2 } = await sb.from("exiros_rc").insert(news), dup = false;
+      if (e2 && /duplicate|unique/i.test(e2.message)) { // a RC/item já existe no Exiros (gravada pelo bot com outro código de material ou formato): atualiza a linha existente em vez de criar outra
+        dup = true; e2 = null;
+        for (const n of news) {
+          const i1 = await sb.from("exiros_rc").insert(n); if (!i1.error) { res.ins++; continue; }
+          if (!/duplicate|unique/i.test(i1.error.message)) { e2 = i1.error; break; }
+          let ex = (await sb.from("exiros_rc").select("*").eq("rc_item", n.rc_item).limit(1)).data;
+          if (!ex || !ex.length) ex = (await sb.from("exiros_rc").select("*").eq("rc_numero", n.rc_numero).eq("item", n.item).limit(1)).data;
+          const e = ex && ex[0]; if (!e) { e2 = i1.error; break; }
+          const rw = e.raw && typeof e.raw === "object" ? e.raw : {}, pt = { ...n }; delete pt.rc_numero; delete pt.item; delete pt.rc_item; pt.raw = { ...rw, ...n.raw, ...(rw.origem ? { origem: rw.origem } : {}) }; // a informação mais recente vale
+          const up = await sb.from("exiros_rc").update(pt).eq("id", e.id).select("id"); if (up.error) { e2 = up.error; break; }
+          if (!(up.data || []).length) { res.erro = "o Supabase não permitiu gravar em exiros_rc (RLS). " + SQL_EXIROS; return res; } res.upd++; } }
+      if (e2) { res.erro = e2.message + (/row-level|policy|permission/i.test(e2.message) ? " — " + SQL_EXIROS : ""); return res; } if (!dup) res.ins = news.length; }
   } catch (x) { res.erro = x.message; }
   res.n = res.upd + res.ins; return res; }
 async function aplica(pl) { // grava no Supabase; devolve texto de erro ou ""
